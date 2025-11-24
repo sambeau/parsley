@@ -71,6 +71,29 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
+// AssignmentStatement represents assignment statements like 'x = 5;'
+type AssignmentStatement struct {
+	Token lexer.Token // the identifier token
+	Name  *Identifier
+	Value Expression
+}
+
+func (as *AssignmentStatement) statementNode()       {}
+func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
+func (as *AssignmentStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(as.Name.String())
+	out.WriteString(" = ")
+
+	if as.Value != nil {
+		out.WriteString(as.Value.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
 // ReturnStatement represents return statements like 'return 5;'
 type ReturnStatement struct {
 	Token       lexer.Token // the 'return' token

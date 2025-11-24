@@ -32,6 +32,33 @@ pow(3, 2)               # Output: 9
 pi()                     # Output: 3.141592653589793
 ```
 
+### Variable Assignment and Updates
+```
+# Assign custom values
+pi_custom = 3.1415926
+e_custom = 2.71828
+
+# Use variables in calculations
+radius = 5
+area = pi_custom * pow(radius, 2)
+area                     # Output: 78.539815
+
+# Update variables
+radius = 10
+area = pi_custom * pow(radius, 2)  
+area                     # Output: 314.15926
+
+# Variable assignment with trigonometric functions
+x = pi() / 4
+sin_val = sin(x)         # Output: 0.7071067811865476
+cos_val = cos(x)         # Output: 0.7071067811865475
+
+# Update and recompute
+x = pi() / 2
+sin_val = sin(x)         # Output: 1
+cos_val = cos(x)         # Output: 6.123233995736766e-17 (≈ 0)
+```
+
 ### Complex Calculations
 ```
 # Calculate the area of a circle with radius 5

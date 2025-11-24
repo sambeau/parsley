@@ -135,6 +135,13 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLetStatement()
 	case lexer.RETURN:
 		return p.parseReturnStatement()
+	case lexer.IDENT:
+		// Check if this is an assignment statement (identifier = expression)
+		if p.peekTokenIs(lexer.ASSIGN) {
+			return p.parseAssignmentStatement()
+		}
+		// Otherwise, treat as expression statement
+		return p.parseExpressionStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -148,6 +155,28 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 		return nil
 	}
 
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+
+	p.nextToken()
+
+	stmt.Value = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+// parseAssignmentStatement parses assignment statements like 'x = 5;'
+func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
+	stmt := &ast.AssignmentStatement{Token: p.curToken}
+
+	// The current token should be the identifier
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if !p.expectPeek(lexer.ASSIGN) {

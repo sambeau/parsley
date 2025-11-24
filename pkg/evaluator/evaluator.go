@@ -329,6 +329,15 @@ func Eval(node ast.Node, env *Environment) Object {
 			return val
 		}
 		env.Set(node.Name.Value, val)
+		return val
+
+	case *ast.AssignmentStatement:
+		val := Eval(node.Value, env)
+		if isError(val) {
+			return val
+		}
+		env.Set(node.Name.Value, val)
+		return val
 
 	case *ast.ReturnStatement:
 		val := Eval(node.ReturnValue, env)

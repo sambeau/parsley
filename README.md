@@ -100,13 +100,34 @@ go build -o pars
 
 ### Variable Assignment
 ```
->> let x = 3.14159
->> sin(x)
-1.2246467991473532e-16
->> let radius = 5
->> let area = pi() * pow(radius, 2)
->> area
+>> x = 5
+5
+>> y = sin(x)
+-0.9589242746631385
+>> z = x + y
+4.041075725336861
+```
+
+### Variable Updates
+```
+>> radius = 3
+3
+>> area = pi() * pow(radius, 2)
+28.274333882308138
+>> radius = 5
+5
+>> area = pi() * pow(radius, 2)
 78.53981633974483
+```
+
+### Using Variables in Complex Expressions
+```
+>> a = 3
+>> b = 4  
+>> c = sqrt(pow(a, 2) + pow(b, 2))
+5
+>> angle = atan(b / a)
+0.9272952180016122
 ```
 
 ### Functions
