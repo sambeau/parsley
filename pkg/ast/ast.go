@@ -316,3 +316,24 @@ func (ce *CallExpression) String() string {
 
 	return out.String()
 }
+
+// ArrayLiteral represents array literals like [1, 2, 3]
+type ArrayLiteral struct {
+	Token    lexer.Token // the first element token
+	Elements []Expression
+}
+
+func (al *ArrayLiteral) expressionNode()      {}
+func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
+func (al *ArrayLiteral) String() string {
+	var out bytes.Buffer
+
+	elements := []string{}
+	for _, el := range al.Elements {
+		elements = append(elements, el.String())
+	}
+
+	out.WriteString(strings.Join(elements, ", "))
+
+	return out.String()
+}

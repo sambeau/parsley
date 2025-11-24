@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"pars/pkg/ast"
 )
@@ -20,6 +21,7 @@ const (
 	ERROR_OBJ    = "ERROR"
 	FUNCTION_OBJ = "FUNCTION"
 	BUILTIN_OBJ  = "BUILTIN"
+	ARRAY_OBJ    = "ARRAY"
 )
 
 // Object represents all values in our language
@@ -105,6 +107,22 @@ type Builtin struct {
 func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
 func (b *Builtin) Inspect() string  { return "builtin function" }
 
+// Array represents array objects
+type Array struct {
+	Elements []Object
+}
+
+func (a *Array) Type() ObjectType { return ARRAY_OBJ }
+func (a *Array) Inspect() string {
+	var out strings.Builder
+	elements := []string{}
+	for _, e := range a.Elements {
+		elements = append(elements, e.Inspect())
+	}
+	out.WriteString(strings.Join(elements, ", "))
+	return out.String()
+}
+
 // Environment represents the environment for variable bindings
 type Environment struct {
 	store map[string]Object
@@ -146,167 +164,237 @@ var (
 	FALSE = &Boolean{Value: false}
 )
 
-// Built-in functions
-var builtins = map[string]*Builtin{
-	"sin": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+// getBuiltins returns the map of built-in functions
+func getBuiltins() map[string]*Builtin {
+	return map[string]*Builtin{
+		"sin": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Sin(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Sin(arg.Value)}
-			default:
-				return newError("argument to `sin` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Sin(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Sin(arg.Value)}
+				default:
+					return newError("argument to `sin` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"cos": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+		"cos": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Cos(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Cos(arg.Value)}
-			default:
-				return newError("argument to `cos` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Cos(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Cos(arg.Value)}
+				default:
+					return newError("argument to `cos` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"tan": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+		"tan": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Tan(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Tan(arg.Value)}
-			default:
-				return newError("argument to `tan` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Tan(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Tan(arg.Value)}
+				default:
+					return newError("argument to `tan` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"asin": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+		"asin": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Asin(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Asin(arg.Value)}
-			default:
-				return newError("argument to `asin` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Asin(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Asin(arg.Value)}
+				default:
+					return newError("argument to `asin` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"acos": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+		"acos": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Acos(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Acos(arg.Value)}
-			default:
-				return newError("argument to `acos` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Acos(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Acos(arg.Value)}
+				default:
+					return newError("argument to `acos` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"atan": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+		"atan": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Atan(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Atan(arg.Value)}
-			default:
-				return newError("argument to `atan` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Atan(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Atan(arg.Value)}
+				default:
+					return newError("argument to `atan` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"sqrt": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 1 {
-				return newError("wrong number of arguments. got=%d, want=1", len(args))
-			}
+		"sqrt": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
 
-			arg := args[0]
-			switch arg := arg.(type) {
-			case *Integer:
-				return &Float{Value: math.Sqrt(float64(arg.Value))}
-			case *Float:
-				return &Float{Value: math.Sqrt(arg.Value)}
-			default:
-				return newError("argument to `sqrt` not supported, got %T", arg)
-			}
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return &Float{Value: math.Sqrt(float64(arg.Value))}
+				case *Float:
+					return &Float{Value: math.Sqrt(arg.Value)}
+				default:
+					return newError("argument to `sqrt` not supported, got %T", arg)
+				}
+			},
 		},
-	},
-	"pow": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 2 {
-				return newError("wrong number of arguments. got=%d, want=2", len(args))
-			}
+		"pow": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 2 {
+					return newError("wrong number of arguments. got=%d, want=2", len(args))
+				}
 
-			base := args[0]
-			exp := args[1]
+				base := args[0]
+				exp := args[1]
 
-			var baseVal, expVal float64
+				var baseVal, expVal float64
 
-			switch base := base.(type) {
-			case *Integer:
-				baseVal = float64(base.Value)
-			case *Float:
-				baseVal = base.Value
-			default:
-				return newError("first argument to `pow` not supported, got %T", base)
-			}
+				switch base := base.(type) {
+				case *Integer:
+					baseVal = float64(base.Value)
+				case *Float:
+					baseVal = base.Value
+				default:
+					return newError("first argument to `pow` not supported, got %T", base)
+				}
 
-			switch exp := exp.(type) {
-			case *Integer:
-				expVal = float64(exp.Value)
-			case *Float:
-				expVal = exp.Value
-			default:
-				return newError("second argument to `pow` not supported, got %T", exp)
-			}
+				switch exp := exp.(type) {
+				case *Integer:
+					expVal = float64(exp.Value)
+				case *Float:
+					expVal = exp.Value
+				default:
+					return newError("second argument to `pow` not supported, got %T", exp)
+				}
 
-			return &Float{Value: math.Pow(baseVal, expVal)}
+				return &Float{Value: math.Pow(baseVal, expVal)}
+			},
 		},
-	},
-	"pi": {
-		Fn: func(args ...Object) Object {
-			if len(args) != 0 {
-				return newError("wrong number of arguments. got=%d, want=0", len(args))
-			}
-			return &Float{Value: math.Pi}
+		"pi": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 0 {
+					return newError("wrong number of arguments. got=%d, want=0", len(args))
+				}
+				return &Float{Value: math.Pi}
+			},
 		},
-	},
+		"map": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 2 {
+					return newError("wrong number of arguments to `map`. got=%d, want at least 2", len(args))
+				}
+
+				fn, ok := args[0].(*Function)
+				if !ok {
+					return newError("first argument to `map` must be a function, got %s", args[0].Type())
+				}
+
+				// If second argument is an array, use it; otherwise create array from remaining args
+				var arr *Array
+				if a, ok := args[1].(*Array); ok && len(args) == 2 {
+					arr = a
+				} else {
+					// Create array from all arguments after the function
+					arr = &Array{Elements: args[1:]}
+				}
+
+				if len(fn.Parameters) != 1 {
+					return newError("function passed to `map` must take exactly 1 parameter, got %d", len(fn.Parameters))
+				}
+
+				result := []Object{}
+				for _, elem := range arr.Elements {
+					// Apply function to each element by creating new environment
+					extendedEnv := NewEnclosedEnvironment(fn.Env)
+					extendedEnv.Set(fn.Parameters[0].Value, elem)
+
+					// Evaluate the function body
+					var evaluated Object
+					for _, stmt := range fn.Body.Statements {
+						evaluated = evalStatement(stmt, extendedEnv)
+						if returnValue, ok := evaluated.(*ReturnValue); ok {
+							evaluated = returnValue.Value
+							break
+						}
+						if isError(evaluated) {
+							return evaluated
+						}
+					}
+
+					// Skip null values (filter behavior)
+					if evaluated != NULL {
+						result = append(result, evaluated)
+					}
+				}
+
+				return &Array{Elements: result}
+			},
+		},
+	}
+}
+
+// Helper function to evaluate a statement
+func evalStatement(stmt ast.Statement, env *Environment) Object {
+	switch stmt := stmt.(type) {
+	case *ast.ExpressionStatement:
+		return Eval(stmt.Expression, env)
+	case *ast.ReturnStatement:
+		val := Eval(stmt.ReturnValue, env)
+		if isError(val) {
+			return val
+		}
+		return &ReturnValue{Value: val}
+	default:
+		return Eval(stmt, env)
+	}
 }
 
 // Eval evaluates AST nodes and returns objects
@@ -387,6 +475,13 @@ func Eval(node ast.Node, env *Environment) Object {
 		params := node.Parameters
 		body := node.Body
 		return &Function{Parameters: params, Env: env, Body: body}
+
+	case *ast.ArrayLiteral:
+		elements := evalExpressions(node.Elements, env)
+		if len(elements) == 1 && isError(elements[0]) {
+			return elements[0]
+		}
+		return &Array{Elements: elements}
 
 	case *ast.CallExpression:
 		function := Eval(node.Function, env)
@@ -662,7 +757,7 @@ func isTruthy(obj Object) bool {
 func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 	val, ok := env.Get(node.Value)
 	if !ok {
-		if builtin, ok := builtins[node.Value]; ok {
+		if builtin, ok := getBuiltins()[node.Value]; ok {
 			return builtin
 		}
 		return newError("identifier not found: " + node.Value)

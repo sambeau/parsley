@@ -12,6 +12,7 @@ import (
 const (
 	_ int = iota
 	LOWEST
+	COMMA_PREC  // ,
 	LOGIC_OR    // or, |
 	LOGIC_AND   // and, &
 	EQUALS      // ==
@@ -24,6 +25,7 @@ const (
 
 // precedences maps tokens to their precedence
 var precedences = map[lexer.TokenType]int{
+	lexer.COMMA:    COMMA_PREC,
 	lexer.OR:       LOGIC_OR,
 	lexer.AND:      LOGIC_AND,
 	lexer.EQ:       EQUALS,
@@ -92,6 +94,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.GTE, p.parseInfixExpression)
 	p.registerInfix(lexer.AND, p.parseInfixExpression)
 	p.registerInfix(lexer.OR, p.parseInfixExpression)
+	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
@@ -477,12 +480,12 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 	}
 
 	p.nextToken()
-	args = append(args, p.parseExpression(LOWEST))
+	args = append(args, p.parseExpression(COMMA_PREC+1))
 
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken()
 		p.nextToken()
-		args = append(args, p.parseExpression(LOWEST))
+		args = append(args, p.parseExpression(COMMA_PREC+1))
 	}
 
 	if !p.expectPeek(end) {
@@ -490,6 +493,27 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 	}
 
 	return args
+}
+
+func (p *Parser) parseArrayLiteral(left ast.Expression) ast.Expression {
+	// The left expression may already be an array if we're chaining commas
+	// curToken is COMMA at this point
+	var array *ast.ArrayLiteral
+
+	if leftArray, ok := left.(*ast.ArrayLiteral); ok {
+		// Left is already an array, extend it
+		array = leftArray
+	} else {
+		// Create new array with left as first element
+		array = &ast.ArrayLiteral{Token: p.curToken}
+		array.Elements = []ast.Expression{left}
+	}
+
+	// Parse the right side of the current comma
+	p.nextToken()
+	array.Elements = append(array.Elements, p.parseExpression(COMMA_PREC))
+
+	return array
 }
 
 // Helper functions
