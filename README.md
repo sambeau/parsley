@@ -324,7 +324,7 @@ Filtering with map (null values are skipped):
 15, 25, 12
 ```
 
-### For Loop Sugar Syntax
+### For Loops
 
 Simple form - apply function to array:
 
