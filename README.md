@@ -103,35 +103,6 @@ To see the version:
 ./pars --version
 ```
 
-## Error Reporting
-
-Pars provides clear, helpful error messages with:
-
-- **Filename** in the error message
-- **Line and column numbers** for precise error location
-- **Human-readable descriptions** instead of technical token types
-- **Visual pointer** (^) showing the exact error position
-- **Source code context** displaying the problematic line
-
-### Error Message Example
-
-**Source file with error:**
-```pars
-let x = 5
-let y =
-let z = 10
-```
-
-**Error output:**
-```
-Error in 'example.pars':
-  line 3, column 4: unexpected 'let'
-    let z = 10
-       ^
-```
-
-See [ERROR_DEMO.md](ERROR_DEMO.md) for more examples of error messages.
-
 ## Usage Examples
 
 ### Basic Arithmetic
@@ -507,6 +478,35 @@ sam, phillips
 >> circleArea(10)
 314.1592653589793
 ```
+
+## Error Reporting
+
+Pars provides clear, helpful error messages with:
+
+- **Filename** in the error message
+- **Line and column numbers** for precise error location
+- **Human-readable descriptions** instead of technical token types
+- **Visual pointer** (^) showing the exact error position
+- **Source code context** displaying the problematic line
+
+### Error Message Example
+
+**Source file with error:**
+```pars
+let x = 5
+let y =
+let z = 10
+```
+
+**Error output:**
+```
+Error in 'example.pars':
+  line 3, column 4: unexpected 'let'
+    let z = 10
+       ^
+```
+
+See [ERROR_DEMO.md](ERROR_DEMO.md) for more examples of error messages.
 
 ## Development
 
