@@ -33,6 +33,8 @@ const (
 	GTE      // >=
 	EQ       // ==
 	NOT_EQ   // !=
+	AND      // & or and
+	OR       // | or or
 
 	// Delimiters
 	COMMA     // ,
@@ -106,6 +108,10 @@ func (tt TokenType) String() string {
 		return "EQ"
 	case NOT_EQ:
 		return "NOT_EQ"
+	case AND:
+		return "AND"
+	case OR:
+		return "OR"
 	case COMMA:
 		return "COMMA"
 	case SEMICOLON:
@@ -149,6 +155,9 @@ var keywords = map[string]TokenType{
 	"then":   THEN,
 	"else":   ELSE,
 	"return": RETURN,
+	"and":    AND,
+	"or":     OR,
+	"not":    BANG,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -253,6 +262,10 @@ func (l *Lexer) NextToken() Token {
 		} else {
 			tok = newToken(GT, l.ch, l.line, l.column)
 		}
+	case '&':
+		tok = newToken(AND, l.ch, l.line, l.column)
+	case '|':
+		tok = newToken(OR, l.ch, l.line, l.column)
 	case ';':
 		tok = newToken(SEMICOLON, l.ch, l.line, l.column)
 	case ',':

@@ -64,14 +64,14 @@ func TestVariableAssignment(t *testing.T) {
 		{"y = 3.14", "3.14"},
 		{"name = \"hello\"", "hello"},
 		{"flag = true", "true"},
-		
+
 		// Variable assignment with expressions
 		{"x = 2 + 3", "5"},
 		{"y = sin(0)", "0"},
 		{"z = cos(0)", "1"},
 		{"pi_val = pi()", "3.141592653589793"},
 		{"area = pi() * pow(5, 2)", "78.53981633974483"},
-		
+
 		// Using variables in expressions
 		{"x = 10; y = x * 2", "20"},
 		{"radius = 3; area = pi() * pow(radius, 2)", "28.274333882308138"},
@@ -81,16 +81,16 @@ func TestVariableAssignment(t *testing.T) {
 	for _, tt := range tests {
 		env := evaluator.NewEnvironment()
 		var result evaluator.Object
-		
+
 		// Handle multiple statements separated by semicolon
 		statements := strings.Split(tt.input, ";")
-		
+
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue
 			}
-			
+
 			l := lexer.New(stmt)
 			p := parser.New(l)
 			program := p.ParseProgram()
@@ -100,7 +100,7 @@ func TestVariableAssignment(t *testing.T) {
 			}
 
 			result = evaluator.Eval(program, env)
-			
+
 			if result != nil && result.Type() == evaluator.ERROR_OBJ {
 				t.Fatalf("evaluation error for %q: %s", stmt, result.Inspect())
 			}
@@ -120,7 +120,7 @@ func TestVariableAssignment(t *testing.T) {
 
 func TestAdvancedVariableUsage(t *testing.T) {
 	env := evaluator.NewEnvironment()
-	
+
 	tests := []struct {
 		input    string
 		expected string
@@ -128,24 +128,24 @@ func TestAdvancedVariableUsage(t *testing.T) {
 		// Test variable reassignment
 		{"x = 5", "5"},
 		{"x", "5"},
-		{"x = x * 2", "10"}, 
+		{"x = x * 2", "10"},
 		{"x", "10"},
-		
+
 		// Test variables in complex expressions
 		{"a = 3", "3"},
 		{"b = 4", "4"},
 		{"hypotenuse = sqrt(a*a + b*b)", "5"},
-		
+
 		// Test trigonometric variables
 		{"angle = pi() / 4", "0.7853981633974483"},
 		{"sin_angle = sin(angle)", "0.7071067811865475"}, // Updated expected value
 		{"cos_angle = cos(angle)", "0.7071067811865476"}, // Updated expected value
-		
+
 		// Test updating trigonometric calculations
 		{"angle = pi() / 2", "1.5707963267948966"},
 		{"sin_angle = sin(angle)", "1"},
 		{"cos_angle = cos(angle)", "6.123233995736757e-17"}, // Updated expected value
-		
+
 		// Test variable chains
 		{"base = 2", "2"},
 		{"exp = 3", "3"},
@@ -163,11 +163,11 @@ func TestAdvancedVariableUsage(t *testing.T) {
 		}
 
 		result := evaluator.Eval(program, env)
-		
+
 		if result == nil {
 			t.Fatalf("Eval returned nil for input: %s", tt.input)
 		}
-		
+
 		if result.Type() == evaluator.ERROR_OBJ {
 			t.Fatalf("evaluation error for %q: %s", tt.input, result.Inspect())
 		}

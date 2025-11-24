@@ -449,6 +449,8 @@ func evalPrefixExpression(operator string, right Object) Object {
 	switch operator {
 	case "!":
 		return evalBangOperatorExpression(right)
+	case "not":
+		return evalBangOperatorExpression(right)
 	case "-":
 		return evalMinusPrefixOperatorExpression(right)
 	default:
@@ -480,6 +482,10 @@ func evalMinusPrefixOperatorExpression(right Object) Object {
 
 func evalInfixExpression(operator string, left, right Object) Object {
 	switch {
+	case operator == "&" || operator == "and":
+		return nativeBoolToParsBoolean(isTruthy(left) && isTruthy(right))
+	case operator == "|" || operator == "or":
+		return nativeBoolToParsBoolean(isTruthy(left) || isTruthy(right))
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
 		return evalIntegerInfixExpression(operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
