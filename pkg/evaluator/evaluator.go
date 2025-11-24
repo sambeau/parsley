@@ -701,6 +701,9 @@ func evalIntegerInfixExpression(operator string, left, right Object) Object {
 	case "*":
 		return &Integer{Value: leftVal * rightVal}
 	case "/":
+		if rightVal == 0 {
+			return newError("division by zero")
+		}
 		return &Integer{Value: leftVal / rightVal}
 	case "<":
 		return nativeBoolToParsBoolean(leftVal < rightVal)
@@ -731,6 +734,9 @@ func evalFloatInfixExpression(operator string, left, right Object) Object {
 	case "*":
 		return &Float{Value: leftVal * rightVal}
 	case "/":
+		if rightVal == 0 {
+			return newError("division by zero")
+		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
 		return nativeBoolToParsBoolean(leftVal < rightVal)
@@ -779,6 +785,9 @@ func evalMixedInfixExpression(operator string, left, right Object) Object {
 	case "*":
 		return &Float{Value: leftVal * rightVal}
 	case "/":
+		if rightVal == 0 {
+			return newError("division by zero")
+		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
 		return nativeBoolToParsBoolean(leftVal < rightVal)

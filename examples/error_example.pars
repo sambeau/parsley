@@ -1,0 +1,3 @@
+let valid = 100
+let result = valid * 2
+result

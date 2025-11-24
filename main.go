@@ -40,17 +40,14 @@ func executeFile(filename string) {
 		os.Exit(1)
 	}
 
-	// Create lexer and parser
-	l := lexer.New(string(content))
+	// Create lexer and parser with filename
+	l := lexer.NewWithFilename(string(content), filename)
 	p := parser.New(l)
 
 	// Parse the program
 	program := p.ParseProgram()
 	if errors := p.Errors(); len(errors) != 0 {
-		fmt.Fprintf(os.Stderr, "Parser errors in '%s':\n", filename)
-		for _, msg := range errors {
-			fmt.Fprintf(os.Stderr, "\t%s\n", msg)
-		}
+		printErrors(filename, string(content), errors)
 		os.Exit(1)
 	}
 
@@ -58,8 +55,61 @@ func executeFile(filename string) {
 	env := evaluator.NewEnvironment()
 	evaluated := evaluator.Eval(program, env)
 
+	// Check for evaluation errors
+	if evaluated != nil && evaluated.Type() == evaluator.ERROR_OBJ {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", filename, evaluated.Inspect())
+		os.Exit(1)
+	}
+
 	// Print result if not nil
-	if evaluated != nil {
+	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ {
 		fmt.Println(evaluated.Inspect())
 	}
+}
+
+// printErrors prints formatted error messages with context
+func printErrors(filename string, source string, errors []string) {
+	fmt.Fprintf(os.Stderr, "Error in '%s':\n", filename)
+	lines := splitLines(source)
+
+	for _, msg := range errors {
+		fmt.Fprintf(os.Stderr, "  %s\n", msg)
+
+		// Try to extract line number and column, then show context
+		var lineNum, colNum int
+		if n, _ := fmt.Sscanf(msg, "line %d, column %d", &lineNum, &colNum); n == 2 && lineNum > 0 && lineNum <= len(lines) {
+			// Show the problematic line
+			fmt.Fprintf(os.Stderr, "    %s\n", lines[lineNum-1])
+			// Show pointer to the error position
+			if colNum > 0 {
+				pointer := ""
+				for i := 1; i < colNum; i++ {
+					pointer += " "
+				}
+				pointer += "^"
+				fmt.Fprintf(os.Stderr, "    %s\n", pointer)
+			}
+		} else if _, err := fmt.Sscanf(msg, "line %d", &lineNum); err == nil && lineNum > 0 && lineNum <= len(lines) {
+			// Fallback: show line without pointer if only line number available
+			fmt.Fprintf(os.Stderr, "    %s\n", lines[lineNum-1])
+		}
+	}
+}
+
+// splitLines splits source code into lines
+func splitLines(s string) []string {
+	lines := []string{}
+	line := ""
+	for _, ch := range s {
+		if ch == '\n' {
+			lines = append(lines, line)
+			line = ""
+		} else {
+			line += string(ch)
+		}
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return lines
 }

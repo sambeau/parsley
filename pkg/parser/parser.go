@@ -658,14 +658,106 @@ func (p *Parser) expectPeek(t lexer.TokenType) bool {
 }
 
 func (p *Parser) peekError(t lexer.TokenType) {
-	msg := fmt.Sprintf("expected next token to be %s, got %s instead",
-		t, p.peekToken.Type)
+	tokenName := tokenTypeToReadableName(t)
+	gotName := tokenTypeToReadableName(p.peekToken.Type)
+	gotLiteral := p.peekToken.Literal
+	if gotLiteral == "" {
+		gotLiteral = gotName
+	}
+
+	msg := fmt.Sprintf("line %d, column %d: expected %s, got '%s'",
+		p.peekToken.Line, p.peekToken.Column, tokenName, gotLiteral)
 	p.errors = append(p.errors, msg)
 }
 
 func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
-	msg := fmt.Sprintf("no prefix parse function for %s found", t)
+	literal := p.curToken.Literal
+	if literal == "" {
+		literal = tokenTypeToReadableName(t)
+	}
+	msg := fmt.Sprintf("line %d, column %d: unexpected '%s'",
+		p.curToken.Line, p.curToken.Column, literal)
 	p.errors = append(p.errors, msg)
+}
+
+// tokenTypeToReadableName converts token types to human-readable names
+func tokenTypeToReadableName(t lexer.TokenType) string {
+	switch t {
+	case lexer.IDENT:
+		return "identifier"
+	case lexer.INT:
+		return "integer"
+	case lexer.FLOAT:
+		return "float"
+	case lexer.STRING:
+		return "string"
+	case lexer.TEMPLATE:
+		return "template literal"
+	case lexer.ASSIGN:
+		return "'='"
+	case lexer.PLUS:
+		return "'+'"
+	case lexer.MINUS:
+		return "'-'"
+	case lexer.BANG:
+		return "'!'"
+	case lexer.ASTERISK:
+		return "'*'"
+	case lexer.SLASH:
+		return "'/'"
+	case lexer.LT:
+		return "'<'"
+	case lexer.GT:
+		return "'>'"
+	case lexer.EQ:
+		return "'=='"
+	case lexer.NOT_EQ:
+		return "'!='"
+	case lexer.COMMA:
+		return "','"
+	case lexer.SEMICOLON:
+		return "';'"
+	case lexer.COLON:
+		return "':'"
+	case lexer.LPAREN:
+		return "'('"
+	case lexer.RPAREN:
+		return "')'"
+	case lexer.LBRACE:
+		return "'{'"
+	case lexer.RBRACE:
+		return "'}'"
+	case lexer.LBRACKET:
+		return "'['"
+	case lexer.RBRACKET:
+		return "']'"
+	case lexer.FUNCTION:
+		return "'fn'"
+	case lexer.LET:
+		return "'let'"
+	case lexer.TRUE:
+		return "'true'"
+	case lexer.FALSE:
+		return "'false'"
+	case lexer.IF:
+		return "'if'"
+	case lexer.THEN:
+		return "'then'"
+	case lexer.ELSE:
+		return "'else'"
+	case lexer.RETURN:
+		return "'return'"
+	case lexer.FOR:
+		return "'for'"
+	case lexer.IN:
+		return "'in'"
+	case lexer.EOF:
+		return "end of file"
+	case lexer.ILLEGAL:
+		return "illegal character"
+	default:
+		return string(t.String())
+	}
 }
 
 func (p *Parser) peekPrecedence() int {

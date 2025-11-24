@@ -193,6 +193,7 @@ func LookupIdent(ident string) TokenType {
 
 // Lexer represents the lexical analyzer
 type Lexer struct {
+	filename     string
 	input        string
 	position     int  // current position in input (points to current char)
 	readPosition int  // current reading position in input (after current char)
@@ -204,9 +205,22 @@ type Lexer struct {
 // New creates a new lexer instance
 func New(input string) *Lexer {
 	l := &Lexer{
-		input:  input,
-		line:   1,
-		column: 0,
+		filename: "<input>",
+		input:    input,
+		line:     1,
+		column:   0,
+	}
+	l.readChar()
+	return l
+}
+
+// NewWithFilename creates a new lexer instance with a specific filename
+func NewWithFilename(input string, filename string) *Lexer {
+	l := &Lexer{
+		filename: filename,
+		input:    input,
+		line:     1,
+		column:   0,
 	}
 	l.readChar()
 	return l
