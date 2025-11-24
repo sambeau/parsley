@@ -18,8 +18,10 @@ const (
 	EQUALS      // ==
 	LESSGREATER // > or <
 	SUM         // +
+	CONCAT      // ++
 	PRODUCT     // *
 	PREFIX      // -X or !X
+	INDEX       // array[index]
 	CALL        // myFunction(X)
 )
 
@@ -36,8 +38,10 @@ var precedences = map[lexer.TokenType]int{
 	lexer.GTE:      LESSGREATER,
 	lexer.PLUS:     SUM,
 	lexer.MINUS:    SUM,
+	lexer.PLUSPLUS: CONCAT,
 	lexer.SLASH:    PRODUCT,
 	lexer.ASTERISK: PRODUCT,
+	lexer.LBRACKET: INDEX,
 	lexer.LPAREN:   CALL,
 }
 
@@ -95,8 +99,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.GTE, p.parseInfixExpression)
 	p.registerInfix(lexer.AND, p.parseInfixExpression)
 	p.registerInfix(lexer.OR, p.parseInfixExpression)
+	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
 	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
+	p.registerInfix(lexer.LBRACKET, p.parseIndexOrSliceExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
 	p.nextToken()
@@ -573,6 +579,58 @@ func (p *Parser) parseArrayLiteral(left ast.Expression) ast.Expression {
 	array.Elements = append(array.Elements, p.parseExpression(COMMA_PREC))
 
 	return array
+}
+
+func (p *Parser) parseIndexOrSliceExpression(left ast.Expression) ast.Expression {
+	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
+
+	p.nextToken()
+
+	// Check for slice (colon before any expression, or expression followed by colon)
+	if p.curTokenIs(lexer.COLON) {
+		// Slice with no start: [:end]
+		return p.parseSliceExpression(left, nil)
+	}
+
+	// Parse the first expression (could be index or slice start)
+	firstExp := p.parseExpression(LOWEST)
+
+	// Check if this is a slice
+	if p.peekTokenIs(lexer.COLON) {
+		p.nextToken() // consume colon
+		return p.parseSliceExpression(left, firstExp)
+	}
+
+	// It's an index expression
+	exp.Index = firstExp
+
+	if !p.expectPeek(lexer.RBRACKET) {
+		return nil
+	}
+
+	return exp
+}
+
+func (p *Parser) parseSliceExpression(left ast.Expression, start ast.Expression) ast.Expression {
+	exp := &ast.SliceExpression{
+		Token: p.curToken,
+		Left:  left,
+		Start: start,
+	}
+
+	// We're at the colon, move to next token
+	p.nextToken()
+
+	// Check if there's an end expression
+	if !p.curTokenIs(lexer.RBRACKET) {
+		exp.End = p.parseExpression(LOWEST)
+	}
+
+	if !p.expectPeek(lexer.RBRACKET) {
+		return nil
+	}
+
+	return exp
 }
 
 // Helper functions

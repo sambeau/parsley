@@ -371,3 +371,52 @@ func (fe *ForExpression) String() string {
 
 	return out.String()
 }
+
+// IndexExpression represents array/string indexing like arr[0] or str[1]
+type IndexExpression struct {
+	Token lexer.Token // the '[' token
+	Left  Expression  // the array or string being indexed
+	Index Expression  // the index expression
+}
+
+func (ie *IndexExpression) expressionNode()      {}
+func (ie *IndexExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IndexExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(ie.Left.String())
+	out.WriteString("[")
+	out.WriteString(ie.Index.String())
+	out.WriteString("])")
+
+	return out.String()
+}
+
+// SliceExpression represents array/string slicing like arr[1:4]
+type SliceExpression struct {
+	Token lexer.Token // the '[' token
+	Left  Expression  // the array or string being sliced
+	Start Expression  // the start index (can be nil)
+	End   Expression  // the end index (can be nil)
+}
+
+func (se *SliceExpression) expressionNode()      {}
+func (se *SliceExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SliceExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(se.Left.String())
+	out.WriteString("[")
+	if se.Start != nil {
+		out.WriteString(se.Start.String())
+	}
+	out.WriteString(":")
+	if se.End != nil {
+		out.WriteString(se.End.String())
+	}
+	out.WriteString("])")
+
+	return out.String()
+}

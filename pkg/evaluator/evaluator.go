@@ -406,6 +406,22 @@ func getBuiltins() map[string]*Builtin {
 				return &String{Value: strings.ToLower(str.Value)}
 			},
 		},
+		"len": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `len`. got=%d, want=1", len(args))
+				}
+
+				switch arg := args[0].(type) {
+				case *String:
+					return &Integer{Value: int64(len(arg.Value))}
+				case *Array:
+					return &Integer{Value: int64(len(arg.Elements))}
+				default:
+					return newError("argument to `len` not supported, got %s", args[0].Type())
+				}
+			},
+		},
 	}
 } // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
@@ -522,6 +538,38 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.ForExpression:
 		return evalForExpression(node, env)
+
+	case *ast.IndexExpression:
+		left := Eval(node.Left, env)
+		if isError(left) {
+			return left
+		}
+		index := Eval(node.Index, env)
+		if isError(index) {
+			return index
+		}
+		return evalIndexExpression(left, index)
+
+	case *ast.SliceExpression:
+		left := Eval(node.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		var start, end Object
+		if node.Start != nil {
+			start = Eval(node.Start, env)
+			if isError(start) {
+				return start
+			}
+		}
+		if node.End != nil {
+			end = Eval(node.End, env)
+			if isError(end) {
+				return end
+			}
+		}
+		return evalSliceExpression(left, start, end)
 	}
 
 	return newError("unknown node type: %T", node)
@@ -610,6 +658,8 @@ func evalInfixExpression(operator string, left, right Object) Object {
 		return nativeBoolToParsBoolean(isTruthy(left) && isTruthy(right))
 	case operator == "|" || operator == "or":
 		return nativeBoolToParsBoolean(isTruthy(left) || isTruthy(right))
+	case operator == "++":
+		return evalConcatExpression(left, right)
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
 		return evalIntegerInfixExpression(operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
@@ -938,4 +988,183 @@ func isError(obj Object) bool {
 		return obj.Type() == ERROR_OBJ
 	}
 	return false
+}
+
+// evalConcatExpression handles the ++ operator for array concatenation
+func evalConcatExpression(left, right Object) Object {
+	// Convert single values to arrays
+	var leftElements, rightElements []Object
+
+	switch l := left.(type) {
+	case *Array:
+		leftElements = l.Elements
+	default:
+		leftElements = []Object{left}
+	}
+
+	switch r := right.(type) {
+	case *Array:
+		rightElements = r.Elements
+	default:
+		rightElements = []Object{right}
+	}
+
+	// Concatenate the arrays
+	result := make([]Object, 0, len(leftElements)+len(rightElements))
+	result = append(result, leftElements...)
+	result = append(result, rightElements...)
+
+	return &Array{Elements: result}
+}
+
+// evalIndexExpression handles array and string indexing
+func evalIndexExpression(left, index Object) Object {
+	switch {
+	case left.Type() == ARRAY_OBJ && index.Type() == INTEGER_OBJ:
+		return evalArrayIndexExpression(left, index)
+	case left.Type() == STRING_OBJ && index.Type() == INTEGER_OBJ:
+		return evalStringIndexExpression(left, index)
+	default:
+		return newError("index operator not supported: %s[%s]", left.Type(), index.Type())
+	}
+}
+
+// evalArrayIndexExpression handles array indexing with support for negative indices
+func evalArrayIndexExpression(array, index Object) Object {
+	arrayObject := array.(*Array)
+	idx := index.(*Integer).Value
+	max := int64(len(arrayObject.Elements))
+
+	// Handle negative indices
+	if idx < 0 {
+		idx = max + idx
+	}
+
+	if idx < 0 || idx >= max {
+		return newError("index out of range: %d", index.(*Integer).Value)
+	}
+
+	return arrayObject.Elements[idx]
+}
+
+// evalStringIndexExpression handles string indexing with support for negative indices
+func evalStringIndexExpression(str, index Object) Object {
+	stringObject := str.(*String)
+	idx := index.(*Integer).Value
+	max := int64(len(stringObject.Value))
+
+	// Handle negative indices
+	if idx < 0 {
+		idx = max + idx
+	}
+
+	if idx < 0 || idx >= max {
+		return newError("index out of range: %d", index.(*Integer).Value)
+	}
+
+	return &String{Value: string(stringObject.Value[idx])}
+}
+
+// evalSliceExpression handles array and string slicing
+func evalSliceExpression(left, start, end Object) Object {
+	switch left.Type() {
+	case ARRAY_OBJ:
+		return evalArraySliceExpression(left, start, end)
+	case STRING_OBJ:
+		return evalStringSliceExpression(left, start, end)
+	default:
+		return newError("slice operator not supported: %s", left.Type())
+	}
+}
+
+// evalArraySliceExpression handles array slicing
+func evalArraySliceExpression(array, start, end Object) Object {
+	arrayObject := array.(*Array)
+	max := int64(len(arrayObject.Elements))
+
+	var startIdx, endIdx int64
+
+	// Determine start index
+	if start == nil {
+		startIdx = 0
+	} else if start.Type() == INTEGER_OBJ {
+		startIdx = start.(*Integer).Value
+		if startIdx < 0 {
+			startIdx = max + startIdx
+		}
+	} else {
+		return newError("slice start index must be an integer, got %s", start.Type())
+	}
+
+	// Determine end index
+	if end == nil {
+		endIdx = max
+	} else if end.Type() == INTEGER_OBJ {
+		endIdx = end.(*Integer).Value
+		if endIdx < 0 {
+			endIdx = max + endIdx
+		}
+	} else {
+		return newError("slice end index must be an integer, got %s", end.Type())
+	}
+
+	// Validate indices
+	if startIdx < 0 || startIdx > max {
+		return newError("slice start index out of range: %d", startIdx)
+	}
+	if endIdx < 0 || endIdx > max {
+		return newError("slice end index out of range: %d", endIdx)
+	}
+	if startIdx > endIdx {
+		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
+	}
+
+	// Create the slice
+	return &Array{Elements: arrayObject.Elements[startIdx:endIdx]}
+}
+
+// evalStringSliceExpression handles string slicing
+func evalStringSliceExpression(str, start, end Object) Object {
+	stringObject := str.(*String)
+	max := int64(len(stringObject.Value))
+
+	var startIdx, endIdx int64
+
+	// Determine start index
+	if start == nil {
+		startIdx = 0
+	} else if start.Type() == INTEGER_OBJ {
+		startIdx = start.(*Integer).Value
+		if startIdx < 0 {
+			startIdx = max + startIdx
+		}
+	} else {
+		return newError("slice start index must be an integer, got %s", start.Type())
+	}
+
+	// Determine end index
+	if end == nil {
+		endIdx = max
+	} else if end.Type() == INTEGER_OBJ {
+		endIdx = end.(*Integer).Value
+		if endIdx < 0 {
+			endIdx = max + endIdx
+		}
+	} else {
+		return newError("slice end index must be an integer, got %s", end.Type())
+	}
+
+	// Validate indices
+	if startIdx < 0 || startIdx > max {
+		return newError("slice start index out of range: %d", startIdx)
+	}
+	if endIdx < 0 || endIdx > max {
+		return newError("slice end index out of range: %d", endIdx)
+	}
+	if startIdx > endIdx {
+		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
+	}
+
+	// Create the slice
+	return &String{Value: stringObject.Value[startIdx:endIdx]}
 }

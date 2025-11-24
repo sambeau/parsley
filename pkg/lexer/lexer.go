@@ -39,10 +39,14 @@ const (
 	// Delimiters
 	COMMA     // ,
 	SEMICOLON // ;
+	COLON     // :
 	LPAREN    // (
 	RPAREN    // )
 	LBRACE    // {
 	RBRACE    // }
+	LBRACKET  // [
+	RBRACKET  // ]
+	PLUSPLUS  // ++
 
 	// Keywords
 	FUNCTION // "fn"
@@ -118,6 +122,8 @@ func (tt TokenType) String() string {
 		return "COMMA"
 	case SEMICOLON:
 		return "SEMICOLON"
+	case COLON:
+		return "COLON"
 	case LPAREN:
 		return "LPAREN"
 	case RPAREN:
@@ -126,6 +132,12 @@ func (tt TokenType) String() string {
 		return "LBRACE"
 	case RBRACE:
 		return "RBRACE"
+	case LBRACKET:
+		return "LBRACKET"
+	case RBRACKET:
+		return "RBRACKET"
+	case PLUSPLUS:
+		return "PLUSPLUS"
 	case FUNCTION:
 		return "FUNCTION"
 	case LET:
@@ -239,7 +251,13 @@ func (l *Lexer) NextToken() Token {
 			tok = newToken(ASSIGN, l.ch, l.line, l.column)
 		}
 	case '+':
-		tok = newToken(PLUS, l.ch, l.line, l.column)
+		if l.peekChar() == '+' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: PLUSPLUS, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(PLUS, l.ch, l.line, l.column)
+		}
 	case '-':
 		tok = newToken(MINUS, l.ch, l.line, l.column)
 	case '!':
@@ -278,6 +296,12 @@ func (l *Lexer) NextToken() Token {
 		tok = newToken(SEMICOLON, l.ch, l.line, l.column)
 	case ',':
 		tok = newToken(COMMA, l.ch, l.line, l.column)
+	case ':':
+		tok = newToken(COLON, l.ch, l.line, l.column)
+	case '[':
+		tok = newToken(LBRACKET, l.ch, l.line, l.column)
+	case ']':
+		tok = newToken(RBRACKET, l.ch, l.line, l.column)
 	case '(':
 		tok = newToken(LPAREN, l.ch, l.line, l.column)
 	case ')':
