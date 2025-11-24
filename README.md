@@ -1,6 +1,6 @@
 # Pars
 
-A Go-based programming language interpreter with comprehensive mathematical and trigonometric function support.
+A Go-based toy concatenative programming language interpreter.
 
 ## Features
 
@@ -14,19 +14,14 @@ A Go-based programming language interpreter with comprehensive mathematical and 
 - String operations
 - Boolean logic
 
-### Built-in Mathematical Functions
-- **Trigonometric Functions:**
-  - `sin(x)` - Sine function
-  - `cos(x)` - Cosine function
-  - `tan(x)` - Tangent function
-  - `asin(x)` - Arcsine function
-  - `acos(x)` - Arccosine function
-  - `atan(x)` - Arctangent function
+### Data Types
+- **Integers:** `42`, `-15`
+- **Floats:** `3.14159`, `2.718`
+- **Strings:** `"hello world"`
+- **Booleans:** `true`, `false`
+- **Arrays:** `1,2,3`, `"Sam","Phillips"`, mixed types allowed
 
-- **Mathematical Functions:**
-  - `sqrt(x)` - Square root
-  - `pow(base, exp)` - Power function
-  - `pi()` - Returns the value of π
+### Built-in Functions
 
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
@@ -37,12 +32,17 @@ A Go-based programming language interpreter with comprehensive mathematical and 
   - `for(array) func` - Sugar syntax for map with function
   - `for(var in array) { body }` - Sugar syntax for map with inline function
 
-### Data Types
-- **Integers:** `42`, `-15`
-- **Floats:** `3.14159`, `2.718`
-- **Strings:** `"hello world"`
-- **Booleans:** `true`, `false`
-- **Arrays:** `1,2,3`, `"Sam","Phillips"`, mixed types allowed
+- **Mathematical Functions:**
+  - `sqrt(x)` - Square root
+  - `pow(base, exp)` - Power function
+  - `pi()` - Returns the value of π
+  - `sin(x)` - Sine function
+  - `cos(x)` - Cosine function
+  - `tan(x)` - Tangent function
+  - `asin(x)` - Arcsine function
+  - `acos(x)` - Arccosine function
+  - `atan(x)` - Arctangent function
+
 
 ## Getting Started
 
