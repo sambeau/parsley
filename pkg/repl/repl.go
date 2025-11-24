@@ -12,27 +12,23 @@ import (
 
 const PROMPT = ">> "
 
-const PARSER_LOGO = `
- ____   __    ____   _____ 
-|  _ \ / _\  |  _ \ / ____|
-| |_) / /_\  | |_) | (___ 
-|  __/ ____ |  _ < \___ \ 
-| |  / /    | |_) |____) |
-|_| /_/     |____/|_____/ 
+const VERSION = "0.1.0"
 
-Welcome to the Pars programming language!
-Feel free to type in commands
-`
+const PARSER_LOGO = `
+█▀█ ▄▀█ █▀█ █▀
+█▀▀ █▀█ █▀▄ ▄█ `
 
 // Start starts the REPL
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
 	env := evaluator.NewEnvironment()
 
-	fmt.Fprintf(out, PARSER_LOGO)
+	fmt.Fprintf(out, "%s", PARSER_LOGO)
+	fmt.Fprintln(out, "v", VERSION)
+	fmt.Fprintln(out, "")
 
 	for {
-		fmt.Fprintf(out, PROMPT)
+		fmt.Fprintf(out, "%s", PROMPT)
 		scanned := scanner.Scan()
 		if !scanned {
 			return
