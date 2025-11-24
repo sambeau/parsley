@@ -14,6 +14,8 @@ A Go-based toy concatenative programming language interpreter.
 - Array concatenation with `++`
 - String indexing and slicing
 - String concatenation with `+`
+- String escape sequences (`\n`, `\t`, etc.)
+- Template literals with `${}` interpolation
 - Integer and floating-point arithmetic
 - Boolean logic
 
@@ -321,6 +323,101 @@ Get the number of characters in a string:
 Hello, Pars!
 >> len(str)
 13
+```
+
+#### Escape Sequences
+
+Strings support escape sequences for special characters:
+
+```
+>> "Line 1\nLine 2"
+Line 1
+Line 2
+>> "Column1\tColumn2"
+Column1	Column2
+>> "Quote: \"Hello\""
+Quote: "Hello"
+>> "Backslash: \\"
+Backslash: \
+```
+
+Supported escape sequences:
+- `\n` - newline
+- `\t` - tab
+- `\\` - backslash
+- `\"` - double quote
+
+#### Template Literals
+
+Template literals use backticks and support expression interpolation:
+
+```
+>> `Hello, World!`
+Hello, World!
+>> name = "Sam"
+Sam
+>> `Welcome, ${name}!`
+Welcome, Sam!
+```
+
+Interpolate any expression with `${}`:
+
+```
+>> a = 5
+5
+>> b = 10
+10
+>> `Sum: ${a + b}`
+Sum: 15
+>> `Result: ${a * 2 + b}`
+Result: 20
+```
+
+Template literals are multiline and preserve whitespace:
+
+```
+>> `Line 1
+   Line 2
+   Line 3`
+Line 1
+Line 2
+Line 3
+```
+
+Arrays in templates are joined without commas:
+
+```
+>> `Items: ${"A","B","C"}`
+Items: ABC
+```
+
+Type coercion in templates:
+
+```
+>> `Number: ${42}`
+Number: 42
+>> `Boolean: ${true}`
+Boolean: true
+>> `Expression: ${10 > 5}`
+Expression: true
+```
+
+Escape special characters in templates:
+
+```
+>> `Literal backtick: \``
+Literal backtick: `
+>> `Not interpolated: \${variable}`
+Not interpolated: ${variable}
+```
+
+String concatenation with automatic type conversion:
+
+```
+>> "Count: " + 42
+Count: 42
+>> "Result: " + (5 + 3)
+Result: 8
 ```
 
 ### Array Operations with map
