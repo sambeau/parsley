@@ -1,1 +1,10 @@
-"Hello World!"
+
+numbers = "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"
+phone = "07595954919"
+main = fn(){
+	for (x in phone) {
+		numbers[toNumber(x)]
+	}
+}
+
+main()

@@ -424,6 +424,75 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
+		"toInt": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toInt`. got=%d, want=1", len(args))
+				}
+
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `toInt` must be a string, got %s", args[0].Type())
+				}
+
+				var val int64
+				_, err := fmt.Sscanf(str.Value, "%d", &val)
+				if err != nil {
+					return newError("cannot convert '%s' to integer", str.Value)
+				}
+
+				return &Integer{Value: val}
+			},
+		},
+		"toFloat": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toFloat`. got=%d, want=1", len(args))
+				}
+
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `toFloat` must be a string, got %s", args[0].Type())
+				}
+
+				var val float64
+				_, err := fmt.Sscanf(str.Value, "%f", &val)
+				if err != nil {
+					return newError("cannot convert '%s' to float", str.Value)
+				}
+
+				return &Float{Value: val}
+			},
+		},
+		"toNumber": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toNumber`. got=%d, want=1", len(args))
+				}
+
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `toNumber` must be a string, got %s", args[0].Type())
+				}
+
+				// Try to parse as integer first
+				var intVal int64
+				if _, err := fmt.Sscanf(str.Value, "%d", &intVal); err == nil {
+					// Check if the string has a decimal point - if so, it's a float
+					if !strings.Contains(str.Value, ".") {
+						return &Integer{Value: intVal}
+					}
+				}
+
+				// Parse as float
+				var floatVal float64
+				if _, err := fmt.Sscanf(str.Value, "%f", &floatVal); err == nil {
+					return &Float{Value: floatVal}
+				}
+
+				return newError("cannot convert '%s' to number", str.Value)
+			},
+		},
 	}
 } // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
