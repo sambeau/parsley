@@ -6,8 +6,9 @@ A Go-based programming language interpreter with comprehensive mathematical and 
 
 ### Core Language Features
 - Variable declarations with `let`
+- Direct variable assignment (e.g., `x = 5`)
 - Functions with `fn`
-- Conditional statements with `if/else`
+- If-then-else expressions (ternary-style conditionals)
 - Integer and floating-point arithmetic
 - String operations
 - Boolean logic
@@ -129,6 +130,24 @@ go build -o pars
 >> angle = atan(b / a)
 0.9272952180016122
 ```
+
+### If-Then-Else Expressions
+```
+>> x = if 5 > 0 then true else false
+true
+>> y = if 1 < 0 then 0
+null
+>> a = 10
+>> result = if a > 5 then "big" else "small"
+big
+>> bar = 15
+>> foo = if bar * 20 > 100 then 100 else bar
+100
+>> nested = if 1 > 0 then if 2 > 1 then 3 else 4 else 5
+3
+```
+
+If-then-else expressions work like ternary operators and can be used anywhere an expression is expected. The `else` clause is optional - if omitted and the condition is false, the expression evaluates to `null`.
 
 ### Functions
 ```

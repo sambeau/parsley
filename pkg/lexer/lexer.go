@@ -46,6 +46,7 @@ const (
 	TRUE     // "true"
 	FALSE    // "false"
 	IF       // "if"
+	THEN     // "then"
 	ELSE     // "else"
 	RETURN   // "return"
 )
@@ -121,6 +122,8 @@ func (tt TokenType) String() string {
 		return "FALSE"
 	case IF:
 		return "IF"
+	case THEN:
+		return "THEN"
 	case ELSE:
 		return "ELSE"
 	case RETURN:
@@ -137,6 +140,7 @@ var keywords = map[string]TokenType{
 	"true":   TRUE,
 	"false":  FALSE,
 	"if":     IF,
+	"then":   THEN,
 	"else":   ELSE,
 	"return": RETURN,
 }
@@ -288,7 +292,7 @@ func newToken(tokenType TokenType, ch byte, line, column int) Token {
 // readIdentifier reads an identifier or keyword
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) {
+	for isLetter(l.ch) || isDigit(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]

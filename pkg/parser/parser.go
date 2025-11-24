@@ -329,31 +329,24 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 func (p *Parser) parseIfExpression() ast.Expression {
 	expression := &ast.IfExpression{Token: p.curToken}
 
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
-	}
-
+	// Move to the condition
 	p.nextToken()
 	expression.Condition = p.parseExpression(LOWEST)
 
-	if !p.expectPeek(lexer.RPAREN) {
+	// Expect 'then' keyword
+	if !p.expectPeek(lexer.THEN) {
 		return nil
 	}
 
-	if !p.expectPeek(lexer.LBRACE) {
-		return nil
-	}
+	// Move to the consequence expression
+	p.nextToken()
+	expression.Consequence = p.parseExpression(LOWEST)
 
-	expression.Consequence = p.parseBlockStatement()
-
+	// Check for optional 'else' clause
 	if p.peekTokenIs(lexer.ELSE) {
-		p.nextToken()
-
-		if !p.expectPeek(lexer.LBRACE) {
-			return nil
-		}
-
-		expression.Alternative = p.parseBlockStatement()
+		p.nextToken() // move to 'else'
+		p.nextToken() // move to alternative expression
+		expression.Alternative = p.parseExpression(LOWEST)
 	}
 
 	return expression
