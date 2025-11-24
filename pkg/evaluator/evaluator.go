@@ -1009,7 +1009,7 @@ func isError(obj Object) bool {
 func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 	template := node.Value
 	var result strings.Builder
-	
+
 	i := 0
 	for i < len(template) {
 		// Check for escaped dollar sign marker \0$
@@ -1018,14 +1018,14 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			i += 3
 			continue
 		}
-		
+
 		// Look for ${
 		if i < len(template)-1 && template[i] == '$' && template[i+1] == '{' {
 			// Find the closing }
 			i += 2 // skip ${
 			braceCount := 1
 			exprStart := i
-			
+
 			for i < len(template) && braceCount > 0 {
 				if template[i] == '{' {
 					braceCount++
@@ -1036,24 +1036,24 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 					i++
 				}
 			}
-			
+
 			if braceCount != 0 {
 				return newError("unclosed ${ in template literal")
 			}
-			
+
 			// Extract and evaluate the expression
 			exprStr := template[exprStart:i]
 			i++ // skip closing }
-			
+
 			// Parse and evaluate the expression
 			l := lexer.New(exprStr)
 			p := parser.New(l)
 			program := p.ParseProgram()
-			
+
 			if len(p.Errors()) > 0 {
 				return newError("error parsing template expression: %s", p.Errors()[0])
 			}
-			
+
 			// Evaluate the expression
 			var evaluated Object
 			for _, stmt := range program.Statements {
@@ -1062,7 +1062,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 					return evaluated
 				}
 			}
-			
+
 			// Convert result to string
 			if evaluated != nil {
 				result.WriteString(objectToTemplateString(evaluated))
@@ -1073,7 +1073,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			i++
 		}
 	}
-	
+
 	return &String{Value: result.String()}
 }
 

@@ -391,7 +391,7 @@ func (l *Lexer) readNumber() string {
 func (l *Lexer) readString() string {
 	var result []byte
 	l.readChar() // skip opening quote
-	
+
 	for l.ch != '"' && l.ch != 0 {
 		if l.ch == '\\' {
 			l.readChar() // consume backslash
@@ -414,7 +414,7 @@ func (l *Lexer) readString() string {
 		}
 		l.readChar()
 	}
-	
+
 	return string(result)
 }
 
@@ -422,7 +422,7 @@ func (l *Lexer) readString() string {
 func (l *Lexer) readTemplate() string {
 	var result []byte
 	l.readChar() // skip opening backtick
-	
+
 	for l.ch != '`' && l.ch != 0 {
 		if l.ch == '\\' {
 			l.readChar() // consume backslash
@@ -442,7 +442,7 @@ func (l *Lexer) readTemplate() string {
 		}
 		l.readChar()
 	}
-	
+
 	return string(result)
 }
 
