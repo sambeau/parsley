@@ -10,8 +10,11 @@ A Go-based toy concatenative programming language interpreter.
 - Functions with `fn`
 - If-then-else expressions (ternary-style conditionals)
 - Arrays with comma separator
+- Array indexing and slicing with `[]`
+- Array concatenation with `++`
+- String indexing and slicing
+- String concatenation with `+`
 - Integer and floating-point arithmetic
-- String operations
 - Boolean logic
 
 ### Data Types
@@ -73,11 +76,29 @@ To start the interactive REPL:
 go run main.go
 ```
 
+Or after building:
+
+```bash
+./pars
+```
+
+To execute a pars source file:
+
+```bash
+./pars filename.pars
+```
+
 To build the project:
 
 ```bash
 go build -o pars
 ./pars
+```
+
+To see the version:
+
+```bash
+./pars --version
 ```
 
 ## Usage Examples
