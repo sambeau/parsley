@@ -26,11 +26,13 @@ A Go-based toy concatenative programming language interpreter.
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
   - `toLower(str)` - Convert string to lowercase
+  - `len(str)` - Get the length of a string
 
 - **Array Functions:**
   - `map(func, elements...)` - Apply function to each element, filter out nulls
   - `for(array) func` - Sugar syntax for map with function
   - `for(var in array) { body }` - Sugar syntax for map with inline function
+  - `len(array)` - Get the length of an array
 
 - **Mathematical Functions:**
   - `sqrt(x)` - Square root
@@ -171,6 +173,133 @@ Arrays are created by separating values with commas:
 Sam, Phillips
 >> mixed = 1,"two",3.0,true
 1, two, 3, true
+```
+
+#### Array Indexing
+
+Arrays use zero-based indexing with square brackets:
+
+```
+>> xs = 1,2,3
+1, 2, 3
+>> xs[0]
+1
+>> xs[2]
+3
+>> (10,20,30)[1]
+20
+```
+
+Negative indices count from the end of the array:
+
+```
+>> xs = 1,2,3
+1, 2, 3
+>> xs[-1]
+3
+>> xs[-2]
+2
+```
+
+#### Array Slicing
+
+Create sub-arrays using slice notation `[start:end]` (half-open range):
+
+```
+>> arr = 10,20,30,40,50
+10, 20, 30, 40, 50
+>> arr[1:4]
+20, 30, 40
+>> arr[0:2]
+10, 20
+```
+
+#### Array Concatenation
+
+Use the `++` operator to concatenate arrays:
+
+```
+>> 1,2,3 ++ 4,5,6
+1, 2, 3, 4, 5, 6
+>> arr = 10,20,30
+>> arr ++ 40,50
+10, 20, 30, 40, 50
+```
+
+Single values are treated as single-element arrays:
+
+```
+>> 1 ++ 2 ++ 3
+1, 2, 3
+>> 1,2,3 ++ 4
+1, 2, 3, 4
+```
+
+#### Array Length
+
+Get the number of elements in an array:
+
+```
+>> arr = 10,20,30,40,50
+10, 20, 30, 40, 50
+>> len(arr)
+5
+```
+
+### Strings
+
+#### String Concatenation
+
+Use the `+` operator to join strings:
+
+```
+>> "Hello, " + "world!"
+Hello, world!
+>> name = "Sam"
+Sam
+>> "Hello, " + name + "!"
+Hello, Sam!
+```
+
+#### String Indexing
+
+Strings can be indexed like arrays (zero-based):
+
+```
+>> "Hello"[1]
+e
+>> "World"[-1]
+d
+```
+
+#### String Slicing
+
+Extract substrings using slice notation:
+
+```
+>> "Pars"[0:2]
+Pa
+>> "Concatenation"[3:7]
+cate
+>> str = "Hello, World!"
+Hello, World!
+>> str[7:12]
+World
+```
+
+#### String Length
+
+Get the number of characters in a string:
+
+```
+>> len("Hello")
+5
+>> len("")
+0
+>> str = "Hello, Pars!"
+Hello, Pars!
+>> len(str)
+13
 ```
 
 ### Array Operations with map
