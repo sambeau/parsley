@@ -286,6 +286,10 @@ func (l *Lexer) NextToken() Token {
 			tok = newToken(BANG, l.ch, l.line, l.column)
 		}
 	case '/':
+		if l.peekChar() == '/' {
+			l.skipComment()
+			return l.NextToken()
+		}
 		tok = newToken(SLASH, l.ch, l.line, l.column)
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
@@ -463,6 +467,18 @@ func (l *Lexer) readTemplate() string {
 // skipWhitespace skips whitespace characters
 func (l *Lexer) skipWhitespace() {
 	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+		l.readChar()
+	}
+}
+
+// skipComment skips single-line comments starting with //
+func (l *Lexer) skipComment() {
+	// Skip the two slashes
+	l.readChar()
+	l.readChar()
+	
+	// Read until end of line or EOF
+	for l.ch != '\n' && l.ch != 0 {
 		l.readChar()
 	}
 }
