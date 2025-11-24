@@ -337,3 +337,37 @@ func (al *ArrayLiteral) String() string {
 
 	return out.String()
 }
+
+// ForExpression represents for expressions
+// Two forms: for(array) func  OR  for(var in array) body
+type ForExpression struct {
+	Token    lexer.Token // the 'for' token
+	Array    Expression  // the array to iterate over
+	Function Expression  // the function to apply (for simple form)
+	Variable *Identifier // the loop variable (for 'in' form)
+	Body     Expression  // the body expression (for 'in' form)
+}
+
+func (fe *ForExpression) expressionNode()      {}
+func (fe *ForExpression) TokenLiteral() string { return fe.Token.Literal }
+func (fe *ForExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("for(")
+	if fe.Variable != nil {
+		out.WriteString(fe.Variable.String())
+		out.WriteString(" in ")
+	}
+	out.WriteString(fe.Array.String())
+	out.WriteString(")")
+
+	if fe.Function != nil {
+		out.WriteString(" ")
+		out.WriteString(fe.Function.String())
+	} else if fe.Body != nil {
+		out.WriteString(" ")
+		out.WriteString(fe.Body.String())
+	}
+
+	return out.String()
+}

@@ -378,10 +378,36 @@ func getBuiltins() map[string]*Builtin {
 				return &Array{Elements: result}
 			},
 		},
-	}
-}
+		"toUpper": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toUpper`. got=%d, want=1", len(args))
+				}
 
-// Helper function to evaluate a statement
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `toUpper` must be a string, got %s", args[0].Type())
+				}
+
+				return &String{Value: strings.ToUpper(str.Value)}
+			},
+		},
+		"toLower": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toLower`. got=%d, want=1", len(args))
+				}
+
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `toLower` must be a string, got %s", args[0].Type())
+				}
+
+				return &String{Value: strings.ToLower(str.Value)}
+			},
+		},
+	}
+} // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
 	switch stmt := stmt.(type) {
 	case *ast.ExpressionStatement:
@@ -493,6 +519,9 @@ func Eval(node ast.Node, env *Environment) Object {
 			return args[0]
 		}
 		return applyFunction(function, args)
+
+	case *ast.ForExpression:
+		return evalForExpression(node, env)
 	}
 
 	return newError("unknown node type: %T", node)
@@ -808,6 +837,96 @@ func unwrapReturnValue(obj Object) Object {
 		return returnValue.Value
 	}
 	return obj
+}
+
+// evalForExpression evaluates for expressions
+func evalForExpression(node *ast.ForExpression, env *Environment) Object {
+	// Evaluate the array expression
+	arrayObj := Eval(node.Array, env)
+	if isError(arrayObj) {
+		return arrayObj
+	}
+
+	// Convert to array (handle strings as rune arrays)
+	var elements []Object
+	switch arr := arrayObj.(type) {
+	case *Array:
+		elements = arr.Elements
+	case *String:
+		// Convert string to array of single-character strings
+		runes := []rune(arr.Value)
+		elements = make([]Object, len(runes))
+		for i, r := range runes {
+			elements[i] = &String{Value: string(r)}
+		}
+	default:
+		return newError("for expects an array or string, got %s", arrayObj.Type())
+	}
+
+	// Determine which function to use
+	var fn Object
+	if node.Function != nil {
+		// Simple form: for(array) func
+		fn = Eval(node.Function, env)
+		if isError(fn) {
+			return fn
+		}
+		// Accept both functions and builtins
+		switch fn.(type) {
+		case *Function, *Builtin:
+			// OK
+		default:
+			return newError("for expects a function or builtin, got %s", fn.Type())
+		}
+	} else if node.Body != nil {
+		// 'in' form: for(var in array) body
+		// node.Body is already a FunctionLiteral with the variable as parameter
+		fn = &Function{
+			Parameters: node.Body.(*ast.FunctionLiteral).Parameters,
+			Body:       node.Body.(*ast.FunctionLiteral).Body,
+			Env:        env,
+		}
+	} else {
+		return newError("for expression missing function or body")
+	}
+
+	// Map function over array elements
+	result := []Object{}
+	for _, elem := range elements {
+		var evaluated Object
+
+		switch f := fn.(type) {
+		case *Builtin:
+			// Call builtin with single element
+			evaluated = f.Fn(elem)
+		case *Function:
+			// Call user function
+			if len(f.Parameters) != 1 {
+				return newError("function passed to for must take exactly 1 parameter, got %d", len(f.Parameters))
+			}
+
+			extendedEnv := NewEnclosedEnvironment(f.Env)
+			extendedEnv.Set(f.Parameters[0].Value, elem)
+
+			for _, stmt := range f.Body.Statements {
+				evaluated = evalStatement(stmt, extendedEnv)
+				if returnValue, ok := evaluated.(*ReturnValue); ok {
+					evaluated = returnValue.Value
+					break
+				}
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+		}
+
+		// Skip null values (filter behavior)
+		if evaluated != NULL {
+			result = append(result, evaluated)
+		}
+	}
+
+	return &Array{Elements: result}
 }
 
 func newError(format string, a ...interface{}) *Error {

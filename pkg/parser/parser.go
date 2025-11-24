@@ -79,6 +79,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(lexer.FOR, p.parseForExpression)
 
 	// Initialize infix parse functions
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
@@ -463,6 +464,64 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	}
 
 	return identifiers
+}
+
+// parseForExpression parses for expressions
+// Two forms: for(array) func  OR  for(var in array) body
+func (p *Parser) parseForExpression() ast.Expression {
+	expression := &ast.ForExpression{Token: p.curToken}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	p.nextToken()
+
+	// Check if this is the "for(var in array)" form
+	// We need to peek ahead to see if there's an IN token
+	if p.peekTokenIs(lexer.IN) {
+		// Parse: for(var in array) body
+		if p.curToken.Type != lexer.IDENT {
+			p.peekError(lexer.IDENT)
+			return nil
+		}
+		expression.Variable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+		p.nextToken() // move to IN
+		p.nextToken() // move past IN to array expression
+
+		expression.Array = p.parseExpression(LOWEST)
+
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+
+		// Parse body - must be a block expression
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+
+		// Create a function literal for the body
+		bodyFn := &ast.FunctionLiteral{
+			Token:      p.curToken,
+			Parameters: []*ast.Identifier{expression.Variable},
+			Body:       p.parseBlockStatement(),
+		}
+		expression.Body = bodyFn
+	} else {
+		// Parse: for(array) func
+		expression.Array = p.parseExpression(LOWEST)
+
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+
+		p.nextToken() // move past RPAREN to function
+
+		expression.Function = p.parseExpression(LOWEST)
+	}
+
+	return expression
 }
 
 func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {

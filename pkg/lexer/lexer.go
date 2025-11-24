@@ -47,6 +47,8 @@ const (
 	// Keywords
 	FUNCTION // "fn"
 	LET      // "let"
+	FOR      // "for"
+	IN       // "in"
 	TRUE     // "true"
 	FALSE    // "false"
 	IF       // "if"
@@ -128,6 +130,10 @@ func (tt TokenType) String() string {
 		return "FUNCTION"
 	case LET:
 		return "LET"
+	case FOR:
+		return "FOR"
+	case IN:
+		return "IN"
 	case TRUE:
 		return "TRUE"
 	case FALSE:
@@ -149,6 +155,8 @@ func (tt TokenType) String() string {
 var keywords = map[string]TokenType{
 	"fn":     FUNCTION,
 	"let":    LET,
+	"for":    FOR,
+	"in":     IN,
 	"true":   TRUE,
 	"false":  FALSE,
 	"if":     IF,
