@@ -304,7 +304,7 @@ func (l *Lexer) readNumber() string {
 	for isDigit(l.ch) {
 		l.readChar()
 	}
-	
+
 	// Check for decimal point
 	if l.ch == '.' && isDigit(l.peekChar()) {
 		l.readChar() // consume the '.'
@@ -312,7 +312,7 @@ func (l *Lexer) readNumber() string {
 			l.readChar()
 		}
 	}
-	
+
 	return l.input[position:l.position]
 }
 

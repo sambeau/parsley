@@ -244,8 +244,8 @@ func (oe *InfixExpression) String() string {
 type IfExpression struct {
 	Token       lexer.Token // the 'if' token
 	Condition   Expression
-	Consequence Expression  // Changed from *BlockStatement to Expression
-	Alternative Expression  // Changed from *BlockStatement to Expression (can be nil)
+	Consequence Expression // Changed from *BlockStatement to Expression
+	Alternative Expression // Changed from *BlockStatement to Expression (can be nil)
 }
 
 func (ie *IfExpression) expressionNode()      {}
