@@ -26,6 +26,8 @@ var precedences = map[lexer.TokenType]int{
 	lexer.NOT_EQ:   EQUALS,
 	lexer.LT:       LESSGREATER,
 	lexer.GT:       LESSGREATER,
+	lexer.LTE:      LESSGREATER,
+	lexer.GTE:      LESSGREATER,
 	lexer.PLUS:     SUM,
 	lexer.MINUS:    SUM,
 	lexer.SLASH:    PRODUCT,
@@ -82,6 +84,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.NOT_EQ, p.parseInfixExpression)
 	p.registerInfix(lexer.LT, p.parseInfixExpression)
 	p.registerInfix(lexer.GT, p.parseInfixExpression)
+	p.registerInfix(lexer.LTE, p.parseInfixExpression)
+	p.registerInfix(lexer.GTE, p.parseInfixExpression)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
@@ -329,24 +333,62 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 func (p *Parser) parseIfExpression() ast.Expression {
 	expression := &ast.IfExpression{Token: p.curToken}
 
-	// Move to the condition
-	p.nextToken()
-	expression.Condition = p.parseExpression(LOWEST)
-
-	// Expect 'then' keyword
-	if !p.expectPeek(lexer.THEN) {
+	if !p.expectPeek(lexer.LPAREN) {
 		return nil
 	}
 
-	// Move to the consequence expression
 	p.nextToken()
-	expression.Consequence = p.parseExpression(LOWEST)
+	expression.Condition = p.parseExpression(LOWEST)
 
-	// Check for optional 'else' clause
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	// Check for 'then' keyword
+	hasThen := p.peekTokenIs(lexer.THEN)
+	if hasThen {
+		p.nextToken() // consume 'then'
+		p.nextToken() // move to the statement/expression
+		
+		// Parse a single statement as consequence (allows 'return' statements)
+		stmt := p.parseStatement()
+		expression.Consequence = &ast.BlockStatement{
+			Token:      p.curToken,
+			Statements: []ast.Statement{stmt},
+		}
+	} else if p.peekTokenIs(lexer.LBRACE) {
+		// Block form: if (...) { ... }
+		p.nextToken()
+		expression.Consequence = p.parseBlockStatement()
+	} else {
+		// Expression form: if (...) expr
+		p.nextToken()
+		stmt := &ast.ExpressionStatement{Token: p.curToken}
+		stmt.Expression = p.parseExpression(LOWEST)
+		expression.Consequence = &ast.BlockStatement{
+			Token:      p.curToken,
+			Statements: []ast.Statement{stmt},
+		}
+	}
+
+	// Optional else clause
 	if p.peekTokenIs(lexer.ELSE) {
-		p.nextToken() // move to 'else'
-		p.nextToken() // move to alternative expression
-		expression.Alternative = p.parseExpression(LOWEST)
+		p.nextToken()
+
+		// Check if alternative is a block statement or single expression
+		if p.peekTokenIs(lexer.LBRACE) {
+			p.nextToken()
+			expression.Alternative = p.parseBlockStatement()
+		} else {
+			// Parse single expression as alternative
+			p.nextToken()
+			stmt := &ast.ExpressionStatement{Token: p.curToken}
+			stmt.Expression = p.parseExpression(LOWEST)
+			expression.Alternative = &ast.BlockStatement{
+				Token:      p.curToken,
+				Statements: []ast.Statement{stmt},
+			}
+		}
 	}
 
 	return expression

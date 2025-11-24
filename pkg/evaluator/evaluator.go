@@ -518,6 +518,10 @@ func evalIntegerInfixExpression(operator string, left, right Object) Object {
 		return nativeBoolToParsBoolean(leftVal < rightVal)
 	case ">":
 		return nativeBoolToParsBoolean(leftVal > rightVal)
+	case "<=":
+		return nativeBoolToParsBoolean(leftVal <= rightVal)
+	case ">=":
+		return nativeBoolToParsBoolean(leftVal >= rightVal)
 	case "==":
 		return nativeBoolToParsBoolean(leftVal == rightVal)
 	case "!=":
@@ -544,6 +548,10 @@ func evalFloatInfixExpression(operator string, left, right Object) Object {
 		return nativeBoolToParsBoolean(leftVal < rightVal)
 	case ">":
 		return nativeBoolToParsBoolean(leftVal > rightVal)
+	case "<=":
+		return nativeBoolToParsBoolean(leftVal <= rightVal)
+	case ">=":
+		return nativeBoolToParsBoolean(leftVal >= rightVal)
 	case "==":
 		return nativeBoolToParsBoolean(leftVal == rightVal)
 	case "!=":
@@ -588,6 +596,10 @@ func evalMixedInfixExpression(operator string, left, right Object) Object {
 		return nativeBoolToParsBoolean(leftVal < rightVal)
 	case ">":
 		return nativeBoolToParsBoolean(leftVal > rightVal)
+	case "<=":
+		return nativeBoolToParsBoolean(leftVal <= rightVal)
+	case ">=":
+		return nativeBoolToParsBoolean(leftVal >= rightVal)
 	case "==":
 		return nativeBoolToParsBoolean(leftVal == rightVal)
 	case "!=":

@@ -29,6 +29,8 @@ const (
 	SLASH    // /
 	LT       // <
 	GT       // >
+	LTE      // <=
+	GTE      // >=
 	EQ       // ==
 	NOT_EQ   // !=
 
@@ -96,6 +98,10 @@ func (tt TokenType) String() string {
 		return "LT"
 	case GT:
 		return "GT"
+	case LTE:
+		return "LTE"
+	case GTE:
+		return "GTE"
 	case EQ:
 		return "EQ"
 	case NOT_EQ:
@@ -232,9 +238,21 @@ func (l *Lexer) NextToken() Token {
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
 	case '<':
-		tok = newToken(LT, l.ch, l.line, l.column)
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: LTE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(LT, l.ch, l.line, l.column)
+		}
 	case '>':
-		tok = newToken(GT, l.ch, l.line, l.column)
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: GTE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(GT, l.ch, l.line, l.column)
+		}
 	case ';':
 		tok = newToken(SEMICOLON, l.ch, l.line, l.column)
 	case ',':
@@ -292,7 +310,7 @@ func newToken(tokenType TokenType, ch byte, line, column int) Token {
 // readIdentifier reads an identifier or keyword
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) || isDigit(l.ch) {
+	for isLetter(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
@@ -304,7 +322,7 @@ func (l *Lexer) readNumber() string {
 	for isDigit(l.ch) {
 		l.readChar()
 	}
-
+	
 	// Check for decimal point
 	if l.ch == '.' && isDigit(l.peekChar()) {
 		l.readChar() // consume the '.'
@@ -312,7 +330,7 @@ func (l *Lexer) readNumber() string {
 			l.readChar()
 		}
 	}
-
+	
 	return l.input[position:l.position]
 }
 

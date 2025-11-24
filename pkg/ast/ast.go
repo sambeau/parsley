@@ -240,12 +240,12 @@ func (oe *InfixExpression) String() string {
 	return out.String()
 }
 
-// IfExpression represents if expressions (ternary-style: if cond then expr else expr)
+// IfExpression represents if expressions
 type IfExpression struct {
 	Token       lexer.Token // the 'if' token
 	Condition   Expression
-	Consequence Expression // Changed from *BlockStatement to Expression
-	Alternative Expression // Changed from *BlockStatement to Expression (can be nil)
+	Consequence *BlockStatement
+	Alternative *BlockStatement
 }
 
 func (ie *IfExpression) expressionNode()      {}
@@ -253,13 +253,13 @@ func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *IfExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("if ")
+	out.WriteString("if")
 	out.WriteString(ie.Condition.String())
-	out.WriteString(" then ")
+	out.WriteString(" ")
 	out.WriteString(ie.Consequence.String())
 
 	if ie.Alternative != nil {
-		out.WriteString(" else ")
+		out.WriteString("else ")
 		out.WriteString(ie.Alternative.String())
 	}
 
