@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"pars/pkg/ast"
+	"pars/pkg/lexer"
+	"pars/pkg/parser"
 )
 
 // ObjectType represents the type of objects in our language
@@ -486,6 +488,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.StringLiteral:
 		return &String{Value: node.Value}
 
+	case *ast.TemplateLiteral:
+		return evalTemplateLiteral(node, env)
+
 	case *ast.Boolean:
 		return nativeBoolToParsBoolean(node.Value)
 
@@ -660,6 +665,9 @@ func evalInfixExpression(operator string, left, right Object) Object {
 		return nativeBoolToParsBoolean(isTruthy(left) || isTruthy(right))
 	case operator == "++":
 		return evalConcatExpression(left, right)
+	case operator == "+" && (left.Type() == STRING_OBJ || right.Type() == STRING_OBJ):
+		// String concatenation with automatic type conversion
+		return evalStringConcatExpression(left, right)
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
 		return evalIntegerInfixExpression(operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
@@ -803,6 +811,13 @@ func evalStringInfixExpression(operator string, left, right Object) Object {
 	default:
 		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	}
+}
+
+// evalStringConcatExpression handles string concatenation with automatic type conversion
+func evalStringConcatExpression(left, right Object) Object {
+	leftStr := objectToTemplateString(left)
+	rightStr := objectToTemplateString(right)
+	return &String{Value: leftStr + rightStr}
 }
 
 func evalIfExpression(ie *ast.IfExpression, env *Environment) Object {
@@ -988,6 +1003,106 @@ func isError(obj Object) bool {
 		return obj.Type() == ERROR_OBJ
 	}
 	return false
+}
+
+// evalTemplateLiteral evaluates a template literal with interpolation
+func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
+	template := node.Value
+	var result strings.Builder
+	
+	i := 0
+	for i < len(template) {
+		// Check for escaped dollar sign marker \0$
+		if i < len(template)-2 && template[i] == '\\' && template[i+1] == '0' && template[i+2] == '$' {
+			result.WriteByte('$')
+			i += 3
+			continue
+		}
+		
+		// Look for ${
+		if i < len(template)-1 && template[i] == '$' && template[i+1] == '{' {
+			// Find the closing }
+			i += 2 // skip ${
+			braceCount := 1
+			exprStart := i
+			
+			for i < len(template) && braceCount > 0 {
+				if template[i] == '{' {
+					braceCount++
+				} else if template[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+			
+			if braceCount != 0 {
+				return newError("unclosed ${ in template literal")
+			}
+			
+			// Extract and evaluate the expression
+			exprStr := template[exprStart:i]
+			i++ // skip closing }
+			
+			// Parse and evaluate the expression
+			l := lexer.New(exprStr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			
+			if len(p.Errors()) > 0 {
+				return newError("error parsing template expression: %s", p.Errors()[0])
+			}
+			
+			// Evaluate the expression
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+			
+			// Convert result to string
+			if evaluated != nil {
+				result.WriteString(objectToTemplateString(evaluated))
+			}
+		} else {
+			// Regular character
+			result.WriteByte(template[i])
+			i++
+		}
+	}
+	
+	return &String{Value: result.String()}
+}
+
+// objectToTemplateString converts an object to its string representation for template interpolation
+func objectToTemplateString(obj Object) string {
+	switch obj := obj.(type) {
+	case *Integer:
+		return fmt.Sprintf("%d", obj.Value)
+	case *Float:
+		return fmt.Sprintf("%g", obj.Value)
+	case *Boolean:
+		if obj.Value {
+			return "true"
+		}
+		return "false"
+	case *String:
+		return obj.Value
+	case *Array:
+		// Arrays are printed without commas in templates
+		var result strings.Builder
+		for _, elem := range obj.Elements {
+			result.WriteString(objectToTemplateString(elem))
+		}
+		return result.String()
+	case *Null:
+		return ""
+	default:
+		return obj.Inspect()
+	}
 }
 
 // evalConcatExpression handles the ++ operator for array concatenation

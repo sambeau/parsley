@@ -188,6 +188,16 @@ func (sl *StringLiteral) expressionNode()      {}
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
+// TemplateLiteral represents template literals with interpolation
+type TemplateLiteral struct {
+	Token lexer.Token // the lexer.TEMPLATE token
+	Value string      // the raw template string
+}
+
+func (tl *TemplateLiteral) expressionNode()      {}
+func (tl *TemplateLiteral) TokenLiteral() string { return tl.Token.Literal }
+func (tl *TemplateLiteral) String() string       { return "`" + tl.Value + "`" }
+
 // Boolean represents boolean literals
 type Boolean struct {
 	Token lexer.Token // the lexer.TRUE or lexer.FALSE token

@@ -15,10 +15,11 @@ const (
 	EOF
 
 	// Identifiers and literals
-	IDENT  // add, foobar, x, y, ...
-	INT    // 1343456
-	FLOAT  // 3.14159
-	STRING // "foobar"
+	IDENT    // add, foobar, x, y, ...
+	INT      // 1343456
+	FLOAT    // 3.14159
+	STRING   // "foobar"
+	TEMPLATE // `template ${expr}`
 
 	// Operators
 	ASSIGN   // =
@@ -90,6 +91,8 @@ func (tt TokenType) String() string {
 		return "FLOAT"
 	case STRING:
 		return "STRING"
+	case TEMPLATE:
+		return "TEMPLATE"
 	case ASSIGN:
 		return "ASSIGN"
 	case PLUS:
@@ -315,6 +318,11 @@ func (l *Lexer) NextToken() Token {
 		tok.Literal = l.readString()
 		tok.Line = l.line
 		tok.Column = l.column
+	case '`':
+		tok.Type = TEMPLATE
+		tok.Literal = l.readTemplate()
+		tok.Line = l.line
+		tok.Column = l.column
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
@@ -379,16 +387,63 @@ func (l *Lexer) readNumber() string {
 	return l.input[position:l.position]
 }
 
-// readString reads a string literal
+// readString reads a string literal with escape sequence support
 func (l *Lexer) readString() string {
-	position := l.position + 1
-	for {
-		l.readChar()
-		if l.ch == '"' || l.ch == 0 {
-			break
+	var result []byte
+	l.readChar() // skip opening quote
+	
+	for l.ch != '"' && l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar() // consume backslash
+			switch l.ch {
+			case 'n':
+				result = append(result, '\n')
+			case 't':
+				result = append(result, '\t')
+			case '\\':
+				result = append(result, '\\')
+			case '"':
+				result = append(result, '"')
+			default:
+				// Unknown escape, keep as-is
+				result = append(result, '\\')
+				result = append(result, l.ch)
+			}
+		} else {
+			result = append(result, l.ch)
 		}
+		l.readChar()
 	}
-	return l.input[position:l.position]
+	
+	return string(result)
+}
+
+// readTemplate reads a template literal (backtick string)
+func (l *Lexer) readTemplate() string {
+	var result []byte
+	l.readChar() // skip opening backtick
+	
+	for l.ch != '`' && l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar() // consume backslash
+			switch l.ch {
+			case '`':
+				result = append(result, '`')
+			case '$':
+				// Use a special marker that evaluator won't interpret
+				result = append(result, '\\', '0', '$') // \0$ as escape marker
+			default:
+				// Unknown escape, keep as-is
+				result = append(result, '\\')
+				result = append(result, l.ch)
+			}
+		} else {
+			result = append(result, l.ch)
+		}
+		l.readChar()
+	}
+	
+	return string(result)
 }
 
 // skipWhitespace skips whitespace characters

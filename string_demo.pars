@@ -1,0 +1,33 @@
+a = 5
+b = 10
+
+"Regular string concatenation: " + (a + b)
+
+"String with newline:\nLine 2"
+
+"String with\ttabs"
+
+`Basic template: Sam was here!`
+
+`Template with number: ${42}`
+
+`Template with boolean: ${true}`
+
+`Template with expression: ${a + b}`
+
+a = 5
+b = 10
+`Fifteen is ${a + b} and
+not ${2 * a + b}.`
+
+`Array without commas: ${"Sam","was","here!"}`
+
+`String concat: ${"Hello" + " " + "World"}`
+
+`Escaped backtick: \``
+
+`Escaped dollar: \${not interpolated}`
+
+name = "Pars"
+version = "0.1.0"
+`Welcome to ${name} v${version}!`
