@@ -1,11 +1,21 @@
-// Comment in here
+//// Comment in here
+//
+//numbers = "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"
+//phone = "07595954919"
+//main = fn(){
+//	for (x in phone) {
+//		numbers[toNumber(x)]
+//	}
+//}
+//
+//main()
+//
 
-numbers = "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"
-phone = "07595954919"
-main = fn(){
-	for (x in phone) {
-		numbers[toNumber(x)]
-	}
+xs = [[1,2,3],[4,5,6]]
+
+zs = for(ys in xs){
+	`<div>`,
+	for (y in ys){
+		`<p>${y}</p>`
+	},`</div>`
 }
-
-main()

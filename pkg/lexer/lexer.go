@@ -476,7 +476,7 @@ func (l *Lexer) skipComment() {
 	// Skip the two slashes
 	l.readChar()
 	l.readChar()
-	
+
 	// Read until end of line or EOF
 	for l.ch != '\n' && l.ch != 0 {
 		l.readChar()

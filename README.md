@@ -9,8 +9,10 @@ A Go-based toy concatenative programming language interpreter.
 - Direct variable assignment (e.g., `x = 5`)
 - Functions with `fn`
 - If-then-else expressions (ternary-style conditionals)
-- Arrays with comma separator
+- Arrays with comma separator or square bracket notation `[...]`
+- Multi-dimensional arrays (arrays containing arrays)
 - Array indexing and slicing with `[]`
+- Chained indexing for nested arrays (e.g., `arr[0][1][2]`)
 - Array concatenation with `++`
 - String indexing and slicing
 - String concatenation with `+`
@@ -18,15 +20,21 @@ A Go-based toy concatenative programming language interpreter.
 - Template literals with `${}` interpolation
 - Integer and floating-point arithmetic
 - Boolean logic
+- Single-line comments with `//`
 
 ### Data Types
 - **Integers:** `42`, `-15`
 - **Floats:** `3.14159`, `2.718`
 - **Strings:** `"hello world"`
 - **Booleans:** `true`, `false`
-- **Arrays:** `1,2,3`, `"Sam","Phillips"`, mixed types allowed
+- **Arrays:** `1,2,3`, `[1,2,3]`, `[[1,2],[3,4]]`, mixed types allowed
 
 ### Built-in Functions
+
+- **Type Conversion Functions:**
+  - `toInt(str)` - Convert string to integer
+  - `toFloat(str)` - Convert string to float
+  - `toNumber(str)` - Convert string to integer or float (auto-detects)
 
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
@@ -187,16 +195,46 @@ If-then-else expressions work like ternary operators and can be used anywhere an
 
 ### Arrays
 
-Arrays are created by separating values with commas:
+Arrays can be created using comma notation or square bracket notation:
 
 ```
 >> xs = 1,2,3
+1, 2, 3
+>> ys = [1,2,3]
 1, 2, 3
 >> names = "Sam","Phillips"
 Sam, Phillips
 >> mixed = 1,"two",3.0,true
 1, two, 3, true
 ```
+
+#### Multi-dimensional Arrays
+
+Use square brackets `[...]` to create nested arrays:
+
+```
+>> matrix = [[1,2,3],[4,5,6],[7,8,9]]
+1, 2, 3, 4, 5, 6, 7, 8, 9
+>> matrix[0]
+1, 2, 3
+>> matrix[1][2]
+6
+>> tensor = [[[1,2],[3,4]],[[5,6],[7,8]]]
+1, 2, 3, 4, 5, 6, 7, 8
+>> tensor[1][0][1]
+7
+```
+
+Empty arrays and nested empty arrays are supported:
+
+```
+>> []
+
+>> [[]]
+
+```
+
+See [MULTIDIM_ARRAYS.md](MULTIDIM_ARRAYS.md) for more examples.
 
 #### Array Indexing
 
@@ -418,6 +456,32 @@ String concatenation with automatic type conversion:
 Count: 42
 >> "Result: " + (5 + 3)
 Result: 8
+```
+
+### Type Conversions
+
+Convert strings to numbers:
+
+```
+>> toInt("42")
+42
+>> toFloat("3.14")
+3.14
+>> toNumber("42")
+42
+>> toNumber("3.14")
+3.14
+```
+
+The `toNumber()` function automatically detects whether to return an integer or float based on the string content (presence of decimal point).
+
+### Comments
+
+Single-line comments start with `//`:
+
+```pars
+// This is a comment
+let x = 5  // Inline comment
 ```
 
 ### Array Operations with map

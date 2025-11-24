@@ -82,6 +82,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
 	p.registerPrefix(lexer.FALSE, p.parseBoolean)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
+	p.registerPrefix(lexer.LBRACKET, p.parseSquareBracketArrayLiteral)
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.FOR, p.parseForExpression)
@@ -349,6 +350,34 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 	}
 
 	return exp
+}
+
+func (p *Parser) parseSquareBracketArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{Token: p.curToken}
+	array.Elements = []ast.Expression{}
+
+	// Check for empty array []
+	if p.peekTokenIs(lexer.RBRACKET) {
+		p.nextToken()
+		return array
+	}
+
+	// Parse first element - use COMMA_PREC to prevent comma from being treated as infix
+	p.nextToken()
+	array.Elements = append(array.Elements, p.parseExpression(COMMA_PREC))
+
+	// Parse remaining elements separated by commas
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume current element
+		p.nextToken() // consume comma
+		array.Elements = append(array.Elements, p.parseExpression(COMMA_PREC))
+	}
+
+	if !p.expectPeek(lexer.RBRACKET) {
+		return nil
+	}
+
+	return array
 }
 
 func (p *Parser) parseIfExpression() ast.Expression {
