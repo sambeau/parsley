@@ -349,7 +349,7 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	if hasThen {
 		p.nextToken() // consume 'then'
 		p.nextToken() // move to the statement/expression
-		
+
 		// Parse a single statement as consequence (allows 'return' statements)
 		stmt := p.parseStatement()
 		expression.Consequence = &ast.BlockStatement{

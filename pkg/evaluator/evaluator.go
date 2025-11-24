@@ -153,7 +153,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -170,7 +170,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -187,7 +187,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -204,7 +204,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -221,7 +221,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -238,7 +238,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -255,7 +255,7 @@ var builtins = map[string]*Builtin{
 			if len(args) != 1 {
 				return newError("wrong number of arguments. got=%d, want=1", len(args))
 			}
-			
+
 			arg := args[0]
 			switch arg := arg.(type) {
 			case *Integer:
@@ -272,12 +272,12 @@ var builtins = map[string]*Builtin{
 			if len(args) != 2 {
 				return newError("wrong number of arguments. got=%d, want=2", len(args))
 			}
-			
+
 			base := args[0]
 			exp := args[1]
-			
+
 			var baseVal, expVal float64
-			
+
 			switch base := base.(type) {
 			case *Integer:
 				baseVal = float64(base.Value)
@@ -286,7 +286,7 @@ var builtins = map[string]*Builtin{
 			default:
 				return newError("first argument to `pow` not supported, got %T", base)
 			}
-			
+
 			switch exp := exp.(type) {
 			case *Integer:
 				expVal = float64(exp.Value)
@@ -295,7 +295,7 @@ var builtins = map[string]*Builtin{
 			default:
 				return newError("second argument to `pow` not supported, got %T", exp)
 			}
-			
+
 			return &Float{Value: math.Pow(baseVal, expVal)}
 		},
 	},
@@ -563,7 +563,7 @@ func evalFloatInfixExpression(operator string, left, right Object) Object {
 
 func evalMixedInfixExpression(operator string, left, right Object) Object {
 	var leftVal, rightVal float64
-	
+
 	// Convert both operands to float64
 	switch left := left.(type) {
 	case *Integer:
@@ -573,7 +573,7 @@ func evalMixedInfixExpression(operator string, left, right Object) Object {
 	default:
 		return newError("unsupported type for mixed arithmetic: %T", left)
 	}
-	
+
 	switch right := right.(type) {
 	case *Integer:
 		rightVal = float64(right.Value)
