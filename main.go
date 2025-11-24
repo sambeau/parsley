@@ -16,13 +16,13 @@ func main() {
 	// Check if a filename argument was provided
 	if len(os.Args) > 1 {
 		arg := os.Args[1]
-		
+
 		// Check for version flag
 		if arg == "-V" || arg == "--version" {
 			fmt.Printf("pars version %s\n", VERSION)
 			os.Exit(0)
 		}
-		
+
 		// File execution mode
 		executeFile(arg)
 	} else {
@@ -57,7 +57,7 @@ func executeFile(filename string) {
 	// Evaluate the program
 	env := evaluator.NewEnvironment()
 	evaluated := evaluator.Eval(program, env)
-	
+
 	// Print result if not nil
 	if evaluated != nil {
 		fmt.Println(evaluated.Inspect())
