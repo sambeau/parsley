@@ -9,6 +9,7 @@ A Go-based programming language interpreter with comprehensive mathematical and 
 - Direct variable assignment (e.g., `x = 5`)
 - Functions with `fn`
 - If-then-else expressions (ternary-style conditionals)
+- Arrays with comma separator
 - Integer and floating-point arithmetic
 - String operations
 - Boolean logic
@@ -27,11 +28,21 @@ A Go-based programming language interpreter with comprehensive mathematical and 
   - `pow(base, exp)` - Power function
   - `pi()` - Returns the value of π
 
+- **String Functions:**
+  - `toUpper(str)` - Convert string to uppercase
+  - `toLower(str)` - Convert string to lowercase
+
+- **Array Functions:**
+  - `map(func, elements...)` - Apply function to each element, filter out nulls
+  - `for(array) func` - Sugar syntax for map with function
+  - `for(var in array) { body }` - Sugar syntax for map with inline function
+
 ### Data Types
 - **Integers:** `42`, `-15`
 - **Floats:** `3.14159`, `2.718`
 - **Strings:** `"hello world"`
 - **Booleans:** `true`, `false`
+- **Arrays:** `1,2,3`, `"Sam","Phillips"`, mixed types allowed
 
 ## Getting Started
 
@@ -148,6 +159,71 @@ big
 ```
 
 If-then-else expressions work like ternary operators and can be used anywhere an expression is expected. The `else` clause is optional - if omitted and the condition is false, the expression evaluates to `null`.
+
+### Arrays
+
+Arrays are created by separating values with commas:
+
+```
+>> xs = 1,2,3
+1, 2, 3
+>> names = "Sam","Phillips"
+Sam, Phillips
+>> mixed = 1,"two",3.0,true
+1, two, 3, true
+```
+
+### Array Operations with map
+
+The `map` function applies a function to each element of an array, filtering out null values:
+
+```
+>> double = fn(x) { x * 2 }
+>> map(double, 1,2,3)
+2, 4, 6
+>> square = fn(x) { x * x }
+>> nums = 2,3,4
+>> map(square, nums)
+4, 9, 16
+```
+
+Filtering with map (null values are skipped):
+
+```
+>> gt10 = fn(x) { if (x > 10) then x }
+>> map(gt10, 5,15,25,8,3,12)
+15, 25, 12
+```
+
+### For Loop Sugar Syntax
+
+Simple form - apply function to array:
+
+```
+>> double = fn(x) { x * 2 }
+>> for(1,2,3) double
+2, 4, 6
+```
+
+For-in form - inline function body:
+
+```
+>> for(x in 1,2,3) { x * 2 }
+2, 4, 6
+>> for(x in 5,15,25) { if (x > 10) then x }
+15, 25
+```
+
+Strings are automatically converted to arrays of characters:
+
+```
+>> for("Sam") toUpper
+S, A, M
+>> for("Sam","Phillips") toUpper
+SAM, PHILLIPS
+>> for(name in "SAM","PHILLIPS") { toLower(name) }
+sam, phillips
+```
 
 ### Functions
 ```
