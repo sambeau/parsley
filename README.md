@@ -909,6 +909,18 @@ Filtering with map (null values are skipped):
 15, 25, 12
 ```
 
+Using `for` as a filter by omitting return values:
+
+```
+>> for(x in 5,15,25,8,3,12) { if (x > 10) { x } }
+15, 25, 12
+>> numbers = 1,2,3,4,5,6,7,8,9,10
+>> for(n in numbers) { if (n % 2 == 0) { n } }
+2, 4, 6, 8, 10
+```
+
+When an if statement has no else clause and the condition is false, it returns `null`. Since `for` loops filter out `null` values, this provides a concise way to filter arrays.
+
 ### toString() Function
 
 The `toString()` function converts values to strings and joins them without any whitespace:
