@@ -18,16 +18,17 @@ import (
 type ObjectType string
 
 const (
-	INTEGER_OBJ  = "INTEGER"
-	FLOAT_OBJ    = "FLOAT"
-	BOOLEAN_OBJ  = "BOOLEAN"
-	STRING_OBJ   = "STRING"
-	NULL_OBJ     = "NULL"
-	RETURN_OBJ   = "RETURN_VALUE"
-	ERROR_OBJ    = "ERROR"
-	FUNCTION_OBJ = "FUNCTION"
-	BUILTIN_OBJ  = "BUILTIN"
-	ARRAY_OBJ    = "ARRAY"
+	INTEGER_OBJ    = "INTEGER"
+	FLOAT_OBJ      = "FLOAT"
+	BOOLEAN_OBJ    = "BOOLEAN"
+	STRING_OBJ     = "STRING"
+	NULL_OBJ       = "NULL"
+	RETURN_OBJ     = "RETURN_VALUE"
+	ERROR_OBJ      = "ERROR"
+	FUNCTION_OBJ   = "FUNCTION"
+	BUILTIN_OBJ    = "BUILTIN"
+	ARRAY_OBJ      = "ARRAY"
+	DICTIONARY_OBJ = "DICTIONARY"
 )
 
 // Object represents all values in our language
@@ -130,6 +131,26 @@ func (a *Array) Inspect() string {
 		}
 	}
 	out.WriteString(strings.Join(elements, ", "))
+	return out.String()
+}
+
+// Dictionary represents dictionary objects with lazy evaluation
+type Dictionary struct {
+	Pairs map[string]ast.Expression // Store expressions for lazy evaluation
+	Env   *Environment              // Environment for evaluation (for 'this' binding)
+}
+
+func (d *Dictionary) Type() ObjectType { return DICTIONARY_OBJ }
+func (d *Dictionary) Inspect() string {
+	var out strings.Builder
+	pairs := []string{}
+	for key, expr := range d.Pairs {
+		// For inspection, we show the expression, not the evaluated value
+		pairs = append(pairs, fmt.Sprintf("%s: %s", key, expr.String()))
+	}
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
 	return out.String()
 }
 
@@ -843,6 +864,67 @@ func getBuiltins() map[string]*Builtin {
 				return &Array{Elements: sortedElements}
 			},
 		},
+		"keys": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `keys`. got=%d, want=1", len(args))
+				}
+
+				dict, ok := args[0].(*Dictionary)
+				if !ok {
+					return newError("argument to `keys` must be a dictionary, got %s", args[0].Type())
+				}
+
+				keys := make([]Object, 0, len(dict.Pairs))
+				for key := range dict.Pairs {
+					keys = append(keys, &String{Value: key})
+				}
+				return &Array{Elements: keys}
+			},
+		},
+		"values": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `values`. got=%d, want=1", len(args))
+				}
+
+				dict, ok := args[0].(*Dictionary)
+				if !ok {
+					return newError("argument to `values` must be a dictionary, got %s", args[0].Type())
+				}
+
+				// Create environment for evaluation with 'this'
+				dictEnv := NewEnclosedEnvironment(dict.Env)
+				dictEnv.Set("this", dict)
+
+				values := make([]Object, 0, len(dict.Pairs))
+				for _, expr := range dict.Pairs {
+					val := Eval(expr, dictEnv)
+					values = append(values, val)
+				}
+				return &Array{Elements: values}
+			},
+		},
+		"has": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 2 {
+					return newError("wrong number of arguments to `has`. got=%d, want=2", len(args))
+				}
+
+				dict, ok := args[0].(*Dictionary)
+				if !ok {
+					return newError("first argument to `has` must be a dictionary, got %s", args[0].Type())
+				}
+
+				key, ok := args[1].(*String)
+				if !ok {
+					return newError("second argument to `has` must be a string, got %s", args[1].Type())
+				}
+
+				_, exists := dict.Pairs[key.Value]
+				return nativeBoolToParsBoolean(exists)
+			},
+		},
 	}
 } // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
@@ -968,6 +1050,15 @@ func Eval(node ast.Node, env *Environment) Object {
 			return elements[0]
 		}
 		return &Array{Elements: elements}
+
+	case *ast.DictionaryLiteral:
+		return evalDictionaryLiteral(node, env)
+
+	case *ast.DotExpression:
+		return evalDotExpression(node, env)
+
+	case *ast.DeleteStatement:
+		return evalDeleteStatement(node, env)
 
 	case *ast.CallExpression:
 		// Store current token in environment for logLine
@@ -1777,6 +1868,8 @@ func evalIndexExpression(left, index Object) Object {
 		return evalArrayIndexExpression(left, index)
 	case left.Type() == STRING_OBJ && index.Type() == INTEGER_OBJ:
 		return evalStringIndexExpression(left, index)
+	case left.Type() == DICTIONARY_OBJ && index.Type() == STRING_OBJ:
+		return evalDictionaryIndexExpression(left, index)
 	default:
 		return newError("index operator not supported: %s[%s]", left.Type(), index.Type())
 	}
@@ -1920,4 +2013,110 @@ func evalStringSliceExpression(str, start, end Object) Object {
 
 	// Create the slice
 	return &String{Value: stringObject.Value[startIdx:endIdx]}
+}
+
+// evalDictionaryLiteral evaluates dictionary literals
+func evalDictionaryLiteral(node *ast.DictionaryLiteral, env *Environment) Object {
+	dict := &Dictionary{
+		Pairs: node.Pairs,
+		Env:   env,
+	}
+	return dict
+}
+
+// evalDotExpression evaluates dot notation access (dict.key)
+func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
+	left := Eval(node.Left, env)
+	if isError(left) {
+		return left
+	}
+
+	dict, ok := left.(*Dictionary)
+	if !ok {
+		return newError("dot notation can only be used on dictionaries, got %s", left.Type())
+	}
+
+	// Get the expression from the dictionary
+	expr, ok := dict.Pairs[node.Key]
+	if !ok {
+		return NULL
+	}
+
+	// Create a new environment with 'this' bound to the dictionary
+	dictEnv := NewEnclosedEnvironment(dict.Env)
+	dictEnv.Set("this", dict)
+
+	// Evaluate the expression in the dictionary's environment
+	return Eval(expr, dictEnv)
+}
+
+// evalDeleteStatement evaluates delete statements
+func evalDeleteStatement(node *ast.DeleteStatement, env *Environment) Object {
+	// The target must be a dot expression or index expression
+	switch target := node.Target.(type) {
+	case *ast.DotExpression:
+		// Get the dictionary
+		left := Eval(target.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		dict, ok := left.(*Dictionary)
+		if !ok {
+			return newError("can only delete from dictionaries, got %s", left.Type())
+		}
+
+		// Delete the key
+		delete(dict.Pairs, target.Key)
+		return NULL
+
+	case *ast.IndexExpression:
+		// Get the dictionary
+		left := Eval(target.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		dict, ok := left.(*Dictionary)
+		if !ok {
+			return newError("can only delete from dictionaries, got %s", left.Type())
+		}
+
+		// Get the key
+		index := Eval(target.Index, env)
+		if isError(index) {
+			return index
+		}
+
+		keyStr, ok := index.(*String)
+		if !ok {
+			return newError("dictionary key must be a string, got %s", index.Type())
+		}
+
+		// Delete the key
+		delete(dict.Pairs, keyStr.Value)
+		return NULL
+
+	default:
+		return newError("invalid delete target")
+	}
+}
+
+// evalDictionaryIndexExpression handles dictionary access via dict["key"]
+func evalDictionaryIndexExpression(dict, index Object) Object {
+	dictObject := dict.(*Dictionary)
+	key := index.(*String).Value
+
+	// Get the expression from the dictionary
+	expr, ok := dictObject.Pairs[key]
+	if !ok {
+		return NULL
+	}
+
+	// Create a new environment with 'this' bound to the dictionary
+	dictEnv := NewEnclosedEnvironment(dictObject.Env)
+	dictEnv.Set("this", dictObject)
+
+	// Evaluate the expression in the dictionary's environment
+	return Eval(expr, dictEnv)
 }

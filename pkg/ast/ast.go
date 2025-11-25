@@ -450,3 +450,65 @@ func (se *SliceExpression) String() string {
 
 	return out.String()
 }
+
+// DictionaryLiteral represents dictionary literals like { key: value, ... }
+type DictionaryLiteral struct {
+	Token lexer.Token // the '{' token
+	Pairs map[string]Expression
+}
+
+func (dl *DictionaryLiteral) expressionNode()      {}
+func (dl *DictionaryLiteral) TokenLiteral() string { return dl.Token.Literal }
+func (dl *DictionaryLiteral) String() string {
+	var out bytes.Buffer
+
+	pairs := []string{}
+	for key, value := range dl.Pairs {
+		pairs = append(pairs, key+": "+value.String())
+	}
+
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+
+	return out.String()
+}
+
+// DotExpression represents dot notation access like dict.key
+type DotExpression struct {
+	Token lexer.Token // the '.' token
+	Left  Expression  // the object being accessed
+	Key   string      // the property name
+}
+
+func (de *DotExpression) expressionNode()      {}
+func (de *DotExpression) TokenLiteral() string { return de.Token.Literal }
+func (de *DotExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(de.Left.String())
+	out.WriteString(".")
+	out.WriteString(de.Key)
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// DeleteStatement represents delete dict.key or delete dict["key"]
+type DeleteStatement struct {
+	Token  lexer.Token // the 'delete' token
+	Target Expression  // the property access expression to delete
+}
+
+func (ds *DeleteStatement) statementNode()       {}
+func (ds *DeleteStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DeleteStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("delete ")
+	out.WriteString(ds.Target.String())
+	out.WriteString(";")
+
+	return out.String()
+}

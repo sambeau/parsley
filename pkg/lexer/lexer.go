@@ -42,6 +42,7 @@ const (
 	COMMA     // ,
 	SEMICOLON // ;
 	COLON     // :
+	DOT       // .
 	LPAREN    // (
 	RPAREN    // )
 	LBRACE    // {
@@ -60,6 +61,7 @@ const (
 	IF       // "if"
 	ELSE     // "else"
 	RETURN   // "return"
+	DELETE   // "delete"
 )
 
 // Token represents a single token
@@ -129,6 +131,8 @@ func (tt TokenType) String() string {
 		return "SEMICOLON"
 	case COLON:
 		return "COLON"
+	case DOT:
+		return "DOT"
 	case LPAREN:
 		return "LPAREN"
 	case RPAREN:
@@ -161,6 +165,8 @@ func (tt TokenType) String() string {
 		return "ELSE"
 	case RETURN:
 		return "RETURN"
+	case DELETE:
+		return "DELETE"
 	default:
 		return "UNKNOWN"
 	}
@@ -177,6 +183,7 @@ var keywords = map[string]TokenType{
 	"if":     IF,
 	"else":   ELSE,
 	"return": RETURN,
+	"delete": DELETE,
 	"and":    AND,
 	"or":     OR,
 	"not":    BANG,
@@ -320,6 +327,8 @@ func (l *Lexer) NextToken() Token {
 		tok = newToken(COMMA, l.ch, l.line, l.column)
 	case ':':
 		tok = newToken(COLON, l.ch, l.line, l.column)
+	case '.':
+		tok = newToken(DOT, l.ch, l.line, l.column)
 	case '[':
 		tok = newToken(LBRACKET, l.ch, l.line, l.column)
 	case ']':

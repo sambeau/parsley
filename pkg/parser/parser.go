@@ -43,6 +43,7 @@ var precedences = map[lexer.TokenType]int{
 	lexer.ASTERISK: PRODUCT,
 	lexer.PERCENT:  PRODUCT,
 	lexer.LBRACKET: INDEX,
+	lexer.DOT:      INDEX,
 	lexer.LPAREN:   CALL,
 }
 
@@ -88,6 +89,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.IF, p.parseIfExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.FOR, p.parseForExpression)
+	p.registerPrefix(lexer.LBRACE, p.parseDictionaryLiteral)
 
 	// Initialize infix parse functions
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
@@ -108,6 +110,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 	p.registerInfix(lexer.LBRACKET, p.parseIndexOrSliceExpression)
+	p.registerInfix(lexer.DOT, p.parseDotExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
 	p.nextToken()
@@ -161,6 +164,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLetStatement()
 	case lexer.RETURN:
 		return p.parseReturnStatement()
+	case lexer.DELETE:
+		return p.parseDeleteStatement()
 	case lexer.IDENT:
 		// Check if this is an assignment statement
 		if p.peekTokenIs(lexer.ASSIGN) {
@@ -893,4 +898,86 @@ func (p *Parser) curPrecedence() int {
 		return p
 	}
 	return LOWEST
+}
+
+// parseDictionaryLiteral parses dictionary literals like { key: value, ... }
+func (p *Parser) parseDictionaryLiteral() ast.Expression {
+	dict := &ast.DictionaryLiteral{Token: p.curToken}
+	dict.Pairs = make(map[string]ast.Expression)
+
+	// Empty dictionary
+	if p.peekTokenIs(lexer.RBRACE) {
+		p.nextToken()
+		return dict
+	}
+
+	// Parse key-value pairs
+	for !p.curTokenIs(lexer.RBRACE) {
+		p.nextToken()
+
+		// Key must be an identifier
+		if !p.curTokenIs(lexer.IDENT) {
+			p.errors = append(p.errors, fmt.Sprintf("expected identifier as dictionary key, got %s at line %d, column %d",
+				p.curToken.Type, p.curToken.Line, p.curToken.Column))
+			return nil
+		}
+		key := p.curToken.Literal
+
+		// Expect colon
+		if !p.expectPeek(lexer.COLON) {
+			return nil
+		}
+
+		// Parse value expression
+		p.nextToken()
+		value := p.parseExpression(LOWEST)
+		if value == nil {
+			return nil
+		}
+
+		dict.Pairs[key] = value
+
+		// Check for comma, semicolon, or closing brace
+		if p.peekTokenIs(lexer.RBRACE) {
+			p.nextToken()
+			break
+		}
+		if p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+	}
+
+	return dict
+}
+
+// parseDotExpression parses dot notation like dict.key
+func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
+	dotExpr := &ast.DotExpression{
+		Token: p.curToken,
+		Left:  left,
+	}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	dotExpr.Key = p.curToken.Literal
+	return dotExpr
+}
+
+// parseDeleteStatement parses delete statements
+func (p *Parser) parseDeleteStatement() ast.Statement {
+	stmt := &ast.DeleteStatement{Token: p.curToken}
+
+	p.nextToken()
+
+	// Parse the target expression (should be a property access)
+	stmt.Target = p.parseExpression(LOWEST)
+
+	// Optional semicolon
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
 }

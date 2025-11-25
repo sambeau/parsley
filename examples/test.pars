@@ -116,3 +116,24 @@ log(xs)
 
 
 log(sort(for (x in "🤪🥳😍😂🙂😐🤨🫤🥹😢😭"){x}))
+
+
+split = fn(xs){
+	for(x in xs){x}
+}
+
+unicode = "🏴‍☠️🏴󠁧󠁢󠁷󠁬󠁳󠁿🪩🪕"
+
+
+log(toString(split(unicode))==unicode)
+log("Sam"=="Sam")
+log("Sam"=="sam")
+log("Sam"=="Dam")
+log("🤪🥳😍😂🙂😐🤨🫤🥹😢😭"=="🤪🥳😍😂🙂😐🤨🫤🥹😢😭")
+
+joinWith = fn(x,xs){
+	head,tail = xs
+	head + for(t in tail){x+t}
+}
+join = fn(xs){joinWith(" ",xs)}
+log(join(["Samuel","Edward","Phillips"]))
