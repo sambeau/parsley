@@ -51,6 +51,7 @@ type Parser struct {
 
 	errors []string
 
+	prevToken lexer.Token
 	curToken  lexer.Token
 	peekToken lexer.Token
 
@@ -128,8 +129,9 @@ func (p *Parser) registerInfix(tokenType lexer.TokenType, fn infixParseFn) {
 	p.infixParseFns[tokenType] = fn
 }
 
-// nextToken advances both curToken and peekToken
+// nextToken advances prevToken, curToken, and peekToken
 func (p *Parser) nextToken() {
+	p.prevToken = p.curToken
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
 }
@@ -694,8 +696,13 @@ func (p *Parser) peekError(t lexer.TokenType) {
 		gotLiteral = gotName
 	}
 
+	// Report error at curToken (the last successfully parsed token)
+	// This points to where the expected token should have appeared
+	line := p.curToken.Line
+	column := p.curToken.Column
+
 	msg := fmt.Sprintf("line %d, column %d: expected %s, got '%s'",
-		p.peekToken.Line, p.peekToken.Column, tokenName, gotLiteral)
+		line, column, tokenName, gotLiteral)
 	p.errors = append(p.errors, msg)
 }
 
@@ -704,8 +711,20 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 	if literal == "" {
 		literal = tokenTypeToReadableName(t)
 	}
+
+	// If curToken is on a new line compared to prevToken,
+	// report the error at the previous token (where the expression should have been)
+	line := p.curToken.Line
+	column := p.curToken.Column
+
+	if p.prevToken.Type != lexer.ILLEGAL && p.curToken.Line > p.prevToken.Line {
+		// Current token is on a new line, point to the previous token
+		line = p.prevToken.Line
+		column = p.prevToken.Column
+	}
+
 	msg := fmt.Sprintf("line %d, column %d: unexpected '%s'",
-		p.curToken.Line, p.curToken.Column, literal)
+		line, column, literal)
 	p.errors = append(p.errors, msg)
 }
 

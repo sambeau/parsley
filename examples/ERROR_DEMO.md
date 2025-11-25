@@ -22,10 +22,12 @@ let z = 10
 **Error Output:**
 ```
 Error in 'example1.pars':
-  line 3, column 4: unexpected 'let'
-    let z = 10
-       ^
+  line 2, column 7: unexpected 'let'
+    let y =
+          ^
 ```
+
+The error correctly points to the `=` operator on line 2, where an expression was expected but none was found.
 
 ### Example 2: Unclosed Parenthesis
 
@@ -38,26 +40,30 @@ let y = 10
 **Error Output:**
 ```
 Error in 'example2.pars':
-  line 2, column 4: expected ')', got 'let'
-    let y = 10
-       ^
+  line 1, column 11: expected ')', got 'let'
+    let x = (5 + 3
+              ^
 ```
+
+The error points to where the closing parenthesis should have been, showing that the expression `(5 + 3` is incomplete.
 
 ### Example 3: Missing Expression After Operator
 
 **File: `example3.pars`**
 ```pars
 let result = 5 +
-print(result)
+let x = 10
 ```
 
 **Error Output:**
 ```
 Error in 'example3.pars':
-  line 2, column 1: unexpected 'print'
-    print(result)
-    ^
+  line 1, column 16: unexpected 'let'
+    let result = 5 +
+                   ^
 ```
+
+The error correctly identifies that after the `+` operator, an expression was expected but `let` was found instead.
 
 ## Runtime Errors
 
@@ -96,9 +102,9 @@ expected RPAREN, got LET
 ### After
 ```
 Error in 'example.pars':
-  line 2, column 4: expected ')', got 'let'
-    let y = 10
-       ^
+  line 2, column 7: unexpected 'let'
+    let y =
+          ^
 ```
 
 The improved error messages help developers quickly identify and fix issues in their code!
