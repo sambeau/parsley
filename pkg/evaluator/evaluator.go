@@ -3,7 +3,10 @@ package evaluator
 import (
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"pars/pkg/ast"
 	"pars/pkg/lexer"
@@ -165,6 +168,124 @@ var (
 	TRUE  = &Boolean{Value: true}
 	FALSE = &Boolean{Value: false}
 )
+
+// naturalCompare compares two objects using natural sort order
+// Returns true if a < b in natural sort order
+func naturalCompare(a, b Object) bool {
+	// Type-based ordering: numbers < strings
+	aType := getTypeOrder(a)
+	bType := getTypeOrder(b)
+	
+	if aType != bType {
+		return aType < bType
+	}
+	
+	// Both are numbers
+	if aType == 0 {
+		return compareNumbers(a, b)
+	}
+	
+	// Both are strings - use natural string comparison
+	if aType == 1 {
+		aStr := a.(*String).Value
+		bStr := b.(*String).Value
+		return naturalStringCompare(aStr, bStr)
+	}
+	
+	// Other types (shouldn't happen with current implementation)
+	return false
+}
+
+// getTypeOrder returns a sort order for types
+// 0 = numbers (Integer, Float)
+// 1 = strings
+// 2 = other
+func getTypeOrder(obj Object) int {
+	switch obj.Type() {
+	case INTEGER_OBJ, FLOAT_OBJ:
+		return 0
+	case STRING_OBJ:
+		return 1
+	default:
+		return 2
+	}
+}
+
+// compareNumbers compares two numeric objects
+func compareNumbers(a, b Object) bool {
+	aVal := getNumericValue(a)
+	bVal := getNumericValue(b)
+	return aVal < bVal
+}
+
+// getNumericValue extracts numeric value as float64
+func getNumericValue(obj Object) float64 {
+	switch obj := obj.(type) {
+	case *Integer:
+		return float64(obj.Value)
+	case *Float:
+		return obj.Value
+	default:
+		return 0
+	}
+}
+
+// naturalStringCompare compares strings using natural sort order
+// It treats consecutive digits as numbers and compares them numerically
+func naturalStringCompare(a, b string) bool {
+	aRunes := []rune(a)
+	bRunes := []rune(b)
+	
+	i, j := 0, 0
+	
+	for i < len(aRunes) && j < len(bRunes) {
+		aChar := aRunes[i]
+		bChar := bRunes[j]
+		
+		// Both are digits - compare numerically
+		if unicode.IsDigit(aChar) && unicode.IsDigit(bChar) {
+			// Extract the full number from both strings
+			aNum, aEnd := extractNumber(aRunes, i)
+			bNum, bEnd := extractNumber(bRunes, j)
+			
+			if aNum != bNum {
+				return aNum < bNum
+			}
+			
+			i = aEnd
+			j = bEnd
+			continue
+		}
+		
+		// Character comparison
+		if aChar != bChar {
+			return aChar < bChar
+		}
+		
+		i++
+		j++
+	}
+	
+	// If we've exhausted one string, the shorter one comes first
+	return len(aRunes) < len(bRunes)
+}
+
+// extractNumber extracts a number from a rune slice starting at the given position
+// Returns the number and the position after the last digit
+func extractNumber(runes []rune, start int) (int64, int) {
+	end := start
+	for end < len(runes) && unicode.IsDigit(runes[end]) {
+		end++
+	}
+	
+	numStr := string(runes[start:end])
+	num, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, end
+	}
+	
+	return num, end
+}
 
 // getBuiltins returns the map of built-in functions
 func getBuiltins() map[string]*Builtin {
@@ -519,6 +640,29 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &String{Value: result.String()}
+			},
+		},
+		"sort": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `sort`. got=%d, want=1", len(args))
+				}
+
+				arr, ok := args[0].(*Array)
+				if !ok {
+					return newError("argument to `sort` must be an array, got %s", args[0].Type())
+				}
+
+				// Create a copy to avoid modifying the original
+				sortedElements := make([]Object, len(arr.Elements))
+				copy(sortedElements, arr.Elements)
+
+				// Sort using natural sort comparison
+				sort.Slice(sortedElements, func(i, j int) bool {
+					return naturalCompare(sortedElements[i], sortedElements[j])
+				})
+
+				return &Array{Elements: sortedElements}
 			},
 		},
 	}

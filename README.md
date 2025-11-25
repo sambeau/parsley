@@ -16,6 +16,7 @@ A Go-based toy concatenative programming language interpreter.
 - Array indexing and slicing with `[]`
 - Chained indexing for nested arrays (e.g., `arr[0][1][2]`)
 - Array concatenation with `++`
+- Natural sorting with `sort()` function
 - String indexing and slicing
 - String concatenation with `+`
 - String escape sequences (`\n`, `\t`, etc.)
@@ -53,6 +54,7 @@ A Go-based toy concatenative programming language interpreter.
   - `for(array) func` - Sugar syntax for map with function
   - `for(var in array) { body }` - Sugar syntax for map with inline function
   - `len(array)` - Get the length of an array
+  - `sort(array)` - Return a naturally sorted copy of the array
 
 - **Mathematical Functions:**
   - `sqrt(x)` - Square root
@@ -738,6 +740,43 @@ You can also use this to create lookup tables of operations:
 >> ops[2](10, 5)
 50
 ```
+
+### Array Sorting
+
+The `sort()` function provides natural sorting for arrays, treating consecutive digits in strings as numbers and comparing them numerically. This creates more intuitive ordering for humans.
+
+#### Sorting Numbers
+```
+>> xs = 3,2,4,10,1
+>> sort(xs)
+1, 2, 3, 4, 10
+```
+
+#### Natural String Sorting
+Natural sort properly handles numbers within strings:
+```
+>> xs = "z11", "z1", "z2"
+>> sort(xs)
+z1, z2, z11
+
+>> items = "item 20", "item 3", "item 100", "item 1"
+>> sort(items)
+item 1, item 3, item 20, item 100
+```
+
+#### Mixed Type Sorting
+Numbers are sorted before strings:
+```
+>> xs = "a", 10, "b", 2, 1
+>> sort(xs)
+1, 2, 10, a, b
+
+>> files = "file 1.txt", "file 10.txt", "file 2.txt", 5, "file 20.txt"
+>> sort(files)
+5, file 1.txt, file 2.txt, file 10.txt, file 20.txt
+```
+
+**Note:** The `sort()` function returns a new sorted array and does not modify the original.
 
 ## Error Reporting
 
