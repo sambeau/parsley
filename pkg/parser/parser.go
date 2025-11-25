@@ -160,9 +160,31 @@ func (p *Parser) parseStatement() ast.Statement {
 	case lexer.RETURN:
 		return p.parseReturnStatement()
 	case lexer.IDENT:
-		// Check if this is an assignment statement (identifier = expression)
+		// Check if this is an assignment statement
 		if p.peekTokenIs(lexer.ASSIGN) {
 			return p.parseAssignmentStatement()
+		}
+		// Check for potential destructuring: IDENT followed by COMMA
+		// We need to peek further to determine if this is `x,y = ...` or just `x,y` expression
+		// For now, try parsing as assignment if comma follows
+		if p.peekTokenIs(lexer.COMMA) {
+			// Tentatively parse as destructuring assignment
+			savedCur := p.curToken
+			savedPeek := p.peekToken
+			savedPrev := p.prevToken
+			savedErrors := len(p.errors)
+
+			stmt := p.parseAssignmentStatement()
+
+			// If parsing failed (no = found), restore and parse as expression
+			if stmt == nil || len(p.errors) > savedErrors {
+				p.curToken = savedCur
+				p.peekToken = savedPeek
+				p.prevToken = savedPrev
+				p.errors = p.errors[:savedErrors]
+				return p.parseExpressionStatement()
+			}
+			return stmt
 		}
 		// Otherwise, treat as expression statement
 		return p.parseExpressionStatement()
@@ -179,7 +201,26 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	// Collect identifiers (for destructuring)
+	names := []*ast.Identifier{
+		{Token: p.curToken, Value: p.curToken.Literal},
+	}
+
+	// Check for comma-separated identifiers (destructuring pattern)
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume comma
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+
+	// Set either single name or multiple names
+	if len(names) == 1 {
+		stmt.Name = names[0]
+	} else {
+		stmt.Names = names
+	}
 
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil
@@ -196,12 +237,30 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	return stmt
 }
 
-// parseAssignmentStatement parses assignment statements like 'x = 5;'
+// parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;'
 func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
 	stmt := &ast.AssignmentStatement{Token: p.curToken}
 
-	// The current token should be the identifier
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	// Collect identifiers (for destructuring)
+	names := []*ast.Identifier{
+		{Token: p.curToken, Value: p.curToken.Literal},
+	}
+
+	// Check for comma-separated identifiers (destructuring pattern)
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume comma
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+
+	// Set either single name or multiple names
+	if len(names) == 1 {
+		stmt.Name = names[0]
+	} else {
+		stmt.Names = names
+	}
 
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil
@@ -396,30 +455,29 @@ func (p *Parser) parseIfExpression() ast.Expression {
 		return nil
 	}
 
-	// Check for 'then' keyword
-	hasThen := p.peekTokenIs(lexer.THEN)
-	if hasThen {
-		p.nextToken() // consume 'then'
-		p.nextToken() // move to the statement/expression
-
-		// Parse a single statement as consequence (allows 'return' statements)
-		stmt := p.parseStatement()
-		expression.Consequence = &ast.BlockStatement{
-			Token:      p.curToken,
-			Statements: []ast.Statement{stmt},
-		}
-	} else if p.peekTokenIs(lexer.LBRACE) {
+	if p.peekTokenIs(lexer.LBRACE) {
 		// Block form: if (...) { ... }
 		p.nextToken()
 		expression.Consequence = p.parseBlockStatement()
 	} else {
-		// Expression form: if (...) expr
+		// Single statement/expression form: if (...) expr or if (...) return expr
 		p.nextToken()
-		stmt := &ast.ExpressionStatement{Token: p.curToken}
-		stmt.Expression = p.parseExpression(LOWEST)
-		expression.Consequence = &ast.BlockStatement{
-			Token:      p.curToken,
-			Statements: []ast.Statement{stmt},
+
+		// Check if it's a return statement
+		if p.curTokenIs(lexer.RETURN) {
+			stmt := p.parseReturnStatement()
+			expression.Consequence = &ast.BlockStatement{
+				Token:      p.curToken,
+				Statements: []ast.Statement{stmt},
+			}
+		} else {
+			// Regular expression
+			stmt := &ast.ExpressionStatement{Token: p.curToken}
+			stmt.Expression = p.parseExpression(LOWEST)
+			expression.Consequence = &ast.BlockStatement{
+				Token:      p.curToken,
+				Statements: []ast.Statement{stmt},
+			}
 		}
 	}
 
@@ -427,18 +485,29 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	if p.peekTokenIs(lexer.ELSE) {
 		p.nextToken()
 
-		// Check if alternative is a block statement or single expression
+		// Check if alternative is a block statement or single statement/expression
 		if p.peekTokenIs(lexer.LBRACE) {
 			p.nextToken()
 			expression.Alternative = p.parseBlockStatement()
 		} else {
-			// Parse single expression as alternative
+			// Single statement/expression form
 			p.nextToken()
-			stmt := &ast.ExpressionStatement{Token: p.curToken}
-			stmt.Expression = p.parseExpression(LOWEST)
-			expression.Alternative = &ast.BlockStatement{
-				Token:      p.curToken,
-				Statements: []ast.Statement{stmt},
+
+			// Check if it's a return statement
+			if p.curTokenIs(lexer.RETURN) {
+				stmt := p.parseReturnStatement()
+				expression.Alternative = &ast.BlockStatement{
+					Token:      p.curToken,
+					Statements: []ast.Statement{stmt},
+				}
+			} else {
+				// Parse single expression as alternative
+				stmt := &ast.ExpressionStatement{Token: p.curToken}
+				stmt.Expression = p.parseExpression(LOWEST)
+				expression.Alternative = &ast.BlockStatement{
+					Token:      p.curToken,
+					Statements: []ast.Statement{stmt},
+				}
 			}
 		}
 	}
@@ -791,8 +860,6 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'false'"
 	case lexer.IF:
 		return "'if'"
-	case lexer.THEN:
-		return "'then'"
 	case lexer.ELSE:
 		return "'else'"
 	case lexer.RETURN:

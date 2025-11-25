@@ -57,7 +57,6 @@ const (
 	TRUE     // "true"
 	FALSE    // "false"
 	IF       // "if"
-	THEN     // "then"
 	ELSE     // "else"
 	RETURN   // "return"
 )
@@ -155,8 +154,6 @@ func (tt TokenType) String() string {
 		return "FALSE"
 	case IF:
 		return "IF"
-	case THEN:
-		return "THEN"
 	case ELSE:
 		return "ELSE"
 	case RETURN:
@@ -175,7 +172,6 @@ var keywords = map[string]TokenType{
 	"true":   TRUE,
 	"false":  FALSE,
 	"if":     IF,
-	"then":   THEN,
 	"else":   ELSE,
 	"return": RETURN,
 	"and":    AND,

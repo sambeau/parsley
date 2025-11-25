@@ -25,8 +25,8 @@ func TestFunctions(t *testing.T) {
 		{"gt(2, 7)", "false"},
 		{"gt(5, 5)", "false"},
 
-		// Function with if-then-return and fallback expression
-		{"positive = fn(x) { if (x >= 0) then return \"yes\" \"no\" }", "fn([x]) {\nif(x >= 0) return yes;no\n}"},
+		// Function with if-return and fallback expression
+		{"positive = fn(x) { if (x >= 0) { return \"yes\" } \"no\" }", "fn([x]) {\nif(x >= 0) return yes;no\n}"},
 		{"positive(1)", "yes"},
 		{"positive(0)", "yes"},
 		{"positive(-1)", "no"},

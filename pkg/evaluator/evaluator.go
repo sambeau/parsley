@@ -540,7 +540,17 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
-		env.Set(node.Name.Value, val)
+
+		// Handle destructuring assignment
+		if len(node.Names) > 0 {
+			return evalDestructuringAssignment(node.Names, val, env)
+		}
+
+		// Single assignment
+		// Special handling for '_' - don't store it
+		if node.Name.Value != "_" {
+			env.Set(node.Name.Value, val)
+		}
 		return val
 
 	case *ast.AssignmentStatement:
@@ -548,7 +558,17 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(val) {
 			return val
 		}
-		env.Set(node.Name.Value, val)
+
+		// Handle destructuring assignment
+		if len(node.Names) > 0 {
+			return evalDestructuringAssignment(node.Names, val, env)
+		}
+
+		// Single assignment
+		// Special handling for '_' - don't store it
+		if node.Name.Value != "_" {
+			env.Set(node.Name.Value, val)
+		}
 		return val
 
 	case *ast.ReturnStatement:
@@ -938,6 +958,11 @@ func isTruthy(obj Object) bool {
 }
 
 func evalIdentifier(node *ast.Identifier, env *Environment) Object {
+	// Special handling for '_' - always returns null
+	if node.Value == "_" {
+		return NULL
+	}
+
 	val, ok := env.Get(node.Value)
 	if !ok {
 		if builtin, ok := getBuiltins()[node.Value]; ok {
@@ -1092,6 +1117,49 @@ func isError(obj Object) bool {
 		return obj.Type() == ERROR_OBJ
 	}
 	return false
+}
+
+// evalDestructuringAssignment handles array destructuring assignment
+func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Environment) Object {
+	// Convert value to array if it isn't already
+	var elements []Object
+
+	switch v := val.(type) {
+	case *Array:
+		elements = v.Elements
+	default:
+		// Single value becomes single-element array
+		elements = []Object{v}
+	}
+
+	// Assign each element to corresponding variable
+	for i, name := range names {
+		if i < len(elements) {
+			// Direct assignment for elements within bounds
+			if name.Value != "_" {
+				env.Set(name.Value, elements[i])
+			}
+		} else {
+			// No more elements, assign null
+			if name.Value != "_" {
+				env.Set(name.Value, NULL)
+			}
+		}
+	}
+
+	// If there are more elements than names, assign remaining as array to last variable
+	if len(elements) > len(names) && len(names) > 0 {
+		lastIdx := len(names) - 1
+		lastName := names[lastIdx]
+		if lastName.Value != "_" {
+			// Replace the last assignment with an array of remaining elements
+			remaining := &Array{Elements: elements[lastIdx:]}
+			env.Set(lastName.Value, remaining)
+		}
+	}
+
+	// Return the original value
+	return val
 }
 
 // evalTemplateLiteral evaluates a template literal with interpolation

@@ -53,7 +53,7 @@ func TestForInSyntax(t *testing.T) {
 		{"for(x in 1,2,3) { x * 2 }", "2, 4, 6"},
 		{"for(x in 1,2,3,4) { x * x }", "1, 4, 9, 16"},
 		{"for(n in 10,20,30) { n + 1 }", "11, 21, 31"},
-		{"for(x in 5,15,25) { if (x > 10) then x }", "15, 25"},
+		{"for(x in 5,15,25) { if (x > 10) { x } }", "15, 25"},
 	}
 
 	for _, tt := range tests {

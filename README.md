@@ -7,8 +7,10 @@ A Go-based toy concatenative programming language interpreter.
 ### Core Language Features
 - Variable declarations with `let`
 - Direct variable assignment (e.g., `x = 5`)
+- Array destructuring assignment (e.g., `x,y,z = 1,2,3`)
 - Functions with `fn`
-- If-then-else expressions (ternary-style conditionals)
+- If-else expressions with block or expression forms
+- Single return statements allowed after if without braces
 - Arrays with comma separator or square bracket notation `[...]`
 - Multi-dimensional arrays (arrays containing arrays)
 - Array indexing and slicing with `[]`
@@ -21,6 +23,7 @@ A Go-based toy concatenative programming language interpreter.
 - Integer and floating-point arithmetic
 - Boolean logic
 - Single-line comments with `//`
+- Special `_` variable (write-only, always returns `null`)
 
 ### Data Types
 - **Integers:** `42`, `-15`
@@ -35,6 +38,9 @@ A Go-based toy concatenative programming language interpreter.
   - `toInt(str)` - Convert string to integer
   - `toFloat(str)` - Convert string to float
   - `toNumber(str)` - Convert string to integer or float (auto-detects)
+
+- **Output Functions:**
+  - `print(values...)` - Convert values to strings and join without whitespace
 
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
@@ -175,23 +181,54 @@ To see the version:
 0.9272952180016122
 ```
 
-### If-Then-Else Expressions
+### If-Else Expressions
 ```
->> x = if 5 > 0 then true else false
+>> x = if (5 > 0) true else false
 true
->> y = if 1 < 0 then 0
+>> y = if (1 < 0) 0
 null
 >> a = 10
->> result = if a > 5 then "big" else "small"
+>> result = if (a > 5) "big" else "small"
 big
 >> bar = 15
->> foo = if bar * 20 > 100 then 100 else bar
+>> foo = if (bar * 20 > 100) 100 else bar
 100
->> nested = if 1 > 0 then if 2 > 1 then 3 else 4 else 5
+>> nested = if (1 > 0) if (2 > 1) 3 else 4 else 5
 3
 ```
 
-If-then-else expressions work like ternary operators and can be used anywhere an expression is expected. The `else` clause is optional - if omitted and the condition is false, the expression evaluates to `null`.
+If-else expressions can be used anywhere an expression is expected. The `else` clause is optional - if omitted and the condition is false, the expression evaluates to `null`.
+
+#### If Statement Forms
+
+Pars supports three forms of if statements:
+
+**Block form** (for multiple statements):
+```pars
+if (x > 10) {
+    y = x * 2
+    return y
+}
+```
+
+**Expression form** (single expression):
+```pars
+if (x > 10) x * 2 else x + 1
+```
+
+**Single return form** (return without braces):
+```pars
+if (x > 10)
+    return x * 2
+```
+
+This is particularly useful in for loops:
+```pars
+for (x in items) {
+    if (x > 10)
+        return x
+}
+```
 
 ### Arrays
 
@@ -501,9 +538,25 @@ The `map` function applies a function to each element of an array, filtering out
 Filtering with map (null values are skipped):
 
 ```
->> gt10 = fn(x) { if (x > 10) then x }
+>> gt10 = fn(x) { if (x > 10) { return x } }
 >> map(gt10, 5,15,25,8,3,12)
 15, 25, 12
+```
+
+### print() Function
+
+The `print()` function converts values to strings and joins them without any whitespace:
+
+```
+>> print(1, 2, 3)
+123
+>> print("Hello", "World")
+HelloWorld
+>> xs = [1, 2, 3]
+>> print(xs)
+123
+>> print("Result:", 42)
+Result:42
 ```
 
 ### For Loops
@@ -521,7 +574,7 @@ For-in form - inline function body:
 ```
 >> for(x in 1,2,3) { x * 2 }
 2, 4, 6
->> for(x in 5,15,25) { if (x > 10) then x }
+>> for(x in 5,15,25) { if (x > 10) { x } }
 15, 25
 ```
 
@@ -534,6 +587,114 @@ S, A, M
 SAM, PHILLIPS
 >> for(name in "SAM","PHILLIPS") { toLower(name) }
 sam, phillips
+```
+
+### Array Destructuring
+
+Array destructuring allows you to assign multiple variables at once from an array or comma-separated values:
+
+#### Basic Destructuring
+
+Assign multiple variables from values:
+```
+>> x,y,z = 1,2,3
+1, 2, 3
+>> x
+1
+>> y
+2
+>> z
+3
+```
+
+Destructure from an existing array:
+```
+>> xs = 10,20,30
+10, 20, 30
+>> a,b,c = xs
+10, 20, 30
+>> a
+10
+>> b
+20
+```
+
+#### Tail Collection
+
+When there are more values than variables, the last variable receives all remaining values as an array:
+```
+>> p,q,r = 1,2,3,4,5,6
+1, 2, 3, 4, 5, 6
+>> p
+1
+>> q
+2
+>> r
+3, 4, 5, 6
+```
+
+#### Destructuring with `let`
+
+Works with `let` statements:
+```
+>> let m,n,o = 100,200,300
+100, 200, 300
+>> m
+100
+```
+
+#### Using `_` to Ignore Values
+
+Combine destructuring with the `_` variable to ignore unwanted values:
+```
+>> first,_,third = "A","B","C"
+A, B, C
+>> first
+A
+>> third
+C
+```
+
+#### Head and Tail Functions
+
+Common pattern for list processing:
+```
+>> head = fn(list) { h,_ = list; h }
+>> tail = fn(list) { _,t = list; t }
+>> numbers = 1,2,3,4,5
+1, 2, 3, 4, 5
+>> head(numbers)
+1
+>> tail(numbers)
+2, 3, 4, 5
+```
+
+**Note:** When using comma-separated variables in an expression context (not assignment), wrap them in parentheses to avoid ambiguity: `(x,y)` instead of `x,y`.
+
+### Special Variables
+
+#### The `_` Variable
+
+The `_` variable is a special write-only variable that discards any value assigned to it and always evaluates to `null`. This is useful when you need to execute an expression for its side effects but don't care about the result:
+
+```
+>> _ = 100
+100
+>> _
+null
+>> let _ = "hello"
+hello
+>> _
+null
+```
+
+Useful for ignoring values:
+```
+>> x = 10
+>> _ = x * 2  // Calculate but don't store
+20
+>> _
+null
 ```
 
 ### Functions
@@ -592,9 +753,9 @@ let z = 10
 **Error output:**
 ```
 Error in 'example.pars':
-  line 3, column 4: unexpected 'let'
-    let z = 10
-       ^
+  line 2, column 8: unexpected 'let'
+    let y =
+           ^
 ```
 
 See [ERROR_DEMO.md](examples/ERROR_DEMO.md) for more examples of error messages.

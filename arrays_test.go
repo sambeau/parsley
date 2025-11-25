@@ -125,9 +125,9 @@ func TestForFunctionFiltering(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"gt10 = fn(x) { if (x > 10) then return x }; map(gt10, 5,15,25,8,3,12)", "15, 25, 12"},
-		{"gt5 = fn(x) { if (x > 5) then return x }; map(gt5, 1,2,3,4,5,6,7,8)", "6, 7, 8"},
-		{"positive = fn(x) { if (x > 0) then return x }; map(positive, -1,5,-3,10)", "5, 10"},
+		{"gt10 = fn(x) { if (x > 10) { return x } }; map(gt10, 5,15,25,8,3,12)", "15, 25, 12"},
+		{"gt5 = fn(x) { if (x > 5) { return x } }; map(gt5, 1,2,3,4,5,6,7,8)", "6, 7, 8"},
+		{"positive = fn(x) { if (x > 0) { return x } }; map(positive, -1,5,-3,10)", "5, 10"},
 	}
 
 	for _, tt := range tests {
@@ -199,7 +199,7 @@ func TestForWithComplexExpressions(t *testing.T) {
 		expected string
 	}{
 		{"transform = fn(x) { x * 2 + 1 }; map(transform, 1,2,3)", "3, 5, 7"},
-		{"calc = fn(x) { if (x > 2) then x * 2 else x + 1 }; map(calc, 1,2,3,4)", "2, 3, 6, 8"},
+		{"calc = fn(x) { if (x > 2) x * 2 else x + 1 }; map(calc, 1,2,3,4)", "2, 3, 6, 8"},
 	}
 
 	for _, tt := range tests {
@@ -234,7 +234,7 @@ func TestArrayPrecedence(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"x = 1; y = 2; x,y", "1, 2"},
+		{"x = 1; y = 2; (x,y)", "1, 2"}, // Parenthesized to avoid destructuring ambiguity
 		{"1+2,3*4", "3, 12"},
 		{"(1,2)", "1, 2"},
 	}

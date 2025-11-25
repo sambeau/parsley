@@ -47,10 +47,11 @@ func (p *Program) String() string {
 	return out.String()
 }
 
-// LetStatement represents let statements like 'let x = 5;'
+// LetStatement represents let statements like 'let x = 5;' or 'let x,y,z = 1,2,3;'
 type LetStatement struct {
-	Token lexer.Token // the lexer.LET token
-	Name  *Identifier
+	Token lexer.Token   // the lexer.LET token
+	Name  *Identifier   // single name (for backwards compatibility)
+	Names []*Identifier // multiple names for destructuring
 	Value Expression
 }
 
@@ -60,7 +61,16 @@ func (ls *LetStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(ls.TokenLiteral() + " ")
-	out.WriteString(ls.Name.String())
+	if len(ls.Names) > 0 {
+		for i, name := range ls.Names {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(name.String())
+		}
+	} else {
+		out.WriteString(ls.Name.String())
+	}
 	out.WriteString(" = ")
 
 	if ls.Value != nil {
@@ -71,10 +81,11 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
-// AssignmentStatement represents assignment statements like 'x = 5;'
+// AssignmentStatement represents assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;'
 type AssignmentStatement struct {
-	Token lexer.Token // the identifier token
-	Name  *Identifier
+	Token lexer.Token   // the identifier token
+	Name  *Identifier   // single name (for backwards compatibility)
+	Names []*Identifier // multiple names for destructuring
 	Value Expression
 }
 
@@ -83,7 +94,16 @@ func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
 func (as *AssignmentStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(as.Name.String())
+	if len(as.Names) > 0 {
+		for i, name := range as.Names {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(name.String())
+		}
+	} else {
+		out.WriteString(as.Name.String())
+	}
 	out.WriteString(" = ")
 
 	if as.Value != nil {
