@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"pars/pkg/evaluator"
 	"pars/pkg/lexer"
@@ -71,7 +72,7 @@ func executeFile(filename string) {
 // printErrors prints formatted error messages with context
 func printErrors(filename string, source string, errors []string) {
 	fmt.Fprintf(os.Stderr, "Error in '%s':\n", filename)
-	lines := splitLines(source)
+	lines := strings.Split(source, "\n")
 
 	for _, msg := range errors {
 		fmt.Fprintf(os.Stderr, "  %s\n", msg)
@@ -83,11 +84,7 @@ func printErrors(filename string, source string, errors []string) {
 			fmt.Fprintf(os.Stderr, "    %s\n", lines[lineNum-1])
 			// Show pointer to the error position
 			if colNum > 0 {
-				pointer := ""
-				for i := 1; i < colNum; i++ {
-					pointer += " "
-				}
-				pointer += "^"
+				pointer := strings.Repeat(" ", colNum-1) + "^"
 				fmt.Fprintf(os.Stderr, "    %s\n", pointer)
 			}
 		} else if _, err := fmt.Sscanf(msg, "line %d", &lineNum); err == nil && lineNum > 0 && lineNum <= len(lines) {
@@ -97,20 +94,3 @@ func printErrors(filename string, source string, errors []string) {
 	}
 }
 
-// splitLines splits source code into lines
-func splitLines(s string) []string {
-	lines := []string{}
-	line := ""
-	for _, ch := range s {
-		if ch == '\n' {
-			lines = append(lines, line)
-			line = ""
-		} else {
-			line += string(ch)
-		}
-	}
-	if line != "" {
-		lines = append(lines, line)
-	}
-	return lines
-}
