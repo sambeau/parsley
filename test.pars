@@ -11,16 +11,23 @@
 //main()
 //
 
-xs = [[1,2,3],[4,5,6]]
+//xs = [[1,2,3],[4,5,6]]
+//
+//zs = for(ys in xs){
+//	`<div>`,
+//	for (y in ys){
+//		`<p>${y}</p>`
+//	},
+//	`</div>`
+//}
+//
+//print(xs,zs)
+//// should output
+////123456,<div><p>1</p><p>2</p><p>3</p></div><div><p>4</p><p>5</p><p>6</p></div>
 
-zs = for(ys in xs){
-	`<div>`,
-	for (y in ys){
-		`<p>${y}</p>`
-	},
-	`</div>`
-}
+double = fn(x){x+x}
+square = fn(x){x*x}
 
-print(xs,zs)
-// should output
-//123456,<div><p>1</p><p>2</p><p>3</p></div><div><p>4</p><p>5</p><p>6</p></div>
+funs = double, square
+
+funs[1](3)

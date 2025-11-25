@@ -537,10 +537,37 @@ sam, phillips
 ```
 
 ### Functions
+
+Functions are first-class objects in pars, meaning they can be assigned to variables, stored in arrays, and passed as arguments:
+
 ```
 >> let circleArea = fn(r) { pi() * pow(r, 2) }
 >> circleArea(10)
 314.1592653589793
+```
+
+#### Functions as Array Elements
+
+Since functions are first-class objects, they can be stored in arrays and called using indexing:
+
+```
+>> double = fn(x) { x + x }
+>> square = fn(x) { x * x }
+>> funs = double, square
+>> funs[0](3)
+6
+>> funs[1](3)
+9
+```
+
+You can also use this to create lookup tables of operations:
+
+```
+>> ops = fn(a,b){a+b}, fn(a,b){a-b}, fn(a,b){a*b}, fn(a,b){a/b}
+>> ops[0](10, 5)
+15
+>> ops[2](10, 5)
+50
 ```
 
 ## Error Reporting

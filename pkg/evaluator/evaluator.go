@@ -496,11 +496,11 @@ func getBuiltins() map[string]*Builtin {
 		"print": {
 			Fn: func(args ...Object) Object {
 				var result strings.Builder
-				
+
 				for _, arg := range args {
 					result.WriteString(objectToPrintString(arg))
 				}
-				
+
 				return &String{Value: result.String()}
 			},
 		},
