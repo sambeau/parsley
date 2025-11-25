@@ -371,11 +371,12 @@ func (al *ArrayLiteral) String() string {
 // ForExpression represents for expressions
 // Two forms: for(array) func  OR  for(var in array) body
 type ForExpression struct {
-	Token    lexer.Token // the 'for' token
-	Array    Expression  // the array to iterate over
-	Function Expression  // the function to apply (for simple form)
-	Variable *Identifier // the loop variable (for 'in' form)
-	Body     Expression  // the body expression (for 'in' form)
+	Token         lexer.Token // the 'for' token
+	Array         Expression  // the array to iterate over
+	Function      Expression  // the function to apply (for simple form)
+	Variable      *Identifier // the loop variable (for 'in' form) or key variable (for dict)
+	ValueVariable *Identifier // the value variable (for dict 'key, value in dict' form)
+	Body          Expression  // the body expression (for 'in' form)
 }
 
 func (fe *ForExpression) expressionNode()      {}

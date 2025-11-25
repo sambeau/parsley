@@ -17,6 +17,12 @@ A Go-based toy concatenative programming language interpreter.
 - Chained indexing for nested arrays (e.g., `arr[0][1][2]`)
 - Array concatenation with `++`
 - Natural sorting with `sort()` function
+- Dictionary objects with key-value pairs
+- Lazy evaluation of dictionary values with `this` binding
+- Dictionary access via dot notation and bracket indexing
+- Dictionary concatenation and merging with `++`
+- Dictionary iteration with `for(key, value in dict)`
+- Dictionary manipulation: `keys()`, `values()`, `has()`, `toArray()`, `toDict()`, `delete`
 - String indexing and slicing
 - String concatenation with `+`
 - String escape sequences (`\n`, `\t`, etc.)
@@ -33,6 +39,7 @@ A Go-based toy concatenative programming language interpreter.
 - **Strings:** `"hello world"`
 - **Booleans:** `true`, `false`
 - **Arrays:** `1,2,3`, `[1,2,3]`, `[[1,2],[3,4]]`, mixed types allowed
+- **Dictionaries:** `{ name: "Sam", age: 57 }`, key-value pairs with lazy evaluation
 
 ### Built-in Functions
 
@@ -60,6 +67,13 @@ A Go-based toy concatenative programming language interpreter.
   - `sort(array)` - Return a naturally sorted copy of the array
   - `sortBy(array, compareFunc)` - Return a sorted copy using a custom comparison function
   - `reverse(array)` - Return a reversed copy of the array
+
+- **Dictionary Functions:**
+  - `keys(dict)` - Return an array of all dictionary keys
+  - `values(dict)` - Return an array of all dictionary values (evaluated)
+  - `has(dict, key)` - Check if dictionary contains a key (returns boolean)
+  - `toArray(dict)` - Convert dictionary to array of `[key, value]` pairs
+  - `toDict(array)` - Convert array of `[key, value]` pairs to dictionary
 
 - **Mathematical Functions:**
   - `sqrt(x)` - Square root
@@ -357,6 +371,343 @@ Get the number of elements in an array:
 10, 20, 30, 40, 50
 >> len(arr)
 5
+```
+
+### Dictionaries
+
+Dictionaries are key-value data structures with lazy evaluation semantics. Values in dictionaries are stored as unevaluated expressions and only computed when accessed, enabling powerful patterns like self-referential objects and computed properties.
+
+#### Creating Dictionaries
+
+Dictionaries are created using curly braces with `key: value` syntax. Keys must be identifiers, and values can be any expression:
+
+```
+>> person = { name: "Sam", age: 57 }
+{name: Sam, age: 57}
+>> person
+{name: Sam, age: 57}
+```
+
+Single-line and multi-line formats are supported:
+
+```
+>> point = { x: 10, y: 20 }
+{x: 10, y: 20}
+
+>> config = {
+   timeout: 30
+   retries: 3
+   endpoint: "api.example.com"
+}
+{timeout: 30, retries: 3, endpoint: api.example.com}
+```
+
+#### Accessing Dictionary Values
+
+Access values using dot notation or bracket indexing:
+
+```
+>> person = { name: "Alice", age: 30, city: "NYC" }
+{name: Alice, age: 30, city: NYC}
+>> person.name
+Alice
+>> person["age"]
+30
+>> person.city
+NYC
+```
+
+Both forms evaluate the value expression when accessed.
+
+#### Lazy Evaluation
+
+Dictionary values are stored as expressions and only evaluated when accessed. This allows self-referential dictionaries using the special `this` variable:
+
+```
+>> circle = {
+   radius: 5
+   area: pi() * pow(this.radius, 2)
+   circumference: 2 * pi() * this.radius
+}
+{radius: 5, area: pi() * pow(this.radius, 2), circumference: 2 * pi() * this.radius}
+>> circle.area
+78.53981633974483
+>> circle.circumference
+31.41592653589793
+```
+
+The `this` variable always refers to the dictionary being accessed, enabling computed properties:
+
+```
+>> rectangle = {
+   width: 10
+   height: 5
+   area: this.width * this.height
+   perimeter: 2 * (this.width + this.height)
+}
+{width: 10, height: 5, area: this.width * this.height, perimeter: 2 * (this.width + this.height)}
+>> rectangle.area
+50
+>> rectangle.perimeter
+30
+```
+
+#### Functions in Dictionaries
+
+Dictionary values can be functions that reference other properties via `this`:
+
+```
+>> calculator = {
+   x: 10
+   y: 5
+   add: fn() { this.x + this.y }
+   multiply: fn() { this.x * this.y }
+}
+{x: 10, y: 5, add: fn() { this.x + this.y }, multiply: fn() { this.x * this.y }}
+>> calculator.add()
+15
+>> calculator.multiply()
+50
+```
+
+No-argument functions are automatically called when accessed via dictionary builtins like `values()` and `toArray()`:
+
+```
+>> obj = {
+   name: "Greeter"
+   getMessage: fn() { "Hello, " + this.name + "!" }
+}
+{name: Greeter, getMessage: fn() { "Hello, " + this.name + "!" }}
+>> values(obj)
+Greeter, Hello, Greeter!
+```
+
+#### Deleting Dictionary Keys
+
+Remove keys from dictionaries using the `delete` statement:
+
+```
+>> user = { name: "Bob", age: 25, email: "bob@example.com" }
+{name: Bob, age: 25, email: bob@example.com}
+>> delete user.email
+null
+>> user
+{name: Bob, age: 25}
+```
+
+Delete also works with bracket notation:
+
+```
+>> delete user["age"]
+null
+>> user
+{name: Bob}
+```
+
+The `delete` statement returns `null` and modifies the dictionary in place.
+
+#### Dictionary Concatenation
+
+Merge dictionaries using the `++` operator. The right dictionary's values override the left's on key collision:
+
+```
+>> defaults = { timeout: 30, retries: 3, debug: false }
+{timeout: 30, retries: 3, debug: false}
+>> custom = { retries: 5, debug: true }
+{retries: 5, debug: true}
+>> config = defaults ++ custom
+{timeout: 30, retries: 5, debug: true}
+```
+
+This is useful for configuration merging and object composition:
+
+```
+>> base = { a: 1, b: 2 }
+{a: 1, b: 2}
+>> override = { b: 20, c: 30 }
+{b: 20, c: 30}
+>> result = base ++ override
+{a: 1, b: 20, c: 30}
+>> result.b
+20
+```
+
+#### Iterating Over Dictionaries
+
+Use `for(key, value in dict)` to iterate over dictionary entries:
+
+```
+>> data = { name: "Alice", age: 30, city: "NYC" }
+{name: Alice, age: 30, city: NYC}
+>> for(key, value in data) {
+   log(key + ":", value)
+}
+name: "Alice"
+age: 30
+city: "NYC"
+null
+```
+
+The loop evaluates each value expression with `this` bound to the dictionary:
+
+```
+>> temps = {
+   celsius: 25
+   fahrenheit: this.celsius * 9/5 + 32
+   kelvin: this.celsius + 273.15
+}
+{celsius: 25, fahrenheit: this.celsius * 9/5 + 32, kelvin: this.celsius + 273.15}
+>> for(key, value in temps) {
+   key + " = " + toString(value)
+}
+celsius = 25, fahrenheit = 77, kelvin = 298.15
+```
+
+#### Dictionary Built-in Functions
+
+**`keys(dict)`** - Returns an array of all dictionary keys:
+
+```
+>> person = { name: "Sam", age: 57, city: "NYC" }
+{name: Sam, age: 57, city: NYC}
+>> keys(person)
+name, age, city
+```
+
+**`values(dict)`** - Returns an array of all evaluated dictionary values:
+
+```
+>> point = { x: 10, y: 20 }
+{x: 10, y: 20}
+>> values(point)
+10, 20
+```
+
+Values are evaluated with `this` bound to the dictionary:
+
+```
+>> obj = {
+   radius: 5
+   area: pi() * pow(this.radius, 2)
+}
+{radius: 5, area: pi() * pow(this.radius, 2)}
+>> values(obj)
+5, 78.53981633974483
+```
+
+**`has(dict, key)`** - Checks if a dictionary contains a key:
+
+```
+>> user = { name: "Alice", email: "alice@example.com" }
+{name: Alice, email: alice@example.com}
+>> has(user, "name")
+true
+>> has(user, "age")
+false
+```
+
+**`toArray(dict)`** - Converts a dictionary to an array of `[key, value]` pairs:
+
+```
+>> person = { name: "Sam", age: 57 }
+{name: Sam, age: 57}
+>> toArray(person)
+[["name", "Sam"], ["age", 57]]
+```
+
+No-argument functions are automatically called:
+
+```
+>> obj = {
+   x: 10
+   doubled: fn() { this.x * 2 }
+}
+{x: 10, doubled: fn() { this.x * 2 }}
+>> toArray(obj)
+[["x", 10], ["doubled", 20]]
+```
+
+**`toDict(array)`** - Converts an array of `[key, value]` pairs to a dictionary:
+
+```
+>> pairs = [["name", "Bob"], ["age", 25]]
+[["name", "Bob"], ["age", 25]]
+>> toDict(pairs)
+{name: Bob, age: 25}
+```
+
+Round-trip conversion preserves structure:
+
+```
+>> original = { x: 100, y: 200 }
+{x: 100, y: 200}
+>> reconstructed = toDict(toArray(original))
+{x: 100, y: 200}
+>> reconstructed.x
+100
+```
+
+#### Practical Dictionary Examples
+
+**Configuration management:**
+
+```
+>> defaults = { host: "localhost", port: 8080, debug: false }
+>> userConfig = { port: 3000, debug: true }
+>> finalConfig = defaults ++ userConfig
+{host: localhost, port: 3000, debug: true}
+```
+
+**Data transformation:**
+
+```
+>> greetings = { en: "Hello", es: "Hola", fr: "Salut" }
+{en: Hello, es: Hola, fr: Salut}
+>> for(lang, greeting in greetings) {
+   lang + ": " + greeting
+}
+en: Hello, es: Hola, fr: Salut
+```
+
+**Computed properties with `this`:**
+
+```
+>> invoice = {
+   items: 3
+   pricePerItem: 25
+   subtotal: this.items * this.pricePerItem
+   tax: this.subtotal * 0.1
+   total: this.subtotal + this.tax
+}
+{items: 3, pricePerItem: 25, subtotal: this.items * this.pricePerItem, tax: this.subtotal * 0.1, total: this.subtotal + this.tax}
+>> invoice.total
+82.5
+```
+
+**Methods using functions:**
+
+```
+>> counter = {
+   count: 0
+   increment: fn() { this.count + 1 }
+   decrement: fn() { this.count - 1 }
+}
+{count: 0, increment: fn() { this.count + 1 }, decrement: fn() { this.count - 1 }}
+>> counter.increment()
+1
+```
+
+**Filtering dictionary entries:**
+
+```
+>> scores = { alice: 85, bob: 92, charlie: 78, diana: 95 }
+{alice: 85, bob: 92, charlie: 78, diana: 95}
+>> highScores = for(name, score in scores) {
+   if (score >= 90) { [name, score] }
+}
+[["bob", 92], ["diana", 95]]
+>> toDict(highScores)
+{bob: 92, diana: 95}
 ```
 
 ### Strings

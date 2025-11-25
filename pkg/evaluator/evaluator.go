@@ -925,6 +925,101 @@ func getBuiltins() map[string]*Builtin {
 				return nativeBoolToParsBoolean(exists)
 			},
 		},
+		"toArray": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toArray`. got=%d, want=1", len(args))
+				}
+
+				dict, ok := args[0].(*Dictionary)
+				if !ok {
+					return newError("argument to `toArray` must be a dictionary, got %s", args[0].Type())
+				}
+
+				// Create environment for evaluation with 'this'
+				dictEnv := NewEnclosedEnvironment(dict.Env)
+				dictEnv.Set("this", dict)
+
+				pairs := make([]Object, 0, len(dict.Pairs))
+				for key, expr := range dict.Pairs {
+					val := Eval(expr, dictEnv)
+
+					// Skip functions with parameters (they can't be called without args)
+					if fn, ok := val.(*Function); ok && len(fn.Parameters) > 0 {
+						continue
+					}
+
+					// If it's a function with no parameters, call it
+					if fn, ok := val.(*Function); ok && len(fn.Parameters) == 0 {
+						val = applyFunction(fn, []Object{})
+					}
+
+					// Create [key, value] pair
+					pair := &Array{Elements: []Object{
+						&String{Value: key},
+						val,
+					}}
+					pairs = append(pairs, pair)
+				}
+				return &Array{Elements: pairs}
+			},
+		},
+		"toDict": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `toDict`. got=%d, want=1", len(args))
+				}
+
+				arr, ok := args[0].(*Array)
+				if !ok {
+					return newError("argument to `toDict` must be an array, got %s", args[0].Type())
+				}
+
+				dict := &Dictionary{
+					Pairs: make(map[string]ast.Expression),
+					Env:   NewEnvironment(),
+				}
+
+				for _, elem := range arr.Elements {
+					pair, ok := elem.(*Array)
+					if !ok || len(pair.Elements) != 2 {
+						return newError("toDict requires array of [key, value] pairs")
+					}
+
+					keyObj, ok := pair.Elements[0].(*String)
+					if !ok {
+						return newError("dictionary keys must be strings, got %s", pair.Elements[0].Type())
+					}
+
+					// Create a literal expression from the value
+					valueObj := pair.Elements[1]
+					var expr ast.Expression
+
+					switch v := valueObj.(type) {
+					case *Integer:
+						expr = &ast.IntegerLiteral{Value: v.Value}
+					case *Float:
+						expr = &ast.FloatLiteral{Value: v.Value}
+					case *String:
+						expr = &ast.StringLiteral{Value: v.Value}
+					case *Boolean:
+						expr = &ast.Boolean{Value: v.Value}
+					case *Array:
+						// For arrays, we'll store a reference that evaluates to the array
+						// This is a workaround - store in environment and reference it
+						tempKey := "__toDict_temp_" + keyObj.Value
+						dict.Env.Set(tempKey, v)
+						expr = &ast.Identifier{Value: tempKey}
+					default:
+						return newError("toDict: unsupported value type %s", valueObj.Type())
+					}
+
+					dict.Pairs[keyObj.Value] = expr
+				}
+
+				return dict
+			},
+		},
 	}
 } // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
@@ -1527,15 +1622,20 @@ func unwrapReturnValue(obj Object) Object {
 
 // evalForExpression evaluates for expressions
 func evalForExpression(node *ast.ForExpression, env *Environment) Object {
-	// Evaluate the array expression
-	arrayObj := Eval(node.Array, env)
-	if isError(arrayObj) {
-		return arrayObj
+	// Evaluate the array/dict expression
+	iterableObj := Eval(node.Array, env)
+	if isError(iterableObj) {
+		return iterableObj
+	}
+
+	// Handle dictionary iteration
+	if dict, ok := iterableObj.(*Dictionary); ok {
+		return evalForDictExpression(node, dict, env)
 	}
 
 	// Convert to array (handle strings as rune arrays)
 	var elements []Object
-	switch arr := arrayObj.(type) {
+	switch arr := iterableObj.(type) {
 	case *Array:
 		elements = arr.Elements
 	case *String:
@@ -1546,7 +1646,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			elements[i] = &String{Value: string(r)}
 		}
 	default:
-		return newError("for expects an array or string, got %s", arrayObj.Type())
+		return newError("for expects an array, string, or dictionary, got %s", iterableObj.Type())
 	}
 
 	// Determine which function to use
@@ -1606,6 +1706,65 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 				if isError(evaluated) {
 					return evaluated
 				}
+			}
+		}
+
+		// Skip null values (filter behavior)
+		if evaluated != NULL {
+			result = append(result, evaluated)
+		}
+	}
+
+	return &Array{Elements: result}
+}
+
+// evalForDictExpression handles for loops over dictionaries
+func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Environment) Object {
+	// Create environment for evaluation with 'this'
+	dictEnv := NewEnclosedEnvironment(dict.Env)
+	dictEnv.Set("this", dict)
+
+	// Determine which function to use
+	var fn *Function
+	if node.Body != nil {
+		fn = &Function{
+			Parameters: node.Body.(*ast.FunctionLiteral).Parameters,
+			Body:       node.Body.(*ast.FunctionLiteral).Body,
+			Env:        env,
+		}
+	} else {
+		return newError("for loop over dictionary requires body with key, value parameters")
+	}
+
+	// Check parameter count
+	if len(fn.Parameters) != 2 {
+		return newError("for loop over dictionary requires exactly 2 parameters (key, value), got %d", len(fn.Parameters))
+	}
+
+	// Iterate over dictionary key-value pairs
+	result := []Object{}
+	for key, expr := range dict.Pairs {
+		// Evaluate the value
+		value := Eval(expr, dictEnv)
+		if isError(value) {
+			return value
+		}
+
+		// Create environment for loop body
+		extendedEnv := NewEnclosedEnvironment(fn.Env)
+		extendedEnv.Set(fn.Parameters[0].Value, &String{Value: key})
+		extendedEnv.Set(fn.Parameters[1].Value, value)
+
+		// Evaluate all statements in the body
+		var evaluated Object
+		for _, stmt := range fn.Body.Statements {
+			evaluated = evalStatement(stmt, extendedEnv)
+			if returnValue, ok := evaluated.(*ReturnValue); ok {
+				evaluated = returnValue.Value
+				break
+			}
+			if isError(evaluated) {
+				return evaluated
 			}
 		}
 
@@ -1836,6 +1995,30 @@ func objectToDebugString(obj Object) string {
 
 // evalConcatExpression handles the ++ operator for array concatenation
 func evalConcatExpression(left, right Object) Object {
+	// Handle dictionary concatenation
+	if left.Type() == DICTIONARY_OBJ && right.Type() == DICTIONARY_OBJ {
+		leftDict := left.(*Dictionary)
+		rightDict := right.(*Dictionary)
+
+		// Create new dictionary with merged pairs
+		merged := &Dictionary{
+			Pairs: make(map[string]ast.Expression),
+			Env:   leftDict.Env, // Use left dict's environment
+		}
+
+		// Copy left dictionary pairs
+		for k, v := range leftDict.Pairs {
+			merged.Pairs[k] = v
+		}
+
+		// Copy right dictionary pairs (overwrites left if keys match)
+		for k, v := range rightDict.Pairs {
+			merged.Pairs[k] = v
+		}
+
+		return merged
+	}
+
 	// Convert single values to arrays
 	var leftElements, rightElements []Object
 

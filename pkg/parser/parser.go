@@ -596,17 +596,25 @@ func (p *Parser) parseForExpression() ast.Expression {
 	p.nextToken()
 
 	// Check if this is the "for(var in array)" form
-	// We need to peek ahead to see if there's an IN token
-	if p.peekTokenIs(lexer.IN) {
-		// Parse: for(var in array) body
-		if p.curToken.Type != lexer.IDENT {
-			p.peekError(lexer.IDENT)
-			return nil
-		}
+	// We need to peek ahead to see if there's an IN token or COMMA (for key,value syntax)
+	// But only if current token is an identifier
+	if p.curToken.Type == lexer.IDENT && (p.peekTokenIs(lexer.IN) || p.peekTokenIs(lexer.COMMA)) {
+		// Parse: for(var in array) body OR for(key, value in dict) body
 		expression.Variable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-		p.nextToken() // move to IN
-		p.nextToken() // move past IN to array expression
+		// Check for comma (key, value in dict form)
+		if p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // move to COMMA
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			expression.ValueVariable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		}
+
+		if !p.expectPeek(lexer.IN) {
+			return nil
+		}
+		p.nextToken() // move past IN to array/dict expression
 
 		expression.Array = p.parseExpression(LOWEST)
 
@@ -621,10 +629,17 @@ func (p *Parser) parseForExpression() ast.Expression {
 
 		// Create a function literal for the body
 		bodyFn := &ast.FunctionLiteral{
-			Token:      p.curToken,
-			Parameters: []*ast.Identifier{expression.Variable},
-			Body:       p.parseBlockStatement(),
+			Token: p.curToken,
 		}
+
+		// Set parameters based on whether we have one or two variables
+		if expression.ValueVariable != nil {
+			bodyFn.Parameters = []*ast.Identifier{expression.Variable, expression.ValueVariable}
+		} else {
+			bodyFn.Parameters = []*ast.Identifier{expression.Variable}
+		}
+
+		bodyFn.Body = p.parseBlockStatement()
 		expression.Body = bodyFn
 	} else {
 		// Parse: for(array) func
@@ -928,9 +943,9 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 			return nil
 		}
 
-		// Parse value expression
+		// Parse value expression with COMMA_PREC+1 to avoid consuming commas
 		p.nextToken()
-		value := p.parseExpression(LOWEST)
+		value := p.parseExpression(COMMA_PREC + 1)
 		if value == nil {
 			return nil
 		}
@@ -944,6 +959,10 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 		}
 		if p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.SEMICOLON) {
 			p.nextToken()
+			// Skip any extra commas/semicolons
+			for p.peekTokenIs(lexer.COMMA) || p.peekTokenIs(lexer.SEMICOLON) {
+				p.nextToken()
+			}
 		}
 	}
 
