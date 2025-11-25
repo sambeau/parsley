@@ -93,4 +93,3 @@ func printErrors(filename string, source string, errors []string) {
 		}
 	}
 }
-
