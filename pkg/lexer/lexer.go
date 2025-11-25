@@ -332,15 +332,19 @@ func (l *Lexer) NextToken() Token {
 	case '}':
 		tok = newToken(RBRACE, l.ch, l.line, l.column)
 	case '"':
+		line := l.line
+		column := l.column
 		tok.Type = STRING
 		tok.Literal = l.readString()
-		tok.Line = l.line
-		tok.Column = l.column
+		tok.Line = line
+		tok.Column = column
 	case '`':
+		line := l.line
+		column := l.column
 		tok.Type = TEMPLATE
 		tok.Literal = l.readTemplate()
-		tok.Line = l.line
-		tok.Column = l.column
+		tok.Line = line
+		tok.Column = column
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
@@ -348,12 +352,18 @@ func (l *Lexer) NextToken() Token {
 		tok.Column = l.column
 	default:
 		if isLetter(l.ch) {
+			// Save position before reading
+			line := l.line
+			column := l.column
 			tok.Literal = l.readIdentifier()
 			tok.Type = LookupIdent(tok.Literal)
-			tok.Line = l.line
-			tok.Column = l.column
+			tok.Line = line
+			tok.Column = column
 			return tok // early return to avoid readChar()
 		} else if isDigit(l.ch) {
+			// Save position before reading
+			line := l.line
+			column := l.column
 			tok.Literal = l.readNumber()
 			// Check if it's a float or integer
 			if containsDot(tok.Literal) {
@@ -361,8 +371,8 @@ func (l *Lexer) NextToken() Token {
 			} else {
 				tok.Type = INT
 			}
-			tok.Line = l.line
-			tok.Column = l.column
+			tok.Line = line
+			tok.Column = column
 			return tok // early return to avoid readChar()
 		} else {
 			tok = newToken(ILLEGAL, l.ch, l.line, l.column)

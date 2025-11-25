@@ -696,8 +696,7 @@ func (p *Parser) peekError(t lexer.TokenType) {
 		gotLiteral = gotName
 	}
 
-	// Report error at the position after curToken (the last successfully parsed token)
-	// This points to where the expected token should have appeared
+	// Report error at the position after the last successfully parsed token (curToken)
 	line := p.curToken.Line
 	column := p.curToken.Column + len(p.curToken.Literal)
 
@@ -715,13 +714,13 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 	// If curToken is on a new line compared to prevToken,
 	// report the error at the previous token (where the expression should have been)
 	line := p.curToken.Line
-	column := p.curToken.Column
+	column := p.curToken.Column + len(p.curToken.Literal)
 
 	if p.prevToken.Type != lexer.ILLEGAL && p.curToken.Line > p.prevToken.Line {
 		// Current token is on a new line, point to after the previous token
 		line = p.prevToken.Line
 		column = p.prevToken.Column + len(p.prevToken.Literal)
-	} else {
+	} else if p.prevToken.Type != lexer.ILLEGAL {
 		// Same line, point to after the previous token
 		column = p.prevToken.Column + len(p.prevToken.Literal)
 	}

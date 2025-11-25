@@ -40,12 +40,12 @@ let y = 10
 **Error Output:**
 ```
 Error in 'example2.pars':
-  line 2, column 1: expected ')', got 'let'
-    let y = 10
-    ^
+  line 1, column 15: expected ')', got 'let'
+    let x = (5 + 3
+                  ^
 ```
 
-The error points to where the closing parenthesis should have been, showing that the expression `(5 + 3` is incomplete.
+The error points to the end of line 1, right after the `3`, showing that the closing parenthesis was expected but the expression is incomplete.
 
 ### Example 3: Missing Expression After Operator
 
