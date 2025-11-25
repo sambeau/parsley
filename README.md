@@ -914,10 +914,6 @@ This project is structured to easily add new modules and packages:
   - `ast/` - Defines the Abstract Syntax Tree nodes
   - `evaluator/` - Evaluates the AST and executes the program
   - `repl/` - Read-Eval-Print Loop for interactive usage
-- `internal/` - Private packages that are specific to this application
-- `cmd/` - Command-line applications
-- `api/` - API definitions (OpenAPI/Swagger specs, protocol definition files)
-- `configs/` - Configuration file templates or default configs
 
 ## Contributing
 

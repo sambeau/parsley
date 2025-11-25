@@ -18,10 +18,11 @@ This is a Go project using standard Go practices and conventions.
 
 - `main.go` - Application entry point
 - `pkg/` - Public packages for external use
-- `internal/` - Private packages for internal use
-- `cmd/` - Command-line applications
-- `api/` - API definitions and protocol files
-- `configs/` - Configuration files
+  - `lexer/` - Tokenizes input into lexical tokens
+  - `parser/` - Converts tokens into an Abstract Syntax Tree
+  - `ast/` - Defines the Abstract Syntax Tree nodes
+  - `evaluator/` - Evaluates the AST and executes the program
+  - `repl/` - Read-Eval-Print Loop for interactive usage
 
 ## Dependencies
 
