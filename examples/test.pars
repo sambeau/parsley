@@ -62,8 +62,9 @@
 moods ="🤪🥳😍😂🙂😐🤨🫤🥹😢😭"
 n = 0
 myMoods = toString(for (mood in moods){
-	n = n + 1;
-	(n, " My mood is: ", mood, "\n")
+	n = n + 1
+//	(n, " My mood is: ", mood, "\n")
+n
 })
 
 let name = "Sam Phillips"
@@ -73,3 +74,10 @@ let hello = fn (){
 	"Hello, ", name, " age: ", age
 }
 toString(hello(),"\n",myMoods)
+
+n=0
+xs = for (mood in moods){
+	n = n + 1
+	n," "
+}
+//xs == 1,  , 2,  , 3,  , 4,  , 5,  , 6,  , 7,  , 8,  , 9,  , 10,  , 11,

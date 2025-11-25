@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -665,6 +666,38 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &String{Value: result.String()}
+			},
+		},
+		"toDebug": {
+			Fn: func(args ...Object) Object {
+				var result strings.Builder
+
+				for i, arg := range args {
+					if i > 0 {
+						result.WriteString(", ")
+					}
+					result.WriteString(objectToDebugString(arg))
+				}
+
+				return &String{Value: result.String()}
+			},
+		},
+		"log": {
+			Fn: func(args ...Object) Object {
+				var result strings.Builder
+
+				for i, arg := range args {
+					if i > 0 {
+						result.WriteString(", ")
+					}
+					result.WriteString(objectToDebugString(arg))
+				}
+
+				// Write immediately to stdout
+				fmt.Fprintln(os.Stdout, result.String())
+
+				// Return null
+				return NULL
 			},
 		},
 		"sort": {
@@ -1499,6 +1532,40 @@ func objectToPrintString(obj Object) string {
 		return result.String()
 	case *Null:
 		return ""
+	default:
+		return obj.Inspect()
+	}
+}
+
+// objectToDebugString converts an object to its debug string representation
+func objectToDebugString(obj Object) string {
+	switch obj := obj.(type) {
+	case *Integer:
+		return fmt.Sprintf("%d", obj.Value)
+	case *Float:
+		return fmt.Sprintf("%g", obj.Value)
+	case *Boolean:
+		if obj.Value {
+			return "true"
+		}
+		return "false"
+	case *String:
+		// Strings are wrapped in quotes for debug output
+		return fmt.Sprintf("\"%s\"", obj.Value)
+	case *Array:
+		// Arrays: recursively debug print each element with separators, wrapped in brackets
+		var result strings.Builder
+		result.WriteString("[")
+		for i, elem := range obj.Elements {
+			if i > 0 {
+				result.WriteString(", ")
+			}
+			result.WriteString(objectToDebugString(elem))
+		}
+		result.WriteString("]")
+		return result.String()
+	case *Null:
+		return "null"
 	default:
 		return obj.Inspect()
 	}

@@ -41,6 +41,10 @@ A Go-based toy concatenative programming language interpreter.
   - `toFloat(str)` - Convert string to float
   - `toNumber(str)` - Convert string to integer or float (auto-detects)
   - `toString(values...)` - Convert values to strings and join without whitespace
+  - `toDebug(values...)` - Convert values to debug representation (arrays in `[...]`, strings in `"quotes"`)
+
+- **Debugging Functions:**
+  - `log(values...)` - Output values in debug format immediately to stdout (returns `null`)
 
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
@@ -567,6 +571,44 @@ HelloWorld
 >> toString("Result:", 42)
 Result:42
 ```
+
+### toDebug() Function
+
+The `toDebug()` function converts values to a debug representation with proper formatting:
+
+```
+>> toDebug(1, 2.5, "hello", true)
+1, 2.5, "hello", true
+>> here = "HERE!"
+>> xs = 1, 2.0, "Sam", "was", here
+>> toDebug(xs)
+[1, 2, "Sam", "was", "HERE!"]
+>> nested = [[1, 2], ["a", "b"]]
+>> toDebug(nested)
+[[1, 2], ["a", "b"]]
+```
+
+### log() Function
+
+The `log()` function outputs values in debug format immediately to stdout, useful for debugging:
+
+```
+log("Starting computation...")
+x = 5
+log("x is:", x)
+// Output: "x is:", 5
+
+for (item in ["apple", "banana", "cherry"]) {
+	log("Processing:", item)
+	item
+}
+// Output during loop execution:
+// "Processing:", "apple"
+// "Processing:", "banana"
+// "Processing:", "cherry"
+```
+
+**Note:** `log()` returns `null` and outputs immediately, making it ideal for debugging loops and tracking execution flow.
 
 ### For Loops
 
