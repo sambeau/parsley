@@ -63,8 +63,8 @@ func executeFile(filename string) {
 		os.Exit(1)
 	}
 
-	// Print result if not nil
-	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ {
+	// Print result if not null and not an error
+	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ && evaluated.Type() != evaluator.NULL_OBJ {
 		fmt.Println(evaluated.Inspect())
 	}
 }
