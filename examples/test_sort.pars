@@ -1,36 +1,36 @@
 // Test Natural Sort Function
 
-print("=== Integer Sorting ===\n")
+toString("=== Integer Sorting ===\n")
 xs = 3,2,4,10,1
 xs
 sort(xs)
 
-print("\n=== Natural String Sorting ===\n")
+toString("\n=== Natural String Sorting ===\n")
 xs = "z11", "z1", "z2"
 xs
 sort(xs)
 
-print("\n=== Multi-digit Natural Sort ===\n")
+toString("\n=== Multi-digit Natural Sort ===\n")
 items = "item 20", "item 3", "item 100", "item 1"
 items
 sort(items)
 
-print("\n=== Mixed Type Sorting (numbers first) ===\n")
+toString("\n=== Mixed Type Sorting (numbers first) ===\n")
 mixed = "a", 10, "b", 2, 1
 mixed
 sort(mixed)
 
-print("\n=== Complex Mixed Example ===\n")
+toString("\n=== Complex Mixed Example ===\n")
 files = "file 1.txt", "file 10.txt", "file 2.txt", 5, "file 20.txt"
 files
 sort(files)
 
-print("\n=== Floats and Integers ===\n")
+toString("\n=== Floats and Integers ===\n")
 numbers = 3.14, 2, 1.5, 10, 0.5
 numbers
 sort(numbers)
 
-print("\n=== Original Array Unchanged ===\n")
+toString("\n=== Original Array Unchanged ===\n")
 original = 5,3,8,1
 sorted = sort(original)
 original

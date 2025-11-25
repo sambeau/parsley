@@ -21,7 +21,7 @@
 //	`</div>`
 //}
 //
-//print(xs,zs)
+//toString(xs,zs)
 //// should output
 ////123456,<div><p>1</p><p>2</p><p>3</p></div><div><p>4</p><p>5</p><p>6</p></div>
 
@@ -54,6 +54,6 @@ xs = 1,2,3,4,5
 h = head(xs)
 ts = tail(xs)
 _ = tail(xs)
-print(h,"|",_,ts,_)
+toString(h,"|",_,ts,_)
 
 30 % 10

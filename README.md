@@ -42,7 +42,7 @@ A Go-based toy concatenative programming language interpreter.
   - `toNumber(str)` - Convert string to integer or float (auto-detects)
 
 - **Output Functions:**
-  - `print(values...)` - Convert values to strings and join without whitespace
+  - `toString(values...)` - Convert values to strings and join without whitespace
 
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
@@ -553,19 +553,19 @@ Filtering with map (null values are skipped):
 15, 25, 12
 ```
 
-### print() Function
+### toString() Function
 
-The `print()` function converts values to strings and joins them without any whitespace:
+The `toString()` function converts values to strings and joins them without any whitespace:
 
 ```
->> print(1, 2, 3)
+>> toString(1, 2, 3)
 123
->> print("Hello", "World")
+>> toString("Hello", "World")
 HelloWorld
->> xs = [1, 2, 3]
->> print(xs)
+>> xs = (1,2,3)
+>> toString(xs)
 123
->> print("Result:", 42)
+>> toString("Result:", 42)
 Result:42
 ```
 

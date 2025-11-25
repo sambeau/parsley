@@ -631,7 +631,7 @@ func getBuiltins() map[string]*Builtin {
 				return newError("cannot convert '%s' to number", str.Value)
 			},
 		},
-		"print": {
+		"toString": {
 			Fn: func(args ...Object) Object {
 				var result strings.Builder
 
