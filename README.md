@@ -45,6 +45,7 @@ A Go-based toy concatenative programming language interpreter.
 
 - **Debugging Functions:**
   - `log(values...)` - Output values in debug format immediately to stdout (returns `null`)
+  - `logLine(values...)` - Output values with filename and line number prefix (returns `null`)
 
 - **String Functions:**
   - `toUpper(str)` - Convert string to uppercase
@@ -596,19 +597,50 @@ The `log()` function outputs values in debug format immediately to stdout, usefu
 log("Starting computation...")
 x = 5
 log("x is:", x)
-// Output: "x is:", 5
+// Output: x is: 5
+
+arr = [10, 4, 16, 2, 18]
+log("Final result:", arr)
+// Output: Final result: [10, 4, 16, 2, 18]
 
 for (item in ["apple", "banana", "cherry"]) {
 	log("Processing:", item)
 	item
 }
 // Output during loop execution:
-// "Processing:", "apple"
-// "Processing:", "banana"
-// "Processing:", "cherry"
+// Processing: "apple"
+// Processing: "banana"
+// Processing: "cherry"
 ```
 
+**Special behavior:** If the first argument is a string, it's displayed without quotes and has no comma after it, making it ideal for labels.
+
 **Note:** `log()` returns `null` and outputs immediately, making it ideal for debugging loops and tracking execution flow.
+
+### logLine() Function
+
+The `logLine()` function outputs values with the filename and line number prefix, useful for tracking execution location:
+
+```
+logLine("Starting program")
+// Output: program.pars:1: Starting program
+
+x = 5
+logLine("x is:", x)
+// Output: program.pars:3: x is: 5
+
+for (item in ["apple", "banana", "cherry"]) {
+	logLine("Processing:", item)
+}
+// Output during loop execution:
+// program.pars:6: Processing: "apple"
+// program.pars:6: Processing: "banana"
+// program.pars:6: Processing: "cherry"
+```
+
+**Special behavior:** Like `log()`, if the first argument is a string, it's displayed without quotes for clean label output.
+
+**Note:** `logLine()` returns `null` and is particularly useful for debugging to understand where in your code execution is happening, especially in loops and nested functions.
 
 ### For Loops
 

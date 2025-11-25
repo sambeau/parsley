@@ -135,8 +135,10 @@ func (a *Array) Inspect() string {
 
 // Environment represents the environment for variable bindings
 type Environment struct {
-	store map[string]Object
-	outer *Environment
+	store     map[string]Object
+	outer     *Environment
+	Filename  string
+	LastToken *lexer.Token
 }
 
 // NewEnvironment creates a new environment
@@ -149,6 +151,11 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
+	// Preserve filename and token from outer environment
+	if outer != nil {
+		env.Filename = outer.Filename
+		env.LastToken = outer.LastToken
+	}
 	return env
 }
 
@@ -687,16 +694,40 @@ func getBuiltins() map[string]*Builtin {
 				var result strings.Builder
 
 				for i, arg := range args {
-					if i > 0 {
-						result.WriteString(", ")
+					if i == 0 {
+						// First argument: if it's a string, show without quotes
+						if str, ok := arg.(*String); ok {
+							result.WriteString(str.Value)
+						} else {
+							result.WriteString(objectToDebugString(arg))
+						}
+					} else {
+						// Subsequent arguments: add separator and debug format
+						if i == 1 {
+							// After first string, no comma - just space
+							if _, firstWasString := args[0].(*String); firstWasString {
+								result.WriteString(" ")
+							} else {
+								result.WriteString(", ")
+							}
+						} else {
+							result.WriteString(", ")
+						}
+						result.WriteString(objectToDebugString(arg))
 					}
-					result.WriteString(objectToDebugString(arg))
 				}
 
 				// Write immediately to stdout
 				fmt.Fprintln(os.Stdout, result.String())
 
 				// Return null
+				return NULL
+			},
+		},
+		"logLine": {
+			Fn: func(args ...Object) Object {
+				// This is a placeholder - will be replaced with actual implementation
+				// that has access to environment
 				return NULL
 			},
 		},
@@ -870,6 +901,18 @@ func Eval(node ast.Node, env *Environment) Object {
 		return &Array{Elements: elements}
 
 	case *ast.CallExpression:
+		// Store current token in environment for logLine
+		env.LastToken = &node.Token
+		
+		// Check if this is a call to logLine
+		if ident, ok := node.Function.(*ast.Identifier); ok && ident.Value == "logLine" {
+			args := evalExpressions(node.Arguments, env)
+			if len(args) == 1 && isError(args[0]) {
+				return args[0]
+			}
+			return evalLogLine(args, env)
+		}
+		
 		function := Eval(node.Function, env)
 		if isError(function) {
 			return function
@@ -878,7 +921,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
-		return applyFunction(function, args)
+		return applyFunctionWithEnv(function, args, env)
 
 	case *ast.ForExpression:
 		return evalForExpression(node, env)
@@ -1243,6 +1286,66 @@ func applyFunction(fn Object, args []Object) Object {
 	default:
 		return newError("not a function: %T", fn)
 	}
+}
+
+func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
+	switch fn := fn.(type) {
+	case *Function:
+		extendedEnv := extendFunctionEnv(fn, args)
+		evaluated := Eval(fn.Body, extendedEnv)
+		return unwrapReturnValue(evaluated)
+	case *Builtin:
+		return fn.Fn(args...)
+	default:
+		return newError("not a function: %T", fn)
+	}
+}
+
+// evalLogLine implements logLine with filename and line number
+func evalLogLine(args []Object, env *Environment) Object {
+	var result strings.Builder
+
+	// Add filename and line number prefix
+	filename := env.Filename
+	if filename == "" {
+		filename = "<unknown>"
+	}
+	line := 1
+	if env.LastToken != nil {
+		line = env.LastToken.Line
+	}
+	result.WriteString(fmt.Sprintf("%s:%d: ", filename, line))
+
+	// Process arguments like log()
+	for i, arg := range args {
+		if i == 0 {
+			// First argument: if it's a string, show without quotes
+			if str, ok := arg.(*String); ok {
+				result.WriteString(str.Value)
+			} else {
+				result.WriteString(objectToDebugString(arg))
+			}
+		} else {
+			// Subsequent arguments: add separator and debug format
+			if i == 1 {
+				// After first string, no comma - just space
+				if _, firstWasString := args[0].(*String); firstWasString {
+					result.WriteString(" ")
+				} else {
+					result.WriteString(", ")
+				}
+			} else {
+				result.WriteString(", ")
+			}
+			result.WriteString(objectToDebugString(arg))
+		}
+	}
+
+	// Write immediately to stdout
+	fmt.Fprintln(os.Stdout, result.String())
+
+	// Return null
+	return NULL
 }
 
 func extendFunctionEnv(fn *Function, args []Object) *Environment {

@@ -53,6 +53,7 @@ func executeFile(filename string) {
 
 	// Evaluate the program
 	env := evaluator.NewEnvironment()
+	env.Filename = filename
 	evaluated := evaluator.Eval(program, env)
 
 	// Check for evaluation errors
