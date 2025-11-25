@@ -175,23 +175,23 @@ func naturalCompare(a, b Object) bool {
 	// Type-based ordering: numbers < strings
 	aType := getTypeOrder(a)
 	bType := getTypeOrder(b)
-	
+
 	if aType != bType {
 		return aType < bType
 	}
-	
+
 	// Both are numbers
 	if aType == 0 {
 		return compareNumbers(a, b)
 	}
-	
+
 	// Both are strings - use natural string comparison
 	if aType == 1 {
 		aStr := a.(*String).Value
 		bStr := b.(*String).Value
 		return naturalStringCompare(aStr, bStr)
 	}
-	
+
 	// Other types (shouldn't happen with current implementation)
 	return false
 }
@@ -235,37 +235,37 @@ func getNumericValue(obj Object) float64 {
 func naturalStringCompare(a, b string) bool {
 	aRunes := []rune(a)
 	bRunes := []rune(b)
-	
+
 	i, j := 0, 0
-	
+
 	for i < len(aRunes) && j < len(bRunes) {
 		aChar := aRunes[i]
 		bChar := bRunes[j]
-		
+
 		// Both are digits - compare numerically
 		if unicode.IsDigit(aChar) && unicode.IsDigit(bChar) {
 			// Extract the full number from both strings
 			aNum, aEnd := extractNumber(aRunes, i)
 			bNum, bEnd := extractNumber(bRunes, j)
-			
+
 			if aNum != bNum {
 				return aNum < bNum
 			}
-			
+
 			i = aEnd
 			j = bEnd
 			continue
 		}
-		
+
 		// Character comparison
 		if aChar != bChar {
 			return aChar < bChar
 		}
-		
+
 		i++
 		j++
 	}
-	
+
 	// If we've exhausted one string, the shorter one comes first
 	return len(aRunes) < len(bRunes)
 }
@@ -277,13 +277,13 @@ func extractNumber(runes []rune, start int) (int64, int) {
 	for end < len(runes) && unicode.IsDigit(runes[end]) {
 		end++
 	}
-	
+
 	numStr := string(runes[start:end])
 	num, err := strconv.ParseInt(numStr, 10, 64)
 	if err != nil {
 		return 0, end
 	}
-	
+
 	return num, end
 }
 
