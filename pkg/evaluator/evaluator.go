@@ -41,7 +41,7 @@ type Integer struct {
 	Value int64
 }
 
-func (i *Integer) Inspect() string  { return fmt.Sprintf("%d", i.Value) }
+func (i *Integer) Inspect() string  { return strconv.FormatInt(i.Value, 10) }
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 
 // Float represents floating-point objects
@@ -57,7 +57,7 @@ type Boolean struct {
 	Value bool
 }
 
-func (b *Boolean) Inspect() string  { return fmt.Sprintf("%t", b.Value) }
+func (b *Boolean) Inspect() string  { return strconv.FormatBool(b.Value) }
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
 
 // String represents string objects
@@ -1588,7 +1588,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 func objectToTemplateString(obj Object) string {
 	switch obj := obj.(type) {
 	case *Integer:
-		return fmt.Sprintf("%d", obj.Value)
+		return strconv.FormatInt(obj.Value, 10)
 	case *Float:
 		return fmt.Sprintf("%g", obj.Value)
 	case *Boolean:
@@ -1616,7 +1616,7 @@ func objectToTemplateString(obj Object) string {
 func objectToPrintString(obj Object) string {
 	switch obj := obj.(type) {
 	case *Integer:
-		return fmt.Sprintf("%d", obj.Value)
+		return strconv.FormatInt(obj.Value, 10)
 	case *Float:
 		return fmt.Sprintf("%g", obj.Value)
 	case *Boolean:
@@ -1644,7 +1644,7 @@ func objectToPrintString(obj Object) string {
 func objectToDebugString(obj Object) string {
 	switch obj := obj.(type) {
 	case *Integer:
-		return fmt.Sprintf("%d", obj.Value)
+		return strconv.FormatInt(obj.Value, 10)
 	case *Float:
 		return fmt.Sprintf("%g", obj.Value)
 	case *Boolean:
