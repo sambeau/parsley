@@ -32,28 +32,44 @@
 //
 //funs[1](3)
 
-xs = "sam","_poo","was","_poo","here!","_poo"
+//xs = "sam","_poo","was","_poo","here!","_poo"
+//
+//for (x in xs) {
+//	y = toUpper(x)
+//	if (x[0] != "_")
+//		return y
+//}
+//
+//head = fn(xs){
+//	y,_ = xs
+//	y
+//}
+//
+//tail = fn(xs){
+//	_,ys = xs
+//	ys
+//}
+//
+//xs = 1,2,3,4,5
+//h = head(xs)
+//ts = tail(xs)
+//_ = tail(xs)
+//toString(h,"|",_,ts,_)
+//
+//30 % 10
 
-for (x in xs) {
-	y = toUpper(x)
-	if (x[0] != "_")
-		return y
+
+moods ="🤪🥳😍😂🙂😐🤨🫤🥹😢😭"
+n = 0
+myMoods = toString(for (mood in moods){
+	n = n + 1;
+	(n, " My mood is: ", mood, "\n")
+})
+
+let name = "Sam Phillips"
+let hello = fn (){
+	age = 56 
+	age = age + 1
+	"Hello, ", name, " age: ", age
 }
-
-head = fn(xs){
-	y,_ = xs
-	y
-}
-
-tail = fn(xs){
-	_,ys = xs
-	ys
-}
-
-xs = 1,2,3,4,5
-h = head(xs)
-ts = tail(xs)
-_ = tail(xs)
-toString(h,"|",_,ts,_)
-
-30 % 10
+toString(hello(),"\n",myMoods)

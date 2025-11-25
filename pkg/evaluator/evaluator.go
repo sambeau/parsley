@@ -122,7 +122,11 @@ func (a *Array) Inspect() string {
 	var out strings.Builder
 	elements := []string{}
 	for _, e := range a.Elements {
-		elements = append(elements, e.Inspect())
+		if e != nil {
+			elements = append(elements, e.Inspect())
+		} else {
+			elements = append(elements, "nil")
+		}
 	}
 	out.WriteString(strings.Join(elements, ", "))
 	return out.String()
@@ -158,6 +162,27 @@ func (e *Environment) Get(name string) (Object, bool) {
 
 // Set stores a value in the environment
 func (e *Environment) Set(name string, val Object) Object {
+	e.store[name] = val
+	return val
+}
+
+// Update stores a value in the environment where it's defined (current or outer)
+// If the variable doesn't exist anywhere, it creates it in the current scope
+func (e *Environment) Update(name string, val Object) Object {
+	// Check if variable exists in current scope
+	if _, ok := e.store[name]; ok {
+		e.store[name] = val
+		return val
+	}
+
+	// Check if it exists in outer scope
+	if e.outer != nil {
+		if _, ok := e.outer.Get(name); ok {
+			return e.outer.Update(name, val)
+		}
+	}
+
+	// Variable doesn't exist anywhere, create it in current scope
 	e.store[name] = val
 	return val
 }
@@ -748,7 +773,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		// Single assignment
 		// Special handling for '_' - don't store it
 		if node.Name.Value != "_" {
-			env.Set(node.Name.Value, val)
+			env.Update(node.Name.Value, val)
 		}
 		return val
 
@@ -1270,9 +1295,12 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 				return newError("function passed to for must take exactly 1 parameter, got %d", len(f.Parameters))
 			}
 
+			// Create a new environment that extends the function's environment
+			// This allows the loop body to access and modify parent scope variables
 			extendedEnv := NewEnclosedEnvironment(f.Env)
 			extendedEnv.Set(f.Parameters[0].Value, elem)
 
+			// Evaluate all statements in the body
 			for _, stmt := range f.Body.Statements {
 				evaluated = evalStatement(stmt, extendedEnv)
 				if returnValue, ok := evaluated.(*ReturnValue); ok {
@@ -1323,12 +1351,12 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		if i < len(elements) {
 			// Direct assignment for elements within bounds
 			if name.Value != "_" {
-				env.Set(name.Value, elements[i])
+				env.Update(name.Value, elements[i])
 			}
 		} else {
 			// No more elements, assign null
 			if name.Value != "_" {
-				env.Set(name.Value, NULL)
+				env.Update(name.Value, NULL)
 			}
 		}
 	}
@@ -1340,7 +1368,7 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		if lastName.Value != "_" {
 			// Replace the last assignment with an array of remaining elements
 			remaining := &Array{Elements: elements[lastIdx:]}
-			env.Set(lastName.Value, remaining)
+			env.Update(lastName.Value, remaining)
 		}
 	}
 
