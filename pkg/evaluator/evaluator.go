@@ -320,6 +320,28 @@ func extractNumber(runes []rune, start int) (int64, int) {
 	return num, end
 }
 
+// objectsEqual compares two objects for equality
+func objectsEqual(a, b Object) bool {
+	if a.Type() != b.Type() {
+		return false
+	}
+
+	switch a := a.(type) {
+	case *Integer:
+		return a.Value == b.(*Integer).Value
+	case *Float:
+		return a.Value == b.(*Float).Value
+	case *String:
+		return a.Value == b.(*String).Value
+	case *Boolean:
+		return a.Value == b.(*Boolean).Value
+	case *Null:
+		return true
+	default:
+		return false
+	}
+}
+
 // getBuiltins returns the map of built-in functions
 func getBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
@@ -772,6 +794,53 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &Array{Elements: reversed}
+			},
+		},
+		"sortBy": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 2 {
+					return newError("wrong number of arguments to `sortBy`. got=%d, want=2", len(args))
+				}
+
+				arr, ok := args[0].(*Array)
+				if !ok {
+					return newError("first argument to `sortBy` must be an array, got %s", args[0].Type())
+				}
+
+				compareFn := args[1]
+
+				// Verify it's a function
+				fn, ok := compareFn.(*Function)
+				if !ok {
+					return newError("second argument to `sortBy` must be a function, got %s", compareFn.Type())
+				}
+
+				// Verify the function takes exactly 2 parameters
+				if len(fn.Parameters) != 2 {
+					return newError("comparison function must take exactly 2 parameters, got %d", len(fn.Parameters))
+				}
+
+				// Create a copy to avoid modifying the original
+				sortedElements := make([]Object, len(arr.Elements))
+				copy(sortedElements, arr.Elements)
+
+				// Sort using the custom comparison function
+				sort.Slice(sortedElements, func(i, j int) bool {
+					// Call the comparison function with the two elements
+					result := applyFunction(fn, []Object{sortedElements[i], sortedElements[j]})
+
+					// The function should return a 2-element array
+					resultArr, ok := result.(*Array)
+					if !ok || len(resultArr.Elements) != 2 {
+						return false
+					}
+
+					// Check if the first element equals sortedElements[i]
+					// If so, it means i comes before j (ascending order)
+					return objectsEqual(resultArr.Elements[0], sortedElements[i])
+				})
+
+				return &Array{Elements: sortedElements}
 			},
 		},
 	}

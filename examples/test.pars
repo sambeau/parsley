@@ -59,25 +59,56 @@
 //30 % 10
 
 
-moods ="🤪🥳😍😂🙂😐🤨🫤🥹😢😭"
-n = 0
-myMoods = toString(for (mood in moods){
-	n = n + 1
-//	(n, " My mood is: ", mood, "\n")
-n
+//moods ="🤪🥳😍😂🙂😐🤨🫤🥹😢😭"
+//n = 0
+//myMoods = toString(for (mood in moods){
+//	n = n + 1
+////	(n, " My mood is: ", mood, "\n")
+//n
+//})
+//
+//let name = "Sam Phillips"
+//let hello = fn (){
+//	age = 56 
+//	age = age + 1
+//	"Hello, ", name, " age: ", age
+//}
+//toString(hello(),"\n",myMoods)
+//
+//n=0
+//xs = for (mood in moods){
+//	n = n + 1
+//	n," "
+//}
+//xs == 1,  , 2,  , 3,  , 4,  , 5,  , 6,  , 7,  , 8,  , 9,  , 10,  , 11,
+
+
+normalOrder = fn(a,b){
+	sort([a,b])
+}
+
+reverseOrder = fn(a,b){
+	reverse(sort([a,b]))
+}
+
+normalOrder(20,10)
+
+10, 20
+
+reverseOrder(300,500)
+
+500, 300
+
+xs = sortBy([1,2,3,4,5], reverseOrder)
+
+xs == 5,4,3,2,1
+
+xs = sortBy([5, 50, 10, 100, 6, 60, 7, 70], normalOrder)
+
+xs == 5, 6, 7, 10, 50, 60, 70, 100
+
+xs = sortBy([1,2,3,4,5], fn(a,b){
+	reverse(sort([a,b]))
 })
 
-let name = "Sam Phillips"
-let hello = fn (){
-	age = 56 
-	age = age + 1
-	"Hello, ", name, " age: ", age
-}
-toString(hello(),"\n",myMoods)
-
-n=0
-xs = for (mood in moods){
-	n = n + 1
-	n," "
-}
-//xs == 1,  , 2,  , 3,  , 4,  , 5,  , 6,  , 7,  , 8,  , 9,  , 10,  , 11,
+xs == 5,4,3,2,1

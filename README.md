@@ -58,6 +58,7 @@ A Go-based toy concatenative programming language interpreter.
   - `for(var in array) { body }` - Sugar syntax for map with inline function
   - `len(array)` - Get the length of an array
   - `sort(array)` - Return a naturally sorted copy of the array
+  - `sortBy(array, compareFunc)` - Return a sorted copy using a custom comparison function
   - `reverse(array)` - Return a reversed copy of the array
 
 - **Mathematical Functions:**
@@ -873,6 +874,34 @@ cherry, banana, apple
 ```
 
 **Note:** The `reverse()` function returns a new reversed array and does not modify the original.
+
+### Custom Sorting with sortBy
+
+The `sortBy()` function allows custom sorting using a comparison function. The comparison function takes two values and returns them in the desired order as a 2-element array:
+
+```
+>> normalOrder = fn(a,b){ sort([a,b]) }
+>> reverseOrder = fn(a,b){ reverse(sort([a,b])) }
+
+>> normalOrder(20, 10)
+10, 20
+
+>> reverseOrder(300, 500)
+500, 300
+
+>> sortBy([1,2,3,4,5], reverseOrder)
+5, 4, 3, 2, 1
+
+>> sortBy([5, 50, 10, 100, 6, 60, 7, 70], normalOrder)
+5, 6, 7, 10, 50, 60, 70, 100
+
+>> sortBy([1,2,3,4,5], fn(a,b){ reverse(sort([a,b])) })
+5, 4, 3, 2, 1
+```
+
+The comparison function receives two elements and should return a 2-element array with those elements in the desired order. If the first element of the returned array equals the first input, it's considered to come before the second.
+
+**Note:** The `sortBy()` function returns a new sorted array and does not modify the original.
 
 ## Error Reporting
 
