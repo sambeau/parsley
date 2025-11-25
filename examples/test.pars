@@ -137,3 +137,20 @@ joinWith = fn(x,xs){
 }
 join = fn(xs){joinWith(" ",xs)}
 log(join(["Samuel","Edward","Phillips"]))
+
+
+page = fn(contents){`
+	<html>
+		<head>
+		</head>
+		<body>
+			`, contents,`
+		</body>
+	</html>`
+}
+
+main = fn(){
+	page("Hello Mum!")
+}
+
+main()

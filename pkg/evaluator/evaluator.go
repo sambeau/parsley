@@ -1959,6 +1959,11 @@ func objectToPrintString(obj Object) string {
 	}
 }
 
+// ObjectToPrintString is the exported version for use outside the package
+func ObjectToPrintString(obj Object) string {
+	return objectToPrintString(obj)
+}
+
 // objectToDebugString converts an object to its debug string representation
 func objectToDebugString(obj Object) string {
 	switch obj := obj.(type) {

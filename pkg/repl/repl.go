@@ -12,11 +12,11 @@ import (
 
 const PROMPT = ">> "
 
-const VERSION = "0.1.0"
+const VERSION = "0.2.0"
 
 const PARSER_LOGO = `
-█▀█ ▄▀█ █▀█ █▀
-█▀▀ █▀█ █▀▄ ▄█ `
+█▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ `
 
 // Start starts the REPL
 func Start(in io.Reader, out io.Writer) {
