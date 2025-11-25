@@ -17,5 +17,10 @@ zs = for(ys in xs){
 	`<div>`,
 	for (y in ys){
 		`<p>${y}</p>`
-	},`</div>`
+	},
+	`</div>`
 }
+
+print(xs,zs)
+// should output
+//123456,<div><p>1</p><p>2</p><p>3</p></div><div><p>4</p><p>5</p><p>6</p></div>

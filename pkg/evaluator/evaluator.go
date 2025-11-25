@@ -493,6 +493,17 @@ func getBuiltins() map[string]*Builtin {
 				return newError("cannot convert '%s' to number", str.Value)
 			},
 		},
+		"print": {
+			Fn: func(args ...Object) Object {
+				var result strings.Builder
+				
+				for _, arg := range args {
+					result.WriteString(objectToPrintString(arg))
+				}
+				
+				return &String{Value: result.String()}
+			},
+		},
 	}
 } // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
@@ -1174,6 +1185,34 @@ func objectToTemplateString(obj Object) string {
 		var result strings.Builder
 		for _, elem := range obj.Elements {
 			result.WriteString(objectToTemplateString(elem))
+		}
+		return result.String()
+	case *Null:
+		return ""
+	default:
+		return obj.Inspect()
+	}
+}
+
+// objectToPrintString converts an object to its string representation for print function
+func objectToPrintString(obj Object) string {
+	switch obj := obj.(type) {
+	case *Integer:
+		return fmt.Sprintf("%d", obj.Value)
+	case *Float:
+		return fmt.Sprintf("%g", obj.Value)
+	case *Boolean:
+		if obj.Value {
+			return "true"
+		}
+		return "false"
+	case *String:
+		return obj.Value
+	case *Array:
+		// Arrays: recursively print each element without any separators
+		var result strings.Builder
+		for _, elem := range obj.Elements {
+			result.WriteString(objectToPrintString(elem))
 		}
 		return result.String()
 	case *Null:
