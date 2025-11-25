@@ -903,7 +903,7 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.CallExpression:
 		// Store current token in environment for logLine
 		env.LastToken = &node.Token
-		
+
 		// Check if this is a call to logLine
 		if ident, ok := node.Function.(*ast.Identifier); ok && ident.Value == "logLine" {
 			args := evalExpressions(node.Arguments, env)
@@ -912,7 +912,7 @@ func Eval(node ast.Node, env *Environment) Object {
 			}
 			return evalLogLine(args, env)
 		}
-		
+
 		function := Eval(node.Function, env)
 		if isError(function) {
 			return function
