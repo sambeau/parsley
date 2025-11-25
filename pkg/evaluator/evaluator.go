@@ -1933,6 +1933,10 @@ func objectToTemplateString(obj Object) string {
 
 // objectToPrintString converts an object to its string representation for print function
 func objectToPrintString(obj Object) string {
+	if obj == nil {
+		return ""
+	}
+
 	switch obj := obj.(type) {
 	case *Integer:
 		return strconv.FormatInt(obj.Value, 10)

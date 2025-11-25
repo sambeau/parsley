@@ -138,6 +138,7 @@ joinWith = fn(x,xs){
 join = fn(xs){joinWith(" ",xs)}
 log(join(["Samuel","Edward","Phillips"]))
 
+f = fn(){}
 
 page = fn(contents){`
 	<html>
@@ -150,7 +151,11 @@ page = fn(contents){`
 }
 
 main = fn(){
-	page("Hello Mum!")
+	page(f([
+		[1,2,3],
+		[4,5,6],
+		[7,8,9]
+	]))
 }
 
 main()
