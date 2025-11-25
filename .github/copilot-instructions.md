@@ -13,6 +13,7 @@ This is a Go project using standard Go practices and conventions.
 - Handle errors explicitly and appropriately
 - Write unit tests for all public functions
 - Use meaningful variable and function names
+- Use Go's std library functions, interfaces and types where possible
 
 ## Project Structure
 
