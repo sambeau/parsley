@@ -665,6 +665,26 @@ func getBuiltins() map[string]*Builtin {
 				return &Array{Elements: sortedElements}
 			},
 		},
+		"reverse": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `reverse`. got=%d, want=1", len(args))
+				}
+
+				arr, ok := args[0].(*Array)
+				if !ok {
+					return newError("argument to `reverse` must be an array, got %s", args[0].Type())
+				}
+
+				// Create a reversed copy
+				reversed := make([]Object, len(arr.Elements))
+				for i, elem := range arr.Elements {
+					reversed[len(arr.Elements)-1-i] = elem
+				}
+
+				return &Array{Elements: reversed}
+			},
+		},
 	}
 } // Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {

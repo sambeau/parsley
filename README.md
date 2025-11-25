@@ -40,8 +40,6 @@ A Go-based toy concatenative programming language interpreter.
   - `toInt(str)` - Convert string to integer
   - `toFloat(str)` - Convert string to float
   - `toNumber(str)` - Convert string to integer or float (auto-detects)
-
-- **Output Functions:**
   - `toString(values...)` - Convert values to strings and join without whitespace
 
 - **String Functions:**
@@ -55,6 +53,7 @@ A Go-based toy concatenative programming language interpreter.
   - `for(var in array) { body }` - Sugar syntax for map with inline function
   - `len(array)` - Get the length of an array
   - `sort(array)` - Return a naturally sorted copy of the array
+  - `reverse(array)` - Return a reversed copy of the array
 
 - **Mathematical Functions:**
   - `sqrt(x)` - Square root
@@ -777,6 +776,29 @@ Numbers are sorted before strings:
 ```
 
 **Note:** The `sort()` function returns a new sorted array and does not modify the original.
+
+### Array Reversal
+
+The `reverse()` function returns a new array with elements in reverse order:
+
+```
+>> xs = 1,2,3,4,5
+>> reverse(xs)
+5, 4, 3, 2, 1
+
+>> words = "apple", "banana", "cherry"
+>> reverse(words)
+cherry, banana, apple
+
+>> original = 1,2,3
+>> reversed = reverse(original)
+>> original
+1, 2, 3
+>> reversed
+3, 2, 1
+```
+
+**Note:** The `reverse()` function returns a new reversed array and does not modify the original.
 
 ## Error Reporting
 
