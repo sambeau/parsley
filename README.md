@@ -234,7 +234,7 @@ Empty arrays and nested empty arrays are supported:
 
 ```
 
-See [MULTIDIM_ARRAYS.md](MULTIDIM_ARRAYS.md) for more examples.
+See [MULTIDIM_ARRAYS.md](examples/MULTIDIM_ARRAYS.md) for more examples.
 
 #### Array Indexing
 
@@ -597,7 +597,7 @@ Error in 'example.pars':
        ^
 ```
 
-See [ERROR_DEMO.md](ERROR_DEMO.md) for more examples of error messages.
+See [ERROR_DEMO.md](examples/ERROR_DEMO.md) for more examples of error messages.
 
 ## Development
 
