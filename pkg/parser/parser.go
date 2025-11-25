@@ -696,10 +696,10 @@ func (p *Parser) peekError(t lexer.TokenType) {
 		gotLiteral = gotName
 	}
 
-	// Report error at curToken (the last successfully parsed token)
+	// Report error at the position after curToken (the last successfully parsed token)
 	// This points to where the expected token should have appeared
 	line := p.curToken.Line
-	column := p.curToken.Column
+	column := p.curToken.Column + len(p.curToken.Literal)
 
 	msg := fmt.Sprintf("line %d, column %d: expected %s, got '%s'",
 		line, column, tokenName, gotLiteral)
@@ -718,9 +718,12 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 	column := p.curToken.Column
 
 	if p.prevToken.Type != lexer.ILLEGAL && p.curToken.Line > p.prevToken.Line {
-		// Current token is on a new line, point to the previous token
+		// Current token is on a new line, point to after the previous token
 		line = p.prevToken.Line
-		column = p.prevToken.Column
+		column = p.prevToken.Column + len(p.prevToken.Literal)
+	} else {
+		// Same line, point to after the previous token
+		column = p.prevToken.Column + len(p.prevToken.Literal)
 	}
 
 	msg := fmt.Sprintf("line %d, column %d: unexpected '%s'",
