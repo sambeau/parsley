@@ -41,6 +41,7 @@ var precedences = map[lexer.TokenType]int{
 	lexer.PLUSPLUS: CONCAT,
 	lexer.SLASH:    PRODUCT,
 	lexer.ASTERISK: PRODUCT,
+	lexer.PERCENT:  PRODUCT,
 	lexer.LBRACKET: INDEX,
 	lexer.LPAREN:   CALL,
 }
@@ -94,6 +95,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.MINUS, p.parseInfixExpression)
 	p.registerInfix(lexer.SLASH, p.parseInfixExpression)
 	p.registerInfix(lexer.ASTERISK, p.parseInfixExpression)
+	p.registerInfix(lexer.PERCENT, p.parseInfixExpression)
 	p.registerInfix(lexer.EQ, p.parseInfixExpression)
 	p.registerInfix(lexer.NOT_EQ, p.parseInfixExpression)
 	p.registerInfix(lexer.LT, p.parseInfixExpression)
@@ -824,6 +826,8 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'*'"
 	case lexer.SLASH:
 		return "'/'"
+	case lexer.PERCENT:
+		return "'%'"
 	case lexer.LT:
 		return "'<'"
 	case lexer.GT:

@@ -28,6 +28,7 @@ const (
 	BANG     // !
 	ASTERISK // *
 	SLASH    // /
+	PERCENT  // %
 	LT       // <
 	GT       // >
 	LTE      // <=
@@ -104,6 +105,8 @@ func (tt TokenType) String() string {
 		return "ASTERISK"
 	case SLASH:
 		return "SLASH"
+	case PERCENT:
+		return "PERCENT"
 	case LT:
 		return "LT"
 	case GT:
@@ -287,6 +290,8 @@ func (l *Lexer) NextToken() Token {
 			return l.NextToken()
 		}
 		tok = newToken(SLASH, l.ch, l.line, l.column)
+	case '%':
+		tok = newToken(PERCENT, l.ch, l.line, l.column)
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
 	case '<':

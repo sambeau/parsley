@@ -288,6 +288,23 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
+		"round": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments. got=%d, want=1", len(args))
+				}
+
+				arg := args[0]
+				switch arg := arg.(type) {
+				case *Integer:
+					return arg // already an integer
+				case *Float:
+					return &Integer{Value: int64(math.Round(arg.Value))}
+				default:
+					return newError("argument to `round` not supported, got %T", arg)
+				}
+			},
+		},
 		"pow": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 2 {
@@ -805,6 +822,11 @@ func evalIntegerInfixExpression(operator string, left, right Object) Object {
 			return newError("division by zero")
 		}
 		return &Integer{Value: leftVal / rightVal}
+	case "%":
+		if rightVal == 0 {
+			return newError("modulo by zero")
+		}
+		return &Integer{Value: leftVal % rightVal}
 	case "<":
 		return nativeBoolToParsBoolean(leftVal < rightVal)
 	case ">":

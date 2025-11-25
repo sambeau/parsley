@@ -21,6 +21,7 @@ A Go-based toy concatenative programming language interpreter.
 - String escape sequences (`\n`, `\t`, etc.)
 - Template literals with `${}` interpolation
 - Integer and floating-point arithmetic
+- Modulo operator (`%`) for remainder calculations
 - Boolean logic
 - Single-line comments with `//`
 - Special `_` variable (write-only, always returns `null`)
@@ -55,6 +56,7 @@ A Go-based toy concatenative programming language interpreter.
 
 - **Mathematical Functions:**
   - `sqrt(x)` - Square root
+  - `round(x)` - Round to nearest integer
   - `pow(base, exp)` - Power function
   - `pi()` - Returns the value of π
   - `sin(x)` - Sine function
@@ -125,6 +127,8 @@ To see the version:
 5
 >> 10 * 4.5
 45
+>> 17 % 5
+2
 ```
 
 ### Trigonometric Functions
@@ -147,6 +151,10 @@ To see the version:
 256
 >> pi()
 3.141592653589793
+>> 10 % 3
+1
+>> 15 % 4
+3
 ```
 
 ### Variable Assignment
