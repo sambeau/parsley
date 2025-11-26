@@ -31,7 +31,9 @@ Page = fn({title,contents}){
 }
 
 main = fn(){
-	<Page title="Table Test">
+	title = "Table Test"
+	<Page title={title}>
+		<h1>{title}</h1>
 		<Table rows={[
 			[1,2,3],
 			[4,5,6],
