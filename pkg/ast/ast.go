@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"pars/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/lexer"
 )
 
 // Node represents any node in the AST

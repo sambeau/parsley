@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"pars/pkg/evaluator"
-	"pars/pkg/lexer"
-	"pars/pkg/parser"
-	"pars/pkg/repl"
+	"github.com/sambeau/parsley/pkg/evaluator"
+	"github.com/sambeau/parsley/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/parser"
+	"github.com/sambeau/parsley/pkg/repl"
 )
 
 const VERSION = "0.3.0"

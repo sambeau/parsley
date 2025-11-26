@@ -99,8 +99,8 @@ A Go-based toy concatenative programming language interpreter.
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd pars
+   git clone https://github.com/sambeau/parsley.git
+   cd parsley
    ```
 
 2. Install dependencies:

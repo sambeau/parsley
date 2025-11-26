@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"pars/pkg/evaluator"
-	"pars/pkg/lexer"
-	"pars/pkg/parser"
+	"github.com/sambeau/parsley/pkg/evaluator"
+	"github.com/sambeau/parsley/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/parser"
 )
 
 func TestFunctions(t *testing.T) {

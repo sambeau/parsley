@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"pars/pkg/ast"
-	"pars/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/ast"
+	"github.com/sambeau/parsley/pkg/lexer"
 )
 
 // Precedence levels for operators

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"unicode"
 
-	"pars/pkg/ast"
-	"pars/pkg/lexer"
-	"pars/pkg/parser"
+	"github.com/sambeau/parsley/pkg/ast"
+	"github.com/sambeau/parsley/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/parser"
 )
 
 // ObjectType represents the type of objects in our language
