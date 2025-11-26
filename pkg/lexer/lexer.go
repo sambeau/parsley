@@ -20,6 +20,7 @@ const (
 	FLOAT     // 3.14159
 	STRING    // "foobar"
 	TEMPLATE  // `template ${expr}`
+	REGEX     // /pattern/flags
 	TAG       // <tag prop="value" />
 	TAG_START // <tag> or <tag attr="value">
 	TAG_END   // </tag>
@@ -41,6 +42,8 @@ const (
 	NOT_EQ   // !=
 	AND      // & or and
 	OR       // | or or
+	MATCH    // ~
+	NOT_MATCH // !~
 
 	// Delimiters
 	COMMA     // ,
@@ -101,6 +104,8 @@ func (tt TokenType) String() string {
 		return "STRING"
 	case TEMPLATE:
 		return "TEMPLATE"
+	case REGEX:
+		return "REGEX"
 	case TAG:
 		return "TAG"
 	case TAG_START:
@@ -139,6 +144,10 @@ func (tt TokenType) String() string {
 		return "AND"
 	case OR:
 		return "OR"
+	case MATCH:
+		return "MATCH"
+	case NOT_MATCH:
+		return "NOT_MATCH"
 	case COMMA:
 		return "COMMA"
 	case SEMICOLON:
@@ -218,15 +227,16 @@ func LookupIdent(ident string) TokenType {
 
 // Lexer represents the lexical analyzer
 type Lexer struct {
-	filename     string
-	input        string
-	position     int  // current position in input (points to current char)
-	readPosition int  // current reading position in input (after current char)
-	ch           byte // current char under examination
-	line         int  // current line number
-	column       int  // current column number
-	inTagContent bool // whether we're currently lexing tag content
-	tagDepth     int  // nesting depth of tags (for proper TAG_END matching)
+	filename      string
+	input         string
+	position      int  // current position in input (points to current char)
+	readPosition  int  // current reading position in input (after current char)
+	ch            byte // current char under examination
+	line          int  // current line number
+	column        int  // current column number
+	inTagContent  bool // whether we're currently lexing tag content
+	tagDepth      int  // nesting depth of tags (for proper TAG_END matching)
+	lastTokenType TokenType // last token type for regex context detection
 }
 
 // New creates a new lexer instance
@@ -314,13 +324,30 @@ func (l *Lexer) NextToken() Token {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: NOT_EQ, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '~' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: NOT_MATCH, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
 			tok = newToken(BANG, l.ch, l.line, l.column)
 		}
+	case '~':
+		tok = newToken(MATCH, l.ch, l.line, l.column)
 	case '/':
 		if l.peekChar() == '/' {
 			l.skipComment()
 			return l.NextToken()
+		} else if l.shouldTreatAsRegex(l.lastTokenType) {
+			// This is a regex literal
+			line := l.line
+			column := l.column
+			pattern, flags := l.readRegex()
+			tok.Type = REGEX
+			tok.Literal = "/" + pattern + "/" + flags
+			tok.Line = line
+			tok.Column = column
+			l.lastTokenType = tok.Type
+			return tok
 		}
 		tok = newToken(SLASH, l.ch, l.line, l.column)
 	case '%':
@@ -340,6 +367,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Literal = l.readTagEnd()
 			tok.Line = line
 			tok.Column = column
+			l.lastTokenType = tok.Type
 			return tok
 		} else if isLetter(l.peekChar()) || l.peekChar() == '>' {
 			// Could be a tag start <tag> or singleton <tag />
@@ -357,6 +385,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Literal = tagContent
 			tok.Line = line
 			tok.Column = column
+			l.lastTokenType = tok.Type
 			return tok
 		} else {
 			tok = newToken(LT, l.ch, l.line, l.column)
@@ -430,6 +459,7 @@ func (l *Lexer) NextToken() Token {
 			tok.Type = LookupIdent(tok.Literal)
 			tok.Line = line
 			tok.Column = column
+			l.lastTokenType = tok.Type
 			return tok // early return to avoid readChar()
 		} else if isDigit(l.ch) {
 			// Save position before reading
@@ -444,6 +474,7 @@ func (l *Lexer) NextToken() Token {
 			}
 			tok.Line = line
 			tok.Column = column
+			l.lastTokenType = tok.Type
 			return tok // early return to avoid readChar()
 		} else {
 			tok = newToken(ILLEGAL, l.ch, l.line, l.column)
@@ -451,6 +482,7 @@ func (l *Lexer) NextToken() Token {
 	}
 
 	l.readChar()
+	l.lastTokenType = tok.Type
 	return tok
 }
 
@@ -919,4 +951,71 @@ func containsDot(s string) bool {
 		}
 	}
 	return false
+}
+
+// readRegex reads a regex literal like /pattern/flags
+func (l *Lexer) readRegex() (string, string) {
+	var pattern []byte
+	l.readChar() // skip opening /
+
+	// Read pattern until we find unescaped /
+	for l.ch != '/' && l.ch != 0 && l.ch != '\n' {
+		if l.ch == '\\' {
+			pattern = append(pattern, l.ch)
+			l.readChar()
+			if l.ch != 0 {
+				pattern = append(pattern, l.ch)
+				l.readChar()
+			}
+		} else {
+			pattern = append(pattern, l.ch)
+			l.readChar()
+		}
+	}
+
+	if l.ch != '/' {
+		// Invalid regex (unterminated)
+		return string(pattern), ""
+	}
+
+	l.readChar() // consume closing /
+
+	// Read flags (letters immediately after closing /)
+	var flags []byte
+	for isLetter(l.ch) {
+		flags = append(flags, l.ch)
+		l.readChar()
+	}
+
+	// Back up one char since we consumed one too many
+	l.position = l.readPosition - 1
+	if l.position < len(l.input) {
+		l.ch = l.input[l.position]
+	} else {
+		l.ch = 0
+	}
+
+	return string(pattern), string(flags)
+}
+
+// shouldTreatAsRegex determines if / should be regex or division
+// Regex context: after operators, keywords, commas, open parens/brackets  
+// But NOT after complete expressions like identifiers, numbers, close parens
+func (l *Lexer) shouldTreatAsRegex(lastToken TokenType) bool {
+	switch lastToken {
+	case ASSIGN, EQ, NOT_EQ, LT, GT, LTE, GTE,
+		AND, OR, MATCH, NOT_MATCH,
+		LPAREN, LBRACKET, LBRACE,
+		COMMA, SEMICOLON, COLON,
+		RETURN, LET, IF, ELSE, FOR, IN,
+		PLUSPLUS:
+		return true
+	case 0: // Start of input
+		return true
+	// Don't treat as regex after arithmetic operators that could be infix
+	// These appear in expressions like: x - /y/ which is (x - /) then /y/
+	// Instead they're more likely: x-1/2 (division)
+	default:
+		return false
+	}
 }

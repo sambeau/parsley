@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -550,6 +551,100 @@ func applyDelta(t time.Time, delta *Dictionary, env *Environment) time.Time {
 	return t
 }
 
+// evalRegexLiteral evaluates a regex literal and returns a Dictionary with __type: "regex"
+func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
+	pairs := make(map[string]ast.Expression)
+	
+	// Mark this as a regex dictionary
+	pairs["__type"] = &ast.StringLiteral{Value: "regex"}
+	pairs["pattern"] = &ast.StringLiteral{Value: node.Pattern}
+	pairs["flags"] = &ast.StringLiteral{Value: node.Flags}
+	
+	// Try to compile the regex to validate it
+	_, err := compileRegex(node.Pattern, node.Flags)
+	if err != nil {
+		return newError("invalid regex pattern: %s", err.Error())
+	}
+	
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// isRegexDict checks if a dictionary is a regex by looking for __type field
+func isRegexDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "regex"
+		}
+	}
+	return false
+}
+
+// compileRegex compiles a regex pattern with optional flags
+// Go's regexp doesn't support all Perl flags, so we map what we can
+func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
+	// Process flags - Go regexp supports (?flags) syntax
+	prefix := ""
+	for _, flag := range flags {
+		switch flag {
+		case 'i': // case-insensitive
+			prefix += "(?i)"
+		case 'm': // multi-line (^ and $ match line boundaries)
+			prefix += "(?m)"
+		case 's': // dot matches newline
+			prefix += "(?s)"
+		// 'g' (global) is handled by match operator, not compilation
+		// Other flags like 'x' (verbose) could be added
+		}
+	}
+	
+	fullPattern := prefix + pattern
+	return regexp.Compile(fullPattern)
+}
+
+// evalMatchExpression handles string ~ regex matching
+// Returns an array of matches (with captures) or null if no match
+func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, env *Environment) Object {
+	// Extract pattern and flags from regex dictionary
+	patternExpr, ok := regexDict.Pairs["pattern"]
+	if !ok {
+		return newErrorWithPos(tok, "regex dictionary missing pattern field")
+	}
+	patternObj := Eval(patternExpr, env)
+	patternStr, ok := patternObj.(*String)
+	if !ok {
+		return newErrorWithPos(tok, "regex pattern must be a string")
+	}
+	
+	flagsExpr, ok := regexDict.Pairs["flags"]
+	var flags string
+	if ok {
+		flagsObj := Eval(flagsExpr, env)
+		if flagsStr, ok := flagsObj.(*String); ok {
+			flags = flagsStr.Value
+		}
+	}
+	
+	// Compile the regex
+	re, err := compileRegex(patternStr.Value, flags)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid regex: %s", err.Error())
+	}
+	
+	// Find matches
+	matches := re.FindStringSubmatch(text)
+	if matches == nil {
+		return NULL // No match - returns null (falsy)
+	}
+	
+	// Convert matches to array of strings
+	elements := make([]Object, len(matches))
+	for i, match := range matches {
+		elements[i] = &String{Value: match}
+	}
+	
+	return &Array{Elements: elements}
+}
+
 // getBuiltins returns the map of built-in functions
 func getBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
@@ -866,6 +961,144 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &String{Value: strings.ToLower(str.Value)}
+			},
+		},
+		"regex": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `regex`. got=%d, want=1 or 2", len(args))
+				}
+
+				pattern, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to `regex` must be a string, got %s", args[0].Type())
+				}
+
+				flags := ""
+				if len(args) == 2 {
+					flagsStr, ok := args[1].(*String)
+					if !ok {
+						return newError("second argument to `regex` must be a string, got %s", args[1].Type())
+					}
+					flags = flagsStr.Value
+				}
+
+				// Validate the regex
+				_, err := compileRegex(pattern.Value, flags)
+				if err != nil {
+					return newError("invalid regex pattern: %s", err.Error())
+				}
+
+				// Create regex dictionary
+				pairs := make(map[string]ast.Expression)
+				pairs["__type"] = &ast.StringLiteral{Value: "regex"}
+				pairs["pattern"] = &ast.StringLiteral{Value: pattern.Value}
+				pairs["flags"] = &ast.StringLiteral{Value: flags}
+
+				return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+			},
+		},
+		"replace": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 3 {
+					return newError("wrong number of arguments to `replace`. got=%d, want=3", len(args))
+				}
+
+				text, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to `replace` must be a string, got %s", args[0].Type())
+				}
+
+				// Second arg can be string or regex
+				var pattern string
+				var flags string
+				if str, ok := args[1].(*String); ok {
+					// String pattern - use literal replacement
+					replacement, ok := args[2].(*String)
+					if !ok {
+						return newError("third argument to `replace` must be a string, got %s", args[2].Type())
+					}
+					return &String{Value: strings.Replace(text.Value, str.Value, replacement.Value, -1)}
+				} else if dict, ok := args[1].(*Dictionary); ok && isRegexDict(dict) {
+					// Regex pattern
+					patternExpr, _ := dict.Pairs["pattern"]
+					patternObj := Eval(patternExpr, NewEnvironment())
+					patternStr := patternObj.(*String)
+					pattern = patternStr.Value
+
+					flagsExpr, ok := dict.Pairs["flags"]
+					if ok {
+						flagsObj := Eval(flagsExpr, NewEnvironment())
+						if flagsStr, ok := flagsObj.(*String); ok {
+							flags = flagsStr.Value
+						}
+					}
+				} else {
+					return newError("second argument to `replace` must be a string or regex, got %s", args[1].Type())
+				}
+
+				replacement, ok := args[2].(*String)
+				if !ok {
+					return newError("third argument to `replace` must be a string, got %s", args[2].Type())
+				}
+
+				re, err := compileRegex(pattern, flags)
+				if err != nil {
+					return newError("invalid regex: %s", err.Error())
+				}
+
+				result := re.ReplaceAllString(text.Value, replacement.Value)
+				return &String{Value: result}
+			},
+		},
+		"split": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 2 {
+					return newError("wrong number of arguments to `split`. got=%d, want=2", len(args))
+				}
+
+				text, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to `split` must be a string, got %s", args[0].Type())
+				}
+
+				// Second arg can be string or regex
+				var parts []string
+				if str, ok := args[1].(*String); ok {
+					// String delimiter
+					parts = strings.Split(text.Value, str.Value)
+				} else if dict, ok := args[1].(*Dictionary); ok && isRegexDict(dict) {
+					// Regex pattern
+					patternExpr, _ := dict.Pairs["pattern"]
+					patternObj := Eval(patternExpr, NewEnvironment())
+					patternStr := patternObj.(*String)
+					pattern := patternStr.Value
+
+					flags := ""
+					flagsExpr, ok := dict.Pairs["flags"]
+					if ok {
+						flagsObj := Eval(flagsExpr, NewEnvironment())
+						if flagsStr, ok := flagsObj.(*String); ok {
+							flags = flagsStr.Value
+						}
+					}
+
+					re, err := compileRegex(pattern, flags)
+					if err != nil {
+						return newError("invalid regex: %s", err.Error())
+					}
+
+					parts = re.Split(text.Value, -1)
+				} else {
+					return newError("second argument to `split` must be a string or regex, got %s", args[1].Type())
+				}
+
+				elements := make([]Object, len(parts))
+				for i, part := range parts {
+					elements[i] = &String{Value: part}
+				}
+
+				return &Array{Elements: elements}
 			},
 		},
 		"len": {
@@ -1363,6 +1596,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.TemplateLiteral:
 		return evalTemplateLiteral(node, env)
 
+	case *ast.RegexLiteral:
+		return evalRegexLiteral(node, env)
+
 	case *ast.TagLiteral:
 		return evalTagLiteral(node, env)
 
@@ -1573,6 +1809,24 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	case operator == "+" && (left.Type() == STRING_OBJ || right.Type() == STRING_OBJ):
 		// String concatenation with automatic type conversion
 		return evalStringConcatExpression(left, right)
+	// Regex match operators
+	case operator == "~" || operator == "!~":
+		if left.Type() != STRING_OBJ {
+			return newErrorWithPos(tok, "left operand of %s must be a string, got %s", operator, left.Type())
+		}
+		if right.Type() != DICTIONARY_OBJ {
+			return newErrorWithPos(tok, "right operand of %s must be a regex, got %s", operator, right.Type())
+		}
+		rightDict := right.(*Dictionary)
+		if !isRegexDict(rightDict) {
+			return newErrorWithPos(tok, "right operand of %s must be a regex dictionary", operator)
+		}
+		result := evalMatchExpression(tok, left.(*String).Value, rightDict, NewEnvironment())
+		if operator == "!~" {
+			// !~ returns boolean: true if no match, false if match
+			return nativeBoolToParsBoolean(result == NULL)
+		}
+		return result // ~ returns array or null
 	// Datetime dictionary operations
 	case left.Type() == DICTIONARY_OBJ && right.Type() == DICTIONARY_OBJ:
 		leftDict := left.(*Dictionary)

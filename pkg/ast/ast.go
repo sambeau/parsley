@@ -224,6 +224,19 @@ func (tl *TemplateLiteral) expressionNode()      {}
 func (tl *TemplateLiteral) TokenLiteral() string { return tl.Token.Literal }
 func (tl *TemplateLiteral) String() string       { return "`" + tl.Value + "`" }
 
+// RegexLiteral represents regular expression literals like /pattern/flags
+type RegexLiteral struct {
+	Token   lexer.Token // the lexer.REGEX token
+	Pattern string      // the regex pattern
+	Flags   string      // the regex flags
+}
+
+func (rl *RegexLiteral) expressionNode()      {}
+func (rl *RegexLiteral) TokenLiteral() string { return rl.Token.Literal }
+func (rl *RegexLiteral) String() string {
+	return "/" + rl.Pattern + "/" + rl.Flags
+}
+
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
 	Token lexer.Token // the lexer.TAG token

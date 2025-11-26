@@ -28,13 +28,15 @@ const (
 
 // precedences maps tokens to their precedence
 var precedences = map[lexer.TokenType]int{
-	lexer.COMMA:    COMMA_PREC,
-	lexer.OR:       LOGIC_OR,
-	lexer.AND:      LOGIC_AND,
-	lexer.EQ:       EQUALS,
-	lexer.NOT_EQ:   EQUALS,
-	lexer.LT:       LESSGREATER,
-	lexer.GT:       LESSGREATER,
+	lexer.COMMA:     COMMA_PREC,
+	lexer.OR:        LOGIC_OR,
+	lexer.AND:       LOGIC_AND,
+	lexer.EQ:        EQUALS,
+	lexer.NOT_EQ:    EQUALS,
+	lexer.MATCH:     EQUALS,
+	lexer.NOT_MATCH: EQUALS,
+	lexer.LT:        LESSGREATER,
+	lexer.GT:        LESSGREATER,
 	lexer.LTE:      LESSGREATER,
 	lexer.GTE:      LESSGREATER,
 	lexer.PLUS:     SUM,
@@ -81,6 +83,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.FLOAT, p.parseFloatLiteral)
 	p.registerPrefix(lexer.STRING, p.parseStringLiteral)
 	p.registerPrefix(lexer.TEMPLATE, p.parseTemplateLiteral)
+	p.registerPrefix(lexer.REGEX, p.parseRegexLiteral)
 	p.registerPrefix(lexer.TAG, p.parseTagLiteral)
 	p.registerPrefix(lexer.TAG_START, p.parseTagPair)
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
@@ -109,6 +112,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.GTE, p.parseInfixExpression)
 	p.registerInfix(lexer.AND, p.parseInfixExpression)
 	p.registerInfix(lexer.OR, p.parseInfixExpression)
+	p.registerInfix(lexer.MATCH, p.parseInfixExpression)
+	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
 	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
@@ -444,6 +449,36 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 
 func (p *Parser) parseTemplateLiteral() ast.Expression {
 	return &ast.TemplateLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseRegexLiteral() ast.Expression {
+	// Token.Literal is in the form "/pattern/flags"
+	literal := p.curToken.Literal
+	if len(literal) < 2 || literal[0] != '/' {
+		p.errors = append(p.errors, fmt.Sprintf("invalid regex literal: %s", literal))
+		return nil
+	}
+
+	// Find the closing / by looking from the end backwards
+	// This handles /pattern/ and /pattern/flags
+	lastSlash := strings.LastIndex(literal[1:], "/")
+	if lastSlash == -1 {
+		p.errors = append(p.errors, fmt.Sprintf("unterminated regex literal: %s", literal))
+		return nil
+	}
+	lastSlash++ // adjust for the slice offset
+
+	pattern := literal[1:lastSlash]
+	flags := ""
+	if lastSlash+1 < len(literal) {
+		flags = literal[lastSlash+1:]
+	}
+
+	return &ast.RegexLiteral{
+		Token:   p.curToken,
+		Pattern: pattern,
+		Flags:   flags,
+	}
 }
 
 func (p *Parser) parseTagLiteral() ast.Expression {

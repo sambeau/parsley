@@ -45,6 +45,9 @@ A concatenative programming language interpreter.
 - Modulo operator (`%`) for remainder calculations
 - Boolean logic
 - Single-line comments with `//`
+- Regular expression literals (`/pattern/flags`)
+- Regex matching with `~` operator (returns array or null)
+- Regex non-matching with `!~` operator (returns boolean)
 - Special `_` variable (write-only, always returns `null`)
 
 ### Data Types
@@ -56,6 +59,7 @@ A concatenative programming language interpreter.
 - **Arrays:** `1,2,3`, `[1,2,3]`, `[[1,2],[3,4]]`, mixed types allowed
 - **Dictionaries:** `{ name: "Sam", age: 57 }`, key-value pairs with lazy evaluation
 - **Functions:** `fn(x) { x * 2 }`, first-class functions with closures
+- **Regular Expressions:** `/pattern/flags` - regex literals with `~` match operator
 
 **Note:** Tags (`<div>`, `<Component />`) are syntactic constructs that evaluate to strings, not a separate data type.
 
@@ -109,6 +113,11 @@ A concatenative programming language interpreter.
   - `now()` - Returns current time as a dictionary
   - `time(input)` - Parse/create datetime from string, integer (Unix timestamp), or dictionary
   - `time(input, delta)` - Parse/create datetime and apply time delta
+
+- **Regular Expression Functions:**
+  - `regex(pattern, flags?)` - Create regex from string pattern (flags optional)
+  - `replace(text, pattern, replacement)` - Replace matches (pattern can be string or regex)
+  - `split(text, delimiter)` - Split string by delimiter (can be string or regex)
 
 
 ## Getting Started
@@ -1169,6 +1178,176 @@ false
 >> let check = time("2024-06-15T12:00:00Z")
 >> check >= start & check <= end
 true
+```
+
+### Regular Expressions
+
+Parsley provides first-class regex support through `/pattern/flags` literals and the `~` match operator. Regular expressions are dictionary-based (like datetimes) with `__type: "regex"`, making them transparent and composable.
+
+#### Regex Literals
+
+Create regular expressions using familiar `/pattern/flags` syntax:
+
+```
+>> /\d+/
+{pattern: "\d+", flags: "", __type: "regex"}
+>> /hello/i
+{pattern: "hello", flags: "i", __type: "regex"}
+>> /test/gim
+{pattern: "test", flags: "gim", __type: "regex"}
+```
+
+Access regex components:
+```
+>> let rx = /\w+@\w+/
+>> rx.pattern
+"\w+@\w+"
+>> rx.flags
+""
+```
+
+#### Match Operator (~)
+
+The `~` operator matches a string against a regex, returning an array with the full match and capture groups, or `null` if no match:
+
+```
+>> "hello 123" ~ /\d+/
+["123"]
+>> "no numbers" ~ /\d+/
+null
+>> "user@example.com" ~ /(\w+)@([\w.]+)/
+["user@example.com", "user", "example.com"]
+```
+
+The result is **truthy** (array) or **falsy** (null), perfect for conditionals:
+
+```
+>> let match = "Order #12345" ~ /Order #(\d+)/
+>> if (match) {
+     log("Order number:", match[1])
+   }
+Order number: "12345"
+```
+
+#### Not-Match Operator (!~)
+
+The `!~` operator returns a boolean: `true` if the pattern does NOT match:
+
+```
+>> "hello world" !~ /\d+/
+true
+>> "hello 123" !~ /\d+/
+false
+```
+
+#### Destructuring Captures
+
+Use array destructuring to extract capture groups elegantly:
+
+```
+>> let email = "john@test.org"
+>> let full, name, domain = email ~ /(\w+)@([\w.]+)/
+>> log("Name:", name, "Domain:", domain)
+Name: "john", "Domain:", "test.org"
+```
+
+#### regex() Builtin
+
+Create regexes dynamically from strings:
+
+```
+>> let pattern = regex("\\d+")
+>> "count: 42" ~ pattern
+["42"]
+>> let rx = regex("test", "i")  // with flags
+>> rx.flags
+"i"
+```
+
+#### replace() Function
+
+Replace text using strings or regex patterns:
+
+```
+>> replace("hello world", "world", "Parsley")
+"hello Parsley"
+>> replace("test123test456", /\d+/, "XXX")
+"testXXXtestXXX"
+>> replace("HELLO", /hello/i, "hi")
+"hi"
+```
+
+#### split() Function
+
+Split strings by delimiter or pattern:
+
+```
+>> split("a,b,c", ",")
+["a", "b", "c"]
+>> split("one1two2three", /\d+/)
+["one", "two", "three"]
+>> split("hello  world", /\s+/)
+["hello", "world"]
+```
+
+#### Regex Flags
+
+Parsley supports common regex flags:
+
+- **`i`** - Case-insensitive matching
+- **`m`** - Multi-line mode (^ and $ match line boundaries)
+- **`s`** - Dot matches newline
+- **`g`** - Global (used internally by `replace` and `split`)
+
+Examples:
+```
+>> "Hello" ~ /hello/
+null
+>> "Hello" ~ /hello/i
+["Hello"]
+```
+
+#### Practical Examples
+
+**Email validation:**
+```
+>> let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
+>> "user@example.com" ~ emailRegex
+["user@example.com"]
+>> "invalid@" ~ emailRegex
+null
+```
+
+**URL parsing:**
+```
+>> let url = "https://example.com/path"
+>> let protocol, host, path = url ~ /^(https?):\/\/([^\/]+)(\/.*)?$/
+>> log("Protocol:", protocol, "Host:", host)
+Protocol: "https", "Host:", "example.com"
+```
+
+**Phone number extraction:**
+```
+>> let phone = "Call (555) 123-4567"
+>> let match = phone ~ /\((\d{3})\) (\d{3})-(\d{4})/
+>> log("Area:", match[1], "Number:", match[2] + "-" + match[3])
+Area: "555", "Number:", "123-4567"
+```
+
+**Date parsing:**
+```
+>> let dateStr = "2024-11-26"
+>> let full, year, month, day = dateStr ~ /(\d{4})-(\d{2})-(\d{2})/
+>> log("Year:", year, "Month:", month, "Day:", day)
+Year: "2024", "Month:", "11", "Day:", "26"
+```
+
+**CSV processing:**
+```
+>> let csv = "apple,banana,cherry"
+>> let fruits = split(csv, ",")
+>> log("Count:", len(fruits), "Items:", fruits)
+Count: 3, "Items:", ["apple", "banana", "cherry"]
 ```
 
 ### Singleton Tags

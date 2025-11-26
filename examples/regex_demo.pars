@@ -1,0 +1,123 @@
+// Regular Expression Examples in Parsley
+// Demonstrates regex literals, matching, captures, and builtin functions
+
+log("=== Regex Literals ===");
+let pattern = /\d+/;
+log("Pattern:", pattern.pattern);
+log("Flags:", pattern.flags);
+
+log("\n=== Basic Matching with ~ ===");
+let text = "The answer is 42";
+let match = text ~ /\d+/;
+log("Match result:", match);
+log("First match:", match[0]);
+
+log("\n=== No Match Returns null (Falsy) ===");
+let noMatch = "no numbers here" ~ /\d+/;
+log("No match result:", noMatch);
+if (noMatch) {
+    log("Has match");
+} else {
+    log("No match found");
+}
+
+log("\n=== Not-Match Operator !~ ===");
+log("'hello' !~ /\d+/:", "hello" !~ /\d+/);
+log("'hello123' !~ /\d+/:", "hello123" !~ /\d+/);
+
+log("\n=== Capture Groups ===");
+let email = "user@example.com";
+let emailMatch = email ~ /(\w+)@([\w.]+)/;
+log("Full match:", emailMatch[0]);
+log("Username:", emailMatch[1]);
+log("Domain:", emailMatch[2]);
+
+log("\n=== Destructuring Captures ===");
+let full, name, domain = "john@test.org" ~ /(\w+)@([\w.]+)/;
+log("Name:", name, "Domain:", domain);
+
+log("\n=== Conditional Matching ===");
+let input = "Order #12345";
+let orderMatch = input ~ /Order #(\d+)/;
+if (orderMatch) {
+    log("Order number:", orderMatch[1]);
+}
+
+log("\n=== Case-Insensitive Flag ===");
+log("'Hello' ~ /hello/:", "Hello" ~ /hello/);
+log("'Hello' ~ /hello/i:", "Hello" ~ /hello/i);
+
+log("\n=== regex() Builtin ===");
+let dynamicPattern = regex("\\w+");
+let words = "hello world" ~ dynamicPattern;
+log("Dynamic pattern match:", words);
+
+log("\n=== replace() Function ===");
+log("String replacement:", replace("hello world", "world", "Parsley"));
+log("Regex replacement:", replace("test123test456", /\d+/, "XXX"));
+
+log("\n=== split() Function ===");
+log("Split by comma:", split("a,b,c", ","));
+log("Split by numbers:", split("one1two2three", /\d+/));
+
+log("\n=== Email Validation ===");
+let validEmail = "user@example.com";
+let invalidEmail = "not-an-email";
+let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/;
+let validCheck = validEmail ~ emailRegex;
+let invalidCheck = invalidEmail ~ emailRegex;
+log("Valid email:", if (validCheck) { true } else { false });
+log("Invalid email:", if (invalidCheck) { true } else { false });
+
+log("\n=== URL Parsing ===");
+let url = "https://example.com/path";
+let urlParts = url ~ /^(https?):\/\/([^\/]+)(\/.*)?$/;
+if (urlParts) {
+    log("Protocol:", urlParts[1]);
+    log("Host:", urlParts[2]);
+    log("Path:", urlParts[3]);
+}
+
+log("\n=== Phone Number Extraction ===");
+let phone = "Call me at (555) 123-4567";
+let phoneMatch = phone ~ /\((\d{3})\) (\d{3})-(\d{4})/;
+if (phoneMatch) {
+    log("Area code:", phoneMatch[1]);
+    log("Exchange:", phoneMatch[2]);
+    log("Number:", phoneMatch[3]);
+}
+
+log("\n=== Date Parsing ===");
+let dateStr = "2024-11-26";
+let dateParts = dateStr ~ /(\d{4})-(\d{2})-(\d{2})/;
+if (dateParts) {
+    let full, year, month, day = dateParts;
+    log("Year:", year, "Month:", month, "Day:", day);
+}
+
+log("\n=== Extracting All Words ===");
+let sentence = "The quick brown fox";
+let wordPattern = regex("\\w+");
+// Note: ~ returns first match, for global use split
+let words = split(sentence, " ");
+log("Words:", words);
+
+log("\n=== CSV Processing ===");
+let csv = "apple,banana,cherry,date";
+let fruits = split(csv, ",");
+log("Fruits:", fruits);
+log("Count:", len(fruits));
+
+log("\n=== Cleaning Whitespace ===");
+let messy = "  too   many    spaces  ";
+let cleaned = replace(messy, /\s+/, " ");
+log("Original:", messy);
+log("Cleaned:", cleaned);
+
+log("\n=== Complex Regex: IP Address ===");
+let ip = "192.168.1.1";
+let ipPattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+let ipMatch = ip ~ ipPattern;
+if (ipMatch) {
+    log("IP octets:", ipMatch[1], ipMatch[2], ipMatch[3], ipMatch[4]);
+}
