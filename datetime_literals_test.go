@@ -232,11 +232,11 @@ func TestDatetimeLiteralErrors(t *testing.T) {
 		input         string
 		expectedError string
 	}{
-		{`@2024-13-01`, "invalid datetime literal"},  // Invalid month
-		{`@2024-02-30`, "invalid datetime literal"},  // Invalid day for February
-		{`@2024-04-31`, "invalid datetime literal"},  // Invalid day for April
-		{`@not-a-date`, "invalid datetime literal"},  // Completely invalid
-		{`@2024`, "invalid datetime literal"},        // Incomplete date
+		{`@2024-13-01`, "invalid datetime literal"}, // Invalid month
+		{`@2024-02-30`, "invalid datetime literal"}, // Invalid day for February
+		{`@2024-04-31`, "invalid datetime literal"}, // Invalid day for April
+		{`@not-a-date`, "invalid datetime literal"}, // Completely invalid
+		{`@2024`, "invalid datetime literal"},       // Incomplete date
 	}
 
 	for _, tt := range tests {

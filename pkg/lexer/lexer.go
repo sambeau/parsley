@@ -15,17 +15,17 @@ const (
 	EOF
 
 	// Identifiers and literals
-	IDENT     // add, foobar, x, y, ...
-	INT       // 1343456
-	FLOAT     // 3.14159
+	IDENT            // add, foobar, x, y, ...
+	INT              // 1343456
+	FLOAT            // 3.14159
 	STRING           // "foobar"
 	TEMPLATE         // `template ${expr}`
 	REGEX            // /pattern/flags
 	DATETIME_LITERAL // @2024-12-25T14:30:00Z
 	TAG              // <tag prop="value" />
-	TAG_START // <tag> or <tag attr="value">
-	TAG_END   // </tag>
-	TAG_TEXT  // raw text content within tags
+	TAG_START        // <tag> or <tag attr="value">
+	TAG_END          // </tag>
+	TAG_TEXT         // raw text content within tags
 
 	// Operators
 	ASSIGN    // =
@@ -1021,7 +1021,7 @@ func (l *Lexer) readDatetimeLiteral() string {
 		datetime = append(datetime, l.ch)
 		l.readChar()
 	}
-	
+
 	// Check for time part: T14:30:00
 	if l.ch == 'T' {
 		datetime = append(datetime, l.ch)
@@ -1032,7 +1032,7 @@ func (l *Lexer) readDatetimeLiteral() string {
 			l.readChar()
 		}
 	}
-	
+
 	// Check for fractional seconds (.123)
 	if l.ch == '.' && isDigit(l.peekChar()) {
 		datetime = append(datetime, l.ch)
@@ -1043,7 +1043,7 @@ func (l *Lexer) readDatetimeLiteral() string {
 			l.readChar()
 		}
 	}
-	
+
 	// Check for timezone: Z or +05:00 or -05:00
 	if l.ch == 'Z' {
 		datetime = append(datetime, l.ch)
