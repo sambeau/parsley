@@ -89,12 +89,31 @@ func printErrors(filename string, source string, errors []string) {
 		// Try to extract line number and column, then show context
 		var lineNum, colNum int
 		if n, _ := fmt.Sscanf(msg, "line %d, column %d", &lineNum, &colNum); n == 2 && lineNum > 0 && lineNum <= len(lines) {
-			// Show the problematic line
 			sourceLine := lines[lineNum-1]
-			fmt.Fprintf(os.Stderr, "    %s\n", sourceLine)
+
+			// Calculate how many columns to trim from the left
+			trimCount := 0
+			for i := 0; i < len(sourceLine); i++ {
+				if sourceLine[i] == ' ' || sourceLine[i] == '\t' {
+					if sourceLine[i] == '\t' {
+						trimCount += 8
+					} else {
+						trimCount++
+					}
+				} else {
+					break
+				}
+			}
+
+			// Trim left whitespace from the source line
+			trimmedLine := strings.TrimLeft(sourceLine, " \t")
+
+			// Show the trimmed line with slight indentation
+			fmt.Fprintf(os.Stderr, "    %s\n", trimmedLine)
+
 			// Show pointer to the error position
 			if colNum > 0 {
-				// Calculate visual column accounting for tabs (8 spaces each)
+				// Calculate visual column accounting for tabs (8 spaces each) up to error position
 				visualCol := 0
 				for i := 0; i < colNum-1 && i < len(sourceLine); i++ {
 					if sourceLine[i] == '\t' {
@@ -103,12 +122,20 @@ func printErrors(filename string, source string, errors []string) {
 						visualCol++
 					}
 				}
-				pointer := strings.Repeat(" ", visualCol) + "^"
+
+				// Adjust pointer position by subtracting trimmed columns
+				adjustedCol := visualCol - trimCount
+				if adjustedCol < 0 {
+					adjustedCol = 0
+				}
+
+				pointer := strings.Repeat(" ", adjustedCol) + "^"
 				fmt.Fprintf(os.Stderr, "    %s\n", pointer)
 			}
 		} else if _, err := fmt.Sscanf(msg, "line %d", &lineNum); err == nil && lineNum > 0 && lineNum <= len(lines) {
 			// Fallback: show line without pointer if only line number available
-			fmt.Fprintf(os.Stderr, "    %s\n", lines[lineNum-1])
+			trimmedLine := strings.TrimLeft(lines[lineNum-1], " \t")
+			fmt.Fprintf(os.Stderr, "    %s\n", trimmedLine)
 		}
 	}
 }
