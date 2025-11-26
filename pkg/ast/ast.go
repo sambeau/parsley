@@ -49,10 +49,11 @@ func (p *Program) String() string {
 
 // LetStatement represents let statements like 'let x = 5;' or 'let x,y,z = 1,2,3;'
 type LetStatement struct {
-	Token lexer.Token   // the lexer.LET token
-	Name  *Identifier   // single name (for backwards compatibility)
-	Names []*Identifier // multiple names for destructuring
-	Value Expression
+	Token       lexer.Token                // the lexer.LET token
+	Name        *Identifier                // single name (for backwards compatibility)
+	Names       []*Identifier              // multiple names for array destructuring
+	DictPattern *DictDestructuringPattern  // pattern for dictionary destructuring
+	Value       Expression
 }
 
 func (ls *LetStatement) statementNode()       {}
@@ -61,7 +62,9 @@ func (ls *LetStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(ls.TokenLiteral() + " ")
-	if len(ls.Names) > 0 {
+	if ls.DictPattern != nil {
+		out.WriteString(ls.DictPattern.String())
+	} else if len(ls.Names) > 0 {
 		for i, name := range ls.Names {
 			if i > 0 {
 				out.WriteString(", ")
@@ -83,10 +86,11 @@ func (ls *LetStatement) String() string {
 
 // AssignmentStatement represents assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;'
 type AssignmentStatement struct {
-	Token lexer.Token   // the identifier token
-	Name  *Identifier   // single name (for backwards compatibility)
-	Names []*Identifier // multiple names for destructuring
-	Value Expression
+	Token       lexer.Token                // the identifier token
+	Name        *Identifier                // single name (for backwards compatibility)
+	Names       []*Identifier              // multiple names for array destructuring
+	DictPattern *DictDestructuringPattern  // pattern for dictionary destructuring
+	Value       Expression
 }
 
 func (as *AssignmentStatement) statementNode()       {}
@@ -94,7 +98,9 @@ func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
 func (as *AssignmentStatement) String() string {
 	var out bytes.Buffer
 
-	if len(as.Names) > 0 {
+	if as.DictPattern != nil {
+		out.WriteString(as.DictPattern.String())
+	} else if len(as.Names) > 0 {
 		for i, name := range as.Names {
 			if i > 0 {
 				out.WriteString(", ")
@@ -562,6 +568,66 @@ func (ds *DeleteStatement) String() string {
 	out.WriteString("delete ")
 	out.WriteString(ds.Target.String())
 	out.WriteString(";")
+
+	return out.String()
+}
+
+// DictDestructuringPattern represents a dictionary destructuring pattern like {a, b as c, ...rest}
+type DictDestructuringPattern struct {
+	Token lexer.Token            // the '{' token
+	Keys  []*DictDestructuringKey // the keys to extract
+	Rest  *Identifier            // optional rest identifier (for ...rest)
+}
+
+func (ddp *DictDestructuringPattern) expressionNode()      {}
+func (ddp *DictDestructuringPattern) TokenLiteral() string { return ddp.Token.Literal }
+func (ddp *DictDestructuringPattern) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("{")
+	for i, key := range ddp.Keys {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(key.String())
+	}
+	if ddp.Rest != nil {
+		if len(ddp.Keys) > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString("...")
+		out.WriteString(ddp.Rest.String())
+	}
+	out.WriteString("}")
+
+	return out.String()
+}
+
+// DictDestructuringKey represents a single key in a dictionary destructuring pattern
+// Can be: 'a' or 'a as b' or nested pattern
+type DictDestructuringKey struct {
+	Token  lexer.Token // the identifier token
+	Key    *Identifier // the key name from the dictionary
+	Alias  *Identifier // optional alias (for 'as' syntax)
+	Nested Expression  // optional nested pattern for nested destructuring
+}
+
+func (ddk *DictDestructuringKey) expressionNode()      {}
+func (ddk *DictDestructuringKey) TokenLiteral() string { return ddk.Token.Literal }
+func (ddk *DictDestructuringKey) String() string {
+	var out bytes.Buffer
+
+	if ddk.Nested != nil {
+		out.WriteString(ddk.Key.String())
+		out.WriteString(": ")
+		out.WriteString(ddk.Nested.String())
+	} else if ddk.Alias != nil {
+		out.WriteString(ddk.Key.String())
+		out.WriteString(" as ")
+		out.WriteString(ddk.Alias.String())
+	} else {
+		out.WriteString(ddk.Key.String())
+	}
 
 	return out.String()
 }

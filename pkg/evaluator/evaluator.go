@@ -1057,7 +1057,12 @@ func Eval(node ast.Node, env *Environment) Object {
 			return val
 		}
 
-		// Handle destructuring assignment
+		// Handle dictionary destructuring
+		if node.DictPattern != nil {
+			return evalDictDestructuringAssignment(node.DictPattern, val, env, true)
+		}
+
+		// Handle array destructuring assignment
 		if len(node.Names) > 0 {
 			return evalDestructuringAssignment(node.Names, val, env)
 		}
@@ -1075,7 +1080,12 @@ func Eval(node ast.Node, env *Environment) Object {
 			return val
 		}
 
-		// Handle destructuring assignment
+		// Handle dictionary destructuring
+		if node.DictPattern != nil {
+			return evalDictDestructuringAssignment(node.DictPattern, val, env, false)
+		}
+
+		// Handle array destructuring assignment
 		if len(node.Names) > 0 {
 			return evalDestructuringAssignment(node.Names, val, env)
 		}
@@ -1833,6 +1843,86 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 			// Replace the last assignment with an array of remaining elements
 			remaining := &Array{Elements: elements[lastIdx:]}
 			env.Update(lastName.Value, remaining)
+		}
+	}
+
+	// Return the original value
+	return val
+}
+
+// evalDictDestructuringAssignment evaluates dictionary destructuring patterns
+func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool) Object {
+	// Type check: value must be a dictionary
+	dict, ok := val.(*Dictionary)
+	if !ok {
+		return newError("dictionary destructuring requires a dictionary value, got %s", val.Type())
+	}
+
+	// Track which keys we've extracted (for rest operator)
+	extractedKeys := make(map[string]bool)
+
+	// Process each key in the pattern
+	for _, keyPattern := range pattern.Keys {
+		keyName := keyPattern.Key.Value
+		extractedKeys[keyName] = true
+
+		// Get expression from dictionary and evaluate it
+		var value Object
+		if expr, exists := dict.Pairs[keyName]; exists {
+			// Evaluate the expression in the dictionary's environment
+			value = Eval(expr, dict.Env)
+			if isError(value) {
+				return value
+			}
+		} else {
+			// If key not found, assign null
+			value = NULL
+		}
+
+		// Handle nested destructuring
+		if keyPattern.Nested != nil {
+			if nestedPattern, ok := keyPattern.Nested.(*ast.DictDestructuringPattern); ok {
+				result := evalDictDestructuringAssignment(nestedPattern, value, env, isLet)
+				if isError(result) {
+					return result
+				}
+			} else {
+				return newError("unsupported nested destructuring pattern")
+			}
+		} else {
+			// Determine the target variable name (alias or original key)
+			targetName := keyName
+			if keyPattern.Alias != nil {
+				targetName = keyPattern.Alias.Value
+			}
+
+			// Assign to environment
+			if targetName != "_" {
+				if isLet {
+					env.Set(targetName, value)
+				} else {
+					env.Update(targetName, value)
+				}
+			}
+		}
+	}
+
+	// Handle rest operator
+	if pattern.Rest != nil {
+		restPairs := make(map[string]ast.Expression)
+		for key, expr := range dict.Pairs {
+			if !extractedKeys[key] {
+				restPairs[key] = expr
+			}
+		}
+
+		restDict := &Dictionary{Pairs: restPairs, Env: dict.Env}
+		if pattern.Rest.Value != "_" {
+			if isLet {
+				env.Set(pattern.Rest.Value, restDict)
+			} else {
+				env.Update(pattern.Rest.Value, restDict)
+			}
 		}
 	}
 

@@ -1,0 +1,76 @@
+// Dictionary Destructuring Examples in Parsley
+
+// Basic destructuring
+let person = {name: "Alice", age: 30, city: "NYC"};
+let {name, age} = person;
+log("Name:", name, "Age:", age);
+
+// Destructuring with aliases
+let coords = {x: 100, y: 200};
+let {x as posX, y as posY} = coords;
+log("Position:", posX, posY);
+
+// Rest operator - collecting remaining properties
+let data = {a: 1, b: 2, c: 3, d: 4, e: 5};
+let {a, b, ...rest} = data;
+log("a:", a, "b:", b);
+log("Rest:", rest);
+
+// Missing keys become null
+let incomplete = {x: 10};
+let {x, y, z} = incomplete;
+log("x:", x, "y:", y, "z:", z);
+
+// Nested destructuring
+let user = {
+	profile: {
+		username: "bob",
+		email: "bob@example.com"
+	},
+	settings: {
+		theme: "dark",
+		notifications: true
+	}
+};
+
+let {profile: {username, email}} = user;
+log("Username:", username, "Email:", email);
+
+// Reassignment with destructuring
+let a = 0;
+let b = 0;
+{a, b} = {a: 42, b: 99};
+log("Updated values - a:", a, "b:", b);
+
+// Practical example: extracting configuration
+let config = {
+	host: "localhost",
+	port: 8080,
+	debug: true,
+	timeout: 5000,
+	retries: 3
+};
+
+let {host, port, debug, ...options} = config;
+log("Server:", host + ":" + port);
+log("Debug mode:", debug);
+log("Other options:", options);
+
+// Complex nested example
+let apiResponse = {
+	status: 200,
+	data: {
+		users: [
+			{id: 1, name: "Alice"},
+			{id: 2, name: "Bob"}
+		],
+		total: 2
+	},
+	meta: {
+		timestamp: 1234567890,
+		version: "1.0"
+	}
+};
+
+let {status, data: {total}, meta: {version}} = apiResponse;
+log("Status:", status, "Total users:", total, "API version:", version);

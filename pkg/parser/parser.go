@@ -169,6 +169,26 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseReturnStatement()
 	case lexer.DELETE:
 		return p.parseDeleteStatement()
+	case lexer.LBRACE:
+		// Check if this is a dictionary destructuring assignment
+		// We need to look ahead to see if this is {a, b} = ... or just a dict literal
+		// For now, try parsing as destructuring assignment
+		savedCur := p.curToken
+		savedPeek := p.peekToken
+		savedPrev := p.prevToken
+		savedErrors := len(p.errors)
+
+		stmt := p.parseDictDestructuringAssignment()
+
+		// If parsing failed (no = found), restore and parse as expression
+		if stmt == nil || len(p.errors) > savedErrors {
+			p.curToken = savedCur
+			p.peekToken = savedPeek
+			p.prevToken = savedPrev
+			p.errors = p.errors[:savedErrors]
+			return p.parseExpressionStatement()
+		}
+		return stmt
 	case lexer.IDENT:
 		// Check if this is an assignment statement
 		if p.peekTokenIs(lexer.ASSIGN) {
@@ -207,16 +227,38 @@ func (p *Parser) parseStatement() ast.Statement {
 func (p *Parser) parseLetStatement() *ast.LetStatement {
 	stmt := &ast.LetStatement{Token: p.curToken}
 
+	// Check for dictionary destructuring pattern
+	if p.peekTokenIs(lexer.LBRACE) {
+		p.nextToken() // move to '{'
+		stmt.DictPattern = p.parseDictDestructuringPattern()
+		if stmt.DictPattern == nil {
+			return nil
+		}
+
+		if !p.expectPeek(lexer.ASSIGN) {
+			return nil
+		}
+
+		p.nextToken()
+		stmt.Value = p.parseExpression(LOWEST)
+
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+
+		return stmt
+	}
+
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
 
-	// Collect identifiers (for destructuring)
+	// Collect identifiers (for array destructuring)
 	names := []*ast.Identifier{
 		{Token: p.curToken, Value: p.curToken.Literal},
 	}
 
-	// Check for comma-separated identifiers (destructuring pattern)
+	// Check for comma-separated identifiers (array destructuring pattern)
 	for p.peekTokenIs(lexer.COMMA) {
 		p.nextToken() // consume comma
 		if !p.expectPeek(lexer.IDENT) {
@@ -270,6 +312,30 @@ func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
 		stmt.Name = names[0]
 	} else {
 		stmt.Names = names
+	}
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+
+	p.nextToken()
+
+	stmt.Value = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+// parseDictDestructuringAssignment parses dictionary destructuring assignments like '{a, b} = dict;'
+func (p *Parser) parseDictDestructuringAssignment() *ast.AssignmentStatement {
+	stmt := &ast.AssignmentStatement{Token: p.curToken} // the '{' token
+
+	stmt.DictPattern = p.parseDictDestructuringPattern()
+	if stmt.DictPattern == nil {
+		return nil
 	}
 
 	if !p.expectPeek(lexer.ASSIGN) {
@@ -1115,4 +1181,109 @@ func (p *Parser) parseDeleteStatement() ast.Statement {
 	}
 
 	return stmt
+}
+
+// parseDictDestructuringPattern parses dictionary destructuring patterns like {a, b as c, ...rest}
+func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
+	pattern := &ast.DictDestructuringPattern{Token: p.curToken} // the '{' token
+
+	// Check for empty pattern
+	if p.peekTokenIs(lexer.RBRACE) {
+		msg := fmt.Sprintf("empty dictionary destructuring pattern at line %d, column %d",
+			p.peekToken.Line, p.peekToken.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	p.nextToken() // move to first identifier or ...
+
+	// Parse keys
+	for {
+		// Check for rest operator
+		if p.curTokenIs(lexer.DOTDOTDOT) {
+			if !p.expectPeek(lexer.IDENT) {
+				msg := fmt.Sprintf("expected identifier after '...' at line %d, column %d",
+					p.peekToken.Line, p.peekToken.Column)
+				p.errors = append(p.errors, msg)
+				return nil
+			}
+			pattern.Rest = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+			
+			// Rest must be at the end
+			if !p.peekTokenIs(lexer.RBRACE) {
+				msg := fmt.Sprintf("rest element must be last in destructuring pattern at line %d, column %d",
+					p.peekToken.Line, p.peekToken.Column)
+				p.errors = append(p.errors, msg)
+				return nil
+			}
+			break
+		}
+
+		// Expect identifier for key
+		if !p.curTokenIs(lexer.IDENT) {
+			return nil
+		}
+
+		// Parse regular key
+		key := &ast.DictDestructuringKey{
+			Token: p.curToken,
+			Key:   &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		}
+
+		// Check for alias (as syntax)
+		if p.peekTokenIs(lexer.AS) {
+			p.nextToken() // consume 'as'
+			if !p.expectPeek(lexer.IDENT) {
+				msg := fmt.Sprintf("expected identifier after 'as' at line %d, column %d",
+					p.peekToken.Line, p.peekToken.Column)
+				p.errors = append(p.errors, msg)
+				return nil
+			}
+			key.Alias = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		}
+
+		// Check for nested pattern (colon syntax)
+		if p.peekTokenIs(lexer.COLON) {
+			p.nextToken() // consume ':'
+			p.nextToken() // move to pattern start
+			
+			// Parse nested pattern
+			if p.curTokenIs(lexer.LBRACE) {
+				key.Nested = p.parseDictDestructuringPattern()
+			} else if p.curTokenIs(lexer.LBRACKET) {
+				// For nested array destructuring, we'd need to handle this
+				msg := fmt.Sprintf("nested array destructuring not yet supported at line %d, column %d",
+					p.curToken.Line, p.curToken.Column)
+				p.errors = append(p.errors, msg)
+				return nil
+			} else {
+				msg := fmt.Sprintf("expected destructuring pattern after ':' at line %d, column %d",
+					p.curToken.Line, p.curToken.Column)
+				p.errors = append(p.errors, msg)
+				return nil
+			}
+		}
+
+		pattern.Keys = append(pattern.Keys, key)
+
+		// Check for more keys
+		if !p.peekTokenIs(lexer.COMMA) {
+			break
+		}
+		p.nextToken() // consume comma
+		
+		// Check for trailing comma before }
+		if p.peekTokenIs(lexer.RBRACE) {
+			break
+		}
+		
+		// Move to next key or rest operator
+		p.nextToken()
+	}
+
+	if !p.expectPeek(lexer.RBRACE) {
+		return nil
+	}
+
+	return pattern
 }

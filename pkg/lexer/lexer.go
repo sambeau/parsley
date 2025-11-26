@@ -43,23 +43,25 @@ const (
 	OR       // | or or
 
 	// Delimiters
-	COMMA     // ,
-	SEMICOLON // ;
-	COLON     // :
-	DOT       // .
-	LPAREN    // (
-	RPAREN    // )
-	LBRACE    // {
-	RBRACE    // }
-	LBRACKET  // [
-	RBRACKET  // ]
-	PLUSPLUS  // ++
+	COMMA      // ,
+	SEMICOLON  // ;
+	COLON      // :
+	DOT        // .
+	DOTDOTDOT  // ... (spread/rest operator)
+	LPAREN     // (
+	RPAREN     // )
+	LBRACE     // {
+	RBRACE     // }
+	LBRACKET   // [
+	RBRACKET   // ]
+	PLUSPLUS   // ++
 
 	// Keywords
 	FUNCTION // "fn"
 	LET      // "let"
 	FOR      // "for"
 	IN       // "in"
+	AS       // "as"
 	TRUE     // "true"
 	FALSE    // "false"
 	IF       // "if"
@@ -145,6 +147,8 @@ func (tt TokenType) String() string {
 		return "COLON"
 	case DOT:
 		return "DOT"
+	case DOTDOTDOT:
+		return "DOTDOTDOT"
 	case LPAREN:
 		return "LPAREN"
 	case RPAREN:
@@ -167,6 +171,8 @@ func (tt TokenType) String() string {
 		return "FOR"
 	case IN:
 		return "IN"
+	case AS:
+		return "AS"
 	case TRUE:
 		return "TRUE"
 	case FALSE:
@@ -190,6 +196,7 @@ var keywords = map[string]TokenType{
 	"let":    LET,
 	"for":    FOR,
 	"in":     IN,
+	"as":     AS,
 	"true":   TRUE,
 	"false":  FALSE,
 	"if":     IF,
@@ -373,7 +380,16 @@ func (l *Lexer) NextToken() Token {
 	case ':':
 		tok = newToken(COLON, l.ch, l.line, l.column)
 	case '.':
-		tok = newToken(DOT, l.ch, l.line, l.column)
+		// Check for "..." (spread/rest operator)
+		if l.peekChar() == '.' && l.readPosition+1 < len(l.input) && l.input[l.readPosition+1] == '.' {
+			line := l.line
+			col := l.column
+			l.readChar() // consume second '.'
+			l.readChar() // consume third '.'
+			tok = Token{Type: DOTDOTDOT, Literal: "...", Line: line, Column: col}
+		} else {
+			tok = newToken(DOT, l.ch, l.line, l.column)
+		}
 	case '[':
 		tok = newToken(LBRACKET, l.ch, l.line, l.column)
 	case ']':
