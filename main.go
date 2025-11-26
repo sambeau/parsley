@@ -23,6 +23,12 @@ func main() {
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
 
+		// Check for help flag
+		if arg == "-h" || arg == "--help" || arg == "-?" {
+			printHelp()
+			os.Exit(0)
+		}
+
 		// Check for version flag
 		if arg == "-V" || arg == "--version" {
 			fmt.Printf("pars version %s\n", Version)
@@ -48,6 +54,27 @@ func main() {
 		// REPL mode
 		repl.Start(os.Stdin, os.Stdout, Version)
 	}
+}
+
+func printHelp() {
+	fmt.Printf(`pars - Parsley language interpreter version %s
+
+Usage:
+  pars [options] [file]
+
+Options:
+  -h, --help       Show this help message
+  -V, --version    Show version information
+  --pp             Pretty-print HTML output with proper indentation
+
+Examples:
+  pars                      Start interactive REPL
+  pars script.pars          Execute a Parsley script
+  pars --pp page.pars       Execute and pretty-print HTML output
+  pars page.pars --pp       Pretty-print (flag order doesn't matter)
+
+For more information, visit: https://github.com/sambeau/parsley
+`, Version)
 }
 
 // executeFile reads and executes a pars source file
