@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.4.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.4.1
 ```
 
 A concatenative programming language interpreter.
@@ -1860,9 +1860,10 @@ Pars provides clear, helpful error messages with:
 - **Line and column numbers** for precise error location
 - **Human-readable descriptions** instead of technical token types
 - **Visual pointer** (^) showing the exact error position
-- **Source code context** displaying the problematic line
+- **Source code context** displaying the problematic line with trimmed indentation
+- **Smart formatting** that handles tabs correctly and removes leading whitespace for readability
 
-### Error Message Example
+### Parse Error Example
 
 **Source file with error:**
 ```pars
@@ -1878,6 +1879,33 @@ Error in 'example.pars':
     let y =
            ^
 ```
+
+### Runtime Error Example
+
+**Source file with error:**
+```pars
+table = fn(rows){
+    for(row in rows){
+        for (cell in row){
+            <td>{unknownVar}</td>
+        }
+    }
+}
+```
+
+**Error output:**
+```
+Error in 'example.pars':
+  line 4, column 18: identifier not found: unknownVar
+    <td>{unknownVar}</td>
+             ^
+```
+
+Note how the error message:
+- Trims leading whitespace from indented code for clean display
+- Accurately positions the caret (^) to point to the exact error location
+- Works correctly with both spaces and tabs
+- Provides both parse-time and runtime error context
 
 See [ERROR_DEMO.md](examples/ERROR_DEMO.md) for more examples of error messages.
 
