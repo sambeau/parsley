@@ -86,10 +86,17 @@ func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
 // Error represents error objects
 type Error struct {
 	Message string
+	Line    int
+	Column  int
 }
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
-func (e *Error) Inspect() string  { return "ERROR: " + e.Message }
+func (e *Error) Inspect() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("line %d, column %d: %s", e.Line, e.Column, e.Message)
+	}
+	return "ERROR: " + e.Message
+}
 
 // Function represents function objects
 type Function struct {
@@ -1157,7 +1164,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(right) {
 			return right
 		}
-		return evalInfixExpression(node.Operator, left, right)
+		return evalInfixExpression(node.Token, node.Operator, left, right)
 
 	case *ast.IfExpression:
 		return evalIfExpression(node, env)
@@ -1224,7 +1231,7 @@ func Eval(node ast.Node, env *Environment) Object {
 		if isError(index) {
 			return index
 		}
-		return evalIndexExpression(left, index)
+		return evalIndexExpression(node.Token, left, index)
 
 	case *ast.SliceExpression:
 		left := Eval(node.Left, env)
@@ -1328,7 +1335,7 @@ func evalMinusPrefixOperatorExpression(right Object) Object {
 	return &Integer{Value: -value}
 }
 
-func evalInfixExpression(operator string, left, right Object) Object {
+func evalInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
 	switch {
 	case operator == "&" || operator == "and":
 		return nativeBoolToParsBoolean(isTruthy(left) && isTruthy(right))
@@ -1340,13 +1347,13 @@ func evalInfixExpression(operator string, left, right Object) Object {
 		// String concatenation with automatic type conversion
 		return evalStringConcatExpression(left, right)
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
-		return evalIntegerInfixExpression(operator, left, right)
+		return evalIntegerInfixExpression(tok, operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
-		return evalFloatInfixExpression(operator, left, right)
+		return evalFloatInfixExpression(tok, operator, left, right)
 	case left.Type() == INTEGER_OBJ && right.Type() == FLOAT_OBJ:
-		return evalMixedInfixExpression(operator, left, right)
+		return evalMixedInfixExpression(tok, operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == INTEGER_OBJ:
-		return evalMixedInfixExpression(operator, left, right)
+		return evalMixedInfixExpression(tok, operator, left, right)
 	case left.Type() == STRING_OBJ && right.Type() == STRING_OBJ:
 		return evalStringInfixExpression(operator, left, right)
 	case operator == "==":
@@ -1354,13 +1361,13 @@ func evalInfixExpression(operator string, left, right Object) Object {
 	case operator == "!=":
 		return nativeBoolToParsBoolean(left != right)
 	case left.Type() != right.Type():
-		return newError("type mismatch: %s %s %s", left.Type(), operator, right.Type())
+		return newErrorWithPos(tok, "type mismatch: %s %s %s", left.Type(), operator, right.Type())
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	}
 }
 
-func evalIntegerInfixExpression(operator string, left, right Object) Object {
+func evalIntegerInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
 	leftVal := left.(*Integer).Value
 	rightVal := right.(*Integer).Value
 
@@ -1373,12 +1380,12 @@ func evalIntegerInfixExpression(operator string, left, right Object) Object {
 		return &Integer{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newError("division by zero")
+			return newErrorWithPos(tok, "division by zero")
 		}
 		return &Integer{Value: leftVal / rightVal}
 	case "%":
 		if rightVal == 0 {
-			return newError("modulo by zero")
+			return newErrorWithPos(tok, "modulo by zero")
 		}
 		return &Integer{Value: leftVal % rightVal}
 	case "<":
@@ -1398,7 +1405,7 @@ func evalIntegerInfixExpression(operator string, left, right Object) Object {
 	}
 }
 
-func evalFloatInfixExpression(operator string, left, right Object) Object {
+func evalFloatInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
 	leftVal := left.(*Float).Value
 	rightVal := right.(*Float).Value
 
@@ -1411,7 +1418,7 @@ func evalFloatInfixExpression(operator string, left, right Object) Object {
 		return &Float{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newError("division by zero")
+			return newErrorWithPos(tok, "division by zero")
 		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
@@ -1431,7 +1438,7 @@ func evalFloatInfixExpression(operator string, left, right Object) Object {
 	}
 }
 
-func evalMixedInfixExpression(operator string, left, right Object) Object {
+func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Object) Object {
 	var leftVal, rightVal float64
 
 	// Convert both operands to float64
@@ -1462,7 +1469,7 @@ func evalMixedInfixExpression(operator string, left, right Object) Object {
 		return &Float{Value: leftVal * rightVal}
 	case "/":
 		if rightVal == 0 {
-			return newError("division by zero")
+			return newErrorWithPos(tok, "division by zero")
 		}
 		return &Float{Value: leftVal / rightVal}
 	case "<":
@@ -1544,7 +1551,7 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 		if builtin, ok := getBuiltins()[node.Value]; ok {
 			return builtin
 		}
-		return newError("identifier not found: " + node.Value)
+		return newErrorWithPos(node.Token, "identifier not found: %s", node.Value)
 	}
 
 	return val
@@ -1883,6 +1890,15 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 
 func newError(format string, a ...interface{}) *Error {
 	return &Error{Message: fmt.Sprintf(format, a...)}
+}
+
+// newErrorWithPos creates an error with position information from a token
+func newErrorWithPos(tok lexer.Token, format string, a ...interface{}) *Error {
+	return &Error{
+		Message: fmt.Sprintf(format, a...),
+		Line:    tok.Line,
+		Column:  tok.Column,
+	}
 }
 
 func isError(obj Object) bool {
@@ -2800,21 +2816,21 @@ func evalConcatExpression(left, right Object) Object {
 }
 
 // evalIndexExpression handles array and string indexing
-func evalIndexExpression(left, index Object) Object {
+func evalIndexExpression(tok lexer.Token, left, index Object) Object {
 	switch {
 	case left.Type() == ARRAY_OBJ && index.Type() == INTEGER_OBJ:
-		return evalArrayIndexExpression(left, index)
+		return evalArrayIndexExpression(tok, left, index)
 	case left.Type() == STRING_OBJ && index.Type() == INTEGER_OBJ:
-		return evalStringIndexExpression(left, index)
+		return evalStringIndexExpression(tok, left, index)
 	case left.Type() == DICTIONARY_OBJ && index.Type() == STRING_OBJ:
 		return evalDictionaryIndexExpression(left, index)
 	default:
-		return newError("index operator not supported: %s[%s]", left.Type(), index.Type())
+		return newErrorWithPos(tok, "index operator not supported: %s[%s]", left.Type(), index.Type())
 	}
 }
 
 // evalArrayIndexExpression handles array indexing with support for negative indices
-func evalArrayIndexExpression(array, index Object) Object {
+func evalArrayIndexExpression(tok lexer.Token, array, index Object) Object {
 	arrayObject := array.(*Array)
 	idx := index.(*Integer).Value
 	max := int64(len(arrayObject.Elements))
@@ -2825,14 +2841,14 @@ func evalArrayIndexExpression(array, index Object) Object {
 	}
 
 	if idx < 0 || idx >= max {
-		return newError("index out of range: %d", index.(*Integer).Value)
+		return newErrorWithPos(tok, "index out of range: %d", index.(*Integer).Value)
 	}
 
 	return arrayObject.Elements[idx]
 }
 
 // evalStringIndexExpression handles string indexing with support for negative indices
-func evalStringIndexExpression(str, index Object) Object {
+func evalStringIndexExpression(tok lexer.Token, str, index Object) Object {
 	stringObject := str.(*String)
 	idx := index.(*Integer).Value
 	max := int64(len(stringObject.Value))
@@ -2843,7 +2859,7 @@ func evalStringIndexExpression(str, index Object) Object {
 	}
 
 	if idx < 0 || idx >= max {
-		return newError("index out of range: %d", index.(*Integer).Value)
+		return newErrorWithPos(tok, "index out of range: %d", index.(*Integer).Value)
 	}
 
 	return &String{Value: string(stringObject.Value[idx])}
@@ -2971,7 +2987,7 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 
 	dict, ok := left.(*Dictionary)
 	if !ok {
-		return newError("dot notation can only be used on dictionaries, got %s", left.Type())
+		return newErrorWithPos(node.Token, "dot notation can only be used on dictionaries, got %s", left.Type())
 	}
 
 	// Get the expression from the dictionary

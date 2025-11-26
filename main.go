@@ -60,7 +60,15 @@ func executeFile(filename string) {
 
 	// Check for evaluation errors
 	if evaluated != nil && evaluated.Type() == evaluator.ERROR_OBJ {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", filename, evaluated.Inspect())
+		// Format runtime errors the same way as parse errors
+		errObj, ok := evaluated.(*evaluator.Error)
+		if ok && errObj.Line > 0 {
+			// Error has position information
+			printErrors(filename, string(content), []string{errObj.Inspect()})
+		} else {
+			// Error without position information (legacy format)
+			fmt.Fprintf(os.Stderr, "%s: %s\n", filename, evaluated.Inspect())
+		}
 		os.Exit(1)
 	}
 
@@ -82,10 +90,20 @@ func printErrors(filename string, source string, errors []string) {
 		var lineNum, colNum int
 		if n, _ := fmt.Sscanf(msg, "line %d, column %d", &lineNum, &colNum); n == 2 && lineNum > 0 && lineNum <= len(lines) {
 			// Show the problematic line
-			fmt.Fprintf(os.Stderr, "    %s\n", lines[lineNum-1])
+			sourceLine := lines[lineNum-1]
+			fmt.Fprintf(os.Stderr, "    %s\n", sourceLine)
 			// Show pointer to the error position
 			if colNum > 0 {
-				pointer := strings.Repeat(" ", colNum-1) + "^"
+				// Calculate visual column accounting for tabs (8 spaces each)
+				visualCol := 0
+				for i := 0; i < colNum-1 && i < len(sourceLine); i++ {
+					if sourceLine[i] == '\t' {
+						visualCol += 8
+					} else {
+						visualCol++
+					}
+				}
+				pointer := strings.Repeat(" ", visualCol) + "^"
 				fmt.Fprintf(os.Stderr, "    %s\n", pointer)
 			}
 		} else if _, err := fmt.Sscanf(msg, "line %d", &lineNum); err == nil && lineNum > 0 && lineNum <= len(lines) {
