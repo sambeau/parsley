@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.5.1
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.6.0
 ```
 
 A concatenative programming language interpreter.
@@ -104,6 +104,11 @@ A concatenative programming language interpreter.
   - `asin(x)` - Arcsine function
   - `acos(x)` - Arccosine function
   - `atan(x)` - Arctangent function
+
+- **Date/Time Functions:**
+  - `now()` - Returns current time as a dictionary
+  - `time(input)` - Parse/create datetime from string, integer (Unix timestamp), or dictionary
+  - `time(input, delta)` - Parse/create datetime and apply time delta
 
 
 ## Getting Started
@@ -985,6 +990,112 @@ Count: 42
 >> "Result: " + (5 + 3)
 Result: 8
 ```
+
+### Date and Time
+
+Parsley provides minimal, composable datetime support through two built-in functions that work with dictionaries. Datetimes are represented as dictionaries with standard fields, making them transparent and easy to manipulate.
+
+#### Getting the Current Time
+
+Use `now()` to get the current time as a dictionary:
+
+```
+>> now()
+{year: 2025, month: 11, day: 26, hour: 21, minute: 15, second: 42, weekday: "Wednesday", unix: 1764191742, iso: "2025-11-26T21:15:42Z"}
+>> let dt = now()
+{year: 2025, month: 11, day: 26, hour: 21, minute: 15, second: 42, weekday: "Wednesday", unix: 1764191742, iso: "2025-11-26T21:15:42Z"}
+>> dt.year
+2025
+>> dt.weekday
+Wednesday
+```
+
+#### Creating and Parsing Datetimes
+
+The `time()` function creates datetimes from multiple input types:
+
+**From ISO 8601 string:**
+```
+>> time("2024-01-15T10:30:00Z")
+{year: 2024, month: 1, day: 15, hour: 10, minute: 30, second: 0, weekday: "Monday", unix: 1705316400, iso: "2024-01-15T10:30:00Z"}
+>> time("2024-12-25")  // Date only (time defaults to 00:00:00)
+{year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0, weekday: "Wednesday", unix: 1735081200, iso: "2024-12-25T00:00:00Z"}
+```
+
+**From Unix timestamp:**
+```
+>> time(1704110400)
+{year: 2024, month: 1, day: 1, hour: 12, minute: 0, second: 0, weekday: "Monday", unix: 1704110400, iso: "2024-01-01T12:00:00Z"}
+```
+
+**From dictionary:**
+```
+>> time({year: 2024, month: 7, day: 4, hour: 12, minute: 30, second: 0})
+{year: 2024, month: 7, day: 4, hour: 12, minute: 30, second: 0, weekday: "Thursday", unix: 1720097400, iso: "2024-07-04T12:30:00Z"}
+>> time({year: 2024, month: 12, day: 25})  // Time fields optional (default to 0)
+{year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0, weekday: "Wednesday", unix: 1735081200, iso: "2024-12-25T00:00:00Z"}
+```
+
+#### Datetime Arithmetic
+
+Apply time deltas using a second dictionary argument with `years`, `months`, `days`, `hours`, `minutes`, or `seconds` fields:
+
+```
+>> time("2024-01-01T00:00:00Z", {days: 7})  // Add 7 days
+{year: 2024, month: 1, day: 8, hour: 0, minute: 0, second: 0, weekday: "Monday", unix: 1704672000, iso: "2024-01-08T00:00:00Z"}
+>> time("2024-01-15T00:00:00Z", {days: -10})  // Subtract 10 days
+{year: 2024, month: 1, day: 5, hour: 0, minute: 0, second: 0, weekday: "Friday", unix: 1704412800, iso: "2024-01-05T00:00:00Z"}
+>> time("2024-01-01T00:00:00Z", {months: 3})  // Add 3 months
+{year: 2024, month: 4, day: 1, hour: 0, minute: 0, second: 0, weekday: "Monday", unix: 1711958400, iso: "2024-04-01T00:00:00Z"}
+```
+
+Combine multiple deltas:
+```
+>> time("2024-01-01T12:30:00Z", {years: 1, months: 2, days: 15, hours: 3, minutes: 45, seconds: 30})
+{year: 2025, month: 3, day: 16, hour: 16, minute: 15, second: 30, weekday: "Sunday", unix: 1742141730, iso: "2025-03-16T16:15:30Z"}
+```
+
+Use with `now()`:
+```
+>> time(now(), {days: 7})  // One week from now
+>> time(now(), {days: -30})  // 30 days ago
+```
+
+#### Formatting Datetimes
+
+Use template literals to format datetimes as needed:
+
+```
+>> let dt = time("2024-01-15T10:30:00Z")
+{year: 2024, month: 1, day: 15, hour: 10, minute: 30, second: 0, weekday: "Monday", unix: 1705316400, iso: "2024-01-15T10:30:00Z"}
+>> `{dt.year}-{dt.month}-{dt.day}`
+2024-1-15
+>> `{dt.year}-{dt.month}-{dt.day} {dt.hour}:{dt.minute}`
+2024-1-15 10:30
+>> `{dt.weekday}, {dt.month}/{dt.day}/{dt.year}`
+Monday, 1/15/2024
+```
+
+Use ISO format for standardized output:
+```
+>> dt.iso
+2024-01-15T10:30:00Z
+```
+
+#### Dictionary Fields
+
+Datetime dictionaries contain the following fields:
+- `year` - Four-digit year (e.g., 2024)
+- `month` - Month number (1-12)
+- `day` - Day of month (1-31)
+- `hour` - Hour (0-23)
+- `minute` - Minute (0-59)
+- `second` - Second (0-59)
+- `weekday` - Day name ("Monday", "Tuesday", etc.)
+- `unix` - Unix timestamp (seconds since 1970-01-01)
+- `iso` - ISO 8601 string (e.g., "2024-01-15T10:30:00Z")
+
+All times are in UTC.
 
 ### Singleton Tags
 

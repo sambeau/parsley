@@ -1,0 +1,59 @@
+// Datetime Demo - Test now() and time() functions
+
+// Get current time
+log("Current time:");
+let current = now();
+log(current);
+
+// Access individual fields
+log("\nYear:", current.year);
+log("Month:", current.month);
+log("Day:", current.day);
+log("Hour:", current.hour);
+log("Minute:", current.minute);
+log("Second:", current.second);
+log("Weekday:", current.weekday);
+log("Unix timestamp:", current.unix);
+log("ISO format:", current.iso);
+
+// Parse from ISO string
+log("\n--- Parse from ISO string ---");
+let parsed = time("2024-01-15T10:30:00Z");
+log("Parsed:", parsed.iso);
+
+// Parse from date-only string
+log("\n--- Parse from date string ---");
+let christmas = time("2024-12-25");
+log("Christmas 2024:", christmas.iso);
+
+// Create from Unix timestamp
+log("\n--- From Unix timestamp ---");
+let epoch = time(1704110400);
+log("From epoch:", epoch.iso);
+
+// Create from dictionary
+log("\n--- Create from dictionary ---");
+let july4 = time({year: 2024, month: 7, day: 4, hour: 12, minute: 0, second: 0});
+log("July 4th:", july4.iso);
+
+// Add time delta
+log("\n--- Add 7 days ---");
+let next_week = time(now(), {days: 7});
+log("Next week:", next_week.iso);
+
+// Subtract time delta
+log("\n--- Subtract 30 days ---");
+let last_month = time(now(), {days: -30});
+log("30 days ago:", last_month.iso);
+
+// Complex delta
+log("\n--- Add 1 year, 2 months, 15 days ---");
+let future = time(now(), {years: 1, months: 2, days: 15});
+log("Future:", future.iso);
+
+// Template literal formatting
+log("\n--- Custom formatting ---");
+let dt = now();
+let formatted = `{dt.year}-{dt.month}-{dt.day} {dt.hour}:{dt.minute}`;
+log("Custom format:", formatted);
+
