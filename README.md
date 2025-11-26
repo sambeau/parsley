@@ -1,4 +1,4 @@
-# Pars
+# Parsley
 
 A Go-based toy concatenative programming language interpreter.
 
@@ -231,7 +231,7 @@ If-else expressions can be used anywhere an expression is expected. The `else` c
 
 #### If Statement Forms
 
-Pars supports three forms of if statements:
+Parsley supports three forms of if statements:
 
 **Block form** (for multiple statements):
 ```pars
@@ -761,10 +761,10 @@ Get the number of characters in a string:
 5
 >> len("")
 0
->> str = "Hello, Pars!"
-Hello, Pars!
+>> str = "Hello, Parsley!"
+Hello, Parsley!
 >> len(str)
-13
+15
 ```
 
 #### Escape Sequences
@@ -1025,7 +1025,7 @@ Build reusable UI components:
 <div class="alert alert-warning">Please save your work</div>
 ```
 
-Tags work seamlessly with other Pars features:
+Tags work seamlessly with other Parsley features:
 
 ```
 >> tags = [<br/>, <hr/>]
