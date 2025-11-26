@@ -520,6 +520,41 @@ func isDatetimeDict(dict *Dictionary) bool {
 	return false
 }
 
+// isDurationDict checks if a dictionary is a duration by looking for __type field
+func isDurationDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "duration"
+		}
+	}
+	return false
+}
+
+// getDurationComponents extracts months and seconds from a duration dictionary
+func getDurationComponents(dict *Dictionary, env *Environment) (int64, int64, error) {
+	monthsExpr, ok := dict.Pairs["months"]
+	if !ok {
+		return 0, 0, fmt.Errorf("duration dictionary missing months field")
+	}
+	monthsObj := Eval(monthsExpr, env)
+	monthsInt, ok := monthsObj.(*Integer)
+	if !ok {
+		return 0, 0, fmt.Errorf("months must be an integer")
+	}
+
+	secondsExpr, ok := dict.Pairs["seconds"]
+	if !ok {
+		return 0, 0, fmt.Errorf("duration dictionary missing seconds field")
+	}
+	secondsObj := Eval(secondsExpr, env)
+	secondsInt, ok := secondsObj.(*Integer)
+	if !ok {
+		return 0, 0, fmt.Errorf("seconds must be an integer")
+	}
+
+	return monthsInt.Value, secondsInt.Value, nil
+}
+
 // getDatetimeUnix extracts the unix timestamp from a datetime dictionary
 func getDatetimeUnix(dict *Dictionary, env *Environment) (int64, error) {
 	unixExpr, ok := dict.Pairs["unix"]
@@ -623,6 +658,118 @@ func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 
 	// Convert to dictionary using the same function as the time() builtin
 	return timeToDict(t, env)
+}
+
+// evalDurationLiteral parses a duration literal like @2h30m, @7d, @1y6mo
+func evalDurationLiteral(node *ast.DurationLiteral, env *Environment) Object {
+	// Parse the duration string into months and seconds
+	months, seconds, err := parseDurationString(node.Value)
+	if err != nil {
+		return newError("invalid duration literal: %s", err.Error())
+	}
+
+	return durationToDict(months, seconds, env)
+}
+
+// parseDurationString parses a duration string like "2h30m" or "1y6mo" into months and seconds
+// Returns (months, seconds, error)
+func parseDurationString(s string) (int64, int64, error) {
+	var months int64
+	var seconds int64
+
+	i := 0
+	for i < len(s) {
+		// Read number
+		if !isDigit(rune(s[i])) {
+			return 0, 0, fmt.Errorf("expected digit at position %d", i)
+		}
+
+		numStart := i
+		for i < len(s) && isDigit(rune(s[i])) {
+			i++
+		}
+
+		num, err := strconv.ParseInt(s[numStart:i], 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		// Read unit
+		if i >= len(s) {
+			return 0, 0, fmt.Errorf("missing unit after number at position %d", i)
+		}
+
+		var unit string
+		// Check for "mo" (months)
+		if i+1 < len(s) && s[i:i+2] == "mo" {
+			unit = "mo"
+			i += 2
+		} else {
+			// Single letter unit
+			unit = string(s[i])
+			i++
+		}
+
+		// Convert to months or seconds
+		switch unit {
+		case "y": // years = 12 months
+			months += num * 12
+		case "mo": // months
+			months += num
+		case "w": // weeks = 7 days = 7 * 24 * 60 * 60 seconds
+			seconds += num * 7 * 24 * 60 * 60
+		case "d": // days = 24 * 60 * 60 seconds
+			seconds += num * 24 * 60 * 60
+		case "h": // hours = 60 * 60 seconds
+			seconds += num * 60 * 60
+		case "m": // minutes = 60 seconds
+			seconds += num * 60
+		case "s": // seconds
+			seconds += num
+		default:
+			return 0, 0, fmt.Errorf("unknown unit: %s", unit)
+		}
+	}
+
+	return months, seconds, nil
+}
+
+// durationToDict converts months and seconds into a duration dictionary
+func durationToDict(months, seconds int64, env *Environment) *Dictionary {
+	dict := &Dictionary{Pairs: make(map[string]ast.Expression)}
+
+	// Add __type field
+	dict.Pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "duration"},
+		Value: "duration",
+	}
+
+	// Add months field
+	dict.Pairs["months"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", months)},
+		Value: months,
+	}
+
+	// Add seconds field
+	dict.Pairs["seconds"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", seconds)},
+		Value: seconds,
+	}
+
+	// Add totalSeconds field (only present if no months)
+	if months == 0 {
+		dict.Pairs["totalSeconds"] = &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", seconds)},
+			Value: seconds,
+		}
+	}
+
+	return dict
+}
+
+// isDigit checks if a rune is a digit
+func isDigit(ch rune) bool {
+	return ch >= '0' && ch <= '9'
 }
 
 // isRegexDict checks if a dictionary is a regex by looking for __type field
@@ -1658,6 +1805,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.DatetimeLiteral:
 		return evalDatetimeLiteral(node, env)
 
+	case *ast.DurationLiteral:
+		return evalDurationLiteral(node, env)
+
 	case *ast.TagLiteral:
 		return evalTagLiteral(node, env)
 
@@ -1893,6 +2043,16 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if isDatetimeDict(leftDict) && isDatetimeDict(rightDict) {
 			return evalDatetimeInfixExpression(tok, operator, leftDict, rightDict)
 		}
+		if isDurationDict(leftDict) && isDurationDict(rightDict) {
+			return evalDurationInfixExpression(tok, operator, leftDict, rightDict)
+		}
+		if isDatetimeDict(leftDict) && isDurationDict(rightDict) {
+			return evalDatetimeDurationInfixExpression(tok, operator, leftDict, rightDict)
+		}
+		if isDurationDict(leftDict) && isDatetimeDict(rightDict) {
+			// duration + datetime not allowed, only datetime + duration
+			return newErrorWithPos(tok, "cannot add datetime to duration (use datetime + duration instead)")
+		}
 		// Fall through to default comparison for non-datetime dicts
 		if operator == "==" {
 			return nativeBoolToParsBoolean(left == right)
@@ -1903,6 +2063,9 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	case left.Type() == DICTIONARY_OBJ && right.Type() == INTEGER_OBJ:
 		if dict := left.(*Dictionary); isDatetimeDict(dict) {
 			return evalDatetimeIntegerInfixExpression(tok, operator, dict, right.(*Integer))
+		}
+		if dict := left.(*Dictionary); isDurationDict(dict) {
+			return evalDurationIntegerInfixExpression(tok, operator, dict, right.(*Integer))
 		}
 		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	case left.Type() == INTEGER_OBJ && right.Type() == DICTIONARY_OBJ:
@@ -2095,8 +2258,11 @@ func evalDatetimeInfixExpression(tok lexer.Token, operator string, left, right *
 	case "!=":
 		return nativeBoolToParsBoolean(leftUnix != rightUnix)
 	case "-":
-		// Return difference in seconds
-		return &Integer{Value: leftUnix - rightUnix}
+		// BREAKING CHANGE: Return Duration instead of Integer
+		// Calculate difference in seconds
+		diffSeconds := leftUnix - rightUnix
+		// Return as duration (0 months, diffSeconds seconds)
+		return durationToDict(0, diffSeconds, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for datetime: %s", operator)
 	}
@@ -2139,6 +2305,113 @@ func evalIntegerDatetimeInfixExpression(tok lexer.Token, operator string, second
 		return timeToDict(newTime, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for integer and datetime: %s", operator)
+	}
+}
+
+// evalDurationInfixExpression handles duration + duration or duration - duration
+func evalDurationInfixExpression(tok lexer.Token, operator string, left, right *Dictionary) Object {
+	env := NewEnvironment()
+
+	leftMonths, leftSeconds, err := getDurationComponents(left, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid duration: %s", err)
+	}
+
+	rightMonths, rightSeconds, err := getDurationComponents(right, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid duration: %s", err)
+	}
+
+	switch operator {
+	case "+":
+		return durationToDict(leftMonths+rightMonths, leftSeconds+rightSeconds, env)
+	case "-":
+		return durationToDict(leftMonths-rightMonths, leftSeconds-rightSeconds, env)
+	case "<", ">", "<=", ">=", "==", "!=":
+		// Comparison only allowed for pure-seconds durations (no months)
+		if leftMonths != 0 || rightMonths != 0 {
+			return newErrorWithPos(tok, "cannot compare durations with month components (months have variable length)")
+		}
+		switch operator {
+		case "<":
+			return nativeBoolToParsBoolean(leftSeconds < rightSeconds)
+		case ">":
+			return nativeBoolToParsBoolean(leftSeconds > rightSeconds)
+		case "<=":
+			return nativeBoolToParsBoolean(leftSeconds <= rightSeconds)
+		case ">=":
+			return nativeBoolToParsBoolean(leftSeconds >= rightSeconds)
+		case "==":
+			return nativeBoolToParsBoolean(leftSeconds == rightSeconds && leftMonths == rightMonths)
+		case "!=":
+			return nativeBoolToParsBoolean(leftSeconds != rightSeconds || leftMonths != rightMonths)
+		}
+	}
+
+	return newErrorWithPos(tok, "unknown operator for duration: %s", operator)
+}
+
+// evalDurationIntegerInfixExpression handles duration * integer or duration / integer
+func evalDurationIntegerInfixExpression(tok lexer.Token, operator string, dur *Dictionary, num *Integer) Object {
+	env := NewEnvironment()
+
+	months, seconds, err := getDurationComponents(dur, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid duration: %s", err)
+	}
+
+	switch operator {
+	case "*":
+		return durationToDict(months*num.Value, seconds*num.Value, env)
+	case "/":
+		if num.Value == 0 {
+			return newErrorWithPos(tok, "division by zero")
+		}
+		return durationToDict(months/num.Value, seconds/num.Value, env)
+	default:
+		return newErrorWithPos(tok, "unknown operator for duration and integer: %s", operator)
+	}
+}
+
+// evalDatetimeDurationInfixExpression handles datetime + duration or datetime - duration
+func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, dur *Dictionary) Object {
+	env := NewEnvironment()
+
+	// Get datetime as time.Time
+	t, err := dictToTime(dt, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+
+	// Get duration components
+	months, seconds, err := getDurationComponents(dur, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid duration: %s", err)
+	}
+
+	switch operator {
+	case "+":
+		// Add months first (using AddDate for proper month arithmetic)
+		if months != 0 {
+			t = t.AddDate(0, int(months), 0)
+		}
+		// Then add seconds
+		if seconds != 0 {
+			t = t.Add(time.Duration(seconds) * time.Second)
+		}
+		return timeToDict(t, env)
+	case "-":
+		// Subtract months first
+		if months != 0 {
+			t = t.AddDate(0, -int(months), 0)
+		}
+		// Then subtract seconds
+		if seconds != 0 {
+			t = t.Add(-time.Duration(seconds) * time.Second)
+		}
+		return timeToDict(t, env)
+	default:
+		return newErrorWithPos(tok, "unknown operator for datetime and duration: %s", operator)
 	}
 }
 

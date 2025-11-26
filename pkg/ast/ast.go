@@ -247,6 +247,16 @@ func (dl *DatetimeLiteral) expressionNode()      {}
 func (dl *DatetimeLiteral) TokenLiteral() string { return dl.Token.Literal }
 func (dl *DatetimeLiteral) String() string       { return "@" + dl.Value }
 
+// DurationLiteral represents duration literals like @2h30m, @7d, @1y6mo
+type DurationLiteral struct {
+	Token lexer.Token // the lexer.DURATION_LITERAL token
+	Value string      // the duration string (e.g., "2h30m", "7d")
+}
+
+func (dr *DurationLiteral) expressionNode()      {}
+func (dr *DurationLiteral) TokenLiteral() string { return dr.Token.Literal }
+func (dr *DurationLiteral) String() string       { return "@" + dr.Value }
+
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
 	Token lexer.Token // the lexer.TAG token

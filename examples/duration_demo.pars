@@ -1,0 +1,120 @@
+// Duration Literals Demo - Parsley @syntax for Durations
+
+// === Basic Duration Literals ===
+"=== Basic Durations ==="
+let d1 = @30s
+"30 seconds:" d1
+
+let d2 = @5m
+"5 minutes:" d2
+
+let d3 = @2h
+"2 hours:" d3
+
+let d4 = @7d
+"7 days:" d4
+
+let d5 = @2w
+"2 weeks:" d5
+
+let d6 = @6mo
+"6 months:" d6
+
+let d7 = @1y
+"1 year:" d7
+
+// === Compound Durations ===
+"=== Compound Durations ==="
+let meeting = @2h30m
+"Meeting duration:" meeting
+"  In seconds:" meeting.seconds
+"  Total seconds:" meeting.totalSeconds
+
+let vacation = @2w3d
+"Vacation duration:" vacation
+"  In seconds:" vacation.seconds
+
+let project = @1y6mo2w
+"Project duration:" project
+"  Months:" project.months
+"  Seconds:" project.seconds
+"  Total seconds (null for month-based):" project.totalSeconds
+
+// === Duration Arithmetic ===
+"=== Duration Arithmetic ==="
+let morning = @2h
+let afternoon = @3h
+let fullDay = morning + afternoon
+"Work day:" fullDay.seconds "seconds =" fullDay.seconds / 3600 "hours"
+
+let week = @7d
+let weekend = @2d
+let weekdays = week - weekend
+"Weekdays:" weekdays.seconds / 86400 "days"
+
+let task = @1h
+let repeated = task * 5
+"5 tasks:" repeated.seconds / 3600 "hours"
+
+let shared = @4h / 2
+"Split work:" shared.seconds / 3600 "hours each"
+
+// === Datetime + Duration ===
+"=== Adding Durations to Datetimes ==="
+let start = @2024-01-15
+let after2days = start + @2d
+"Start:" start.day
+"After 2 days:" after2days.day
+
+let meeting_start = @2024-06-15T10:00:00
+let meeting_end = meeting_start + @1h30m
+"Meeting starts:" meeting_start.hour ":" meeting_start.minute
+"Meeting ends:" meeting_end.hour ":" meeting_end.minute
+
+let birthday = @2024-03-15
+let next_birthday = birthday + @1y
+"This year:" birthday.year
+"Next year:" next_birthday.year
+
+let project_start = @2024-01-01
+let deadline = project_start + @6mo2w
+"Project starts:" project_start.month
+"Deadline month:" deadline.month
+
+// === Datetime - Datetime = Duration ===
+"=== BREAKING CHANGE: Datetime Subtraction ==="
+let event1 = @2024-12-25
+let event2 = @2024-12-20
+let diff = event2 - event1
+"Days between events:" diff.seconds / 86400
+
+let start_time = @2024-06-15T09:00:00
+let end_time = @2024-06-15T17:30:00
+let work_duration = end_time - start_time
+"Work hours:" work_duration.seconds / 3600
+
+// === Duration Comparison (seconds-only) ===
+"=== Duration Comparison ==="
+let short = @1h
+let long = @2h
+"1h < 2h:" short < long
+"1h == 60m:" @1h == @60m
+"2h > 90m:" @2h > @90m
+
+// === Complex Examples ===
+"=== Complex Examples ==="
+let sprint = @2w
+let sprints = 6
+let total_project = sprint * sprints
+"Project duration:" total_project.seconds / 86400 "days"
+
+let daily_standup = @15m
+let days = 5
+let weekly_meetings = daily_standup * days
+"Weekly meeting time:" weekly_meetings.seconds / 60 "minutes"
+
+let year_start = @2024-01-01
+let quarter = @3mo
+let q1 = year_start + quarter
+let q2 = year_start + (quarter * 2)
+"Quarter ends: Q1 month" q1.month "Q2 month" q2.month

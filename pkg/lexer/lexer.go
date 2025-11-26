@@ -22,6 +22,7 @@ const (
 	TEMPLATE         // `template ${expr}`
 	REGEX            // /pattern/flags
 	DATETIME_LITERAL // @2024-12-25T14:30:00Z
+	DURATION_LITERAL // @2h30m, @7d, @1y6mo
 	TAG              // <tag prop="value" />
 	TAG_START        // <tag> or <tag attr="value">
 	TAG_END          // </tag>
@@ -109,6 +110,8 @@ func (tt TokenType) String() string {
 		return "REGEX"
 	case DATETIME_LITERAL:
 		return "DATETIME_LITERAL"
+	case DURATION_LITERAL:
+		return "DURATION_LITERAL"
 	case TAG:
 		return "TAG"
 	case TAG_START:
@@ -451,8 +454,14 @@ func (l *Lexer) NextToken() Token {
 	case '@':
 		line := l.line
 		column := l.column
-		tok.Type = DATETIME_LITERAL
-		tok.Literal = l.readDatetimeLiteral()
+		// Peek ahead to determine if it's a datetime or duration
+		if l.isDatetimeLiteral() {
+			tok.Type = DATETIME_LITERAL
+			tok.Literal = l.readDatetimeLiteral()
+		} else {
+			tok.Type = DURATION_LITERAL
+			tok.Literal = l.readDurationLiteral()
+		}
 		tok.Line = line
 		tok.Column = column
 		l.lastTokenType = tok.Type
@@ -1070,6 +1079,83 @@ func (l *Lexer) readDatetimeLiteral() string {
 	}
 
 	return string(datetime)
+}
+
+// isDatetimeLiteral checks if the @ symbol is followed by a datetime pattern (YYYY-MM-DD)
+// rather than a duration pattern (like 2h30m or 7d)
+func (l *Lexer) isDatetimeLiteral() bool {
+	// Look ahead to check the pattern
+	// Datetime starts with 4 digits (year)
+	// Duration starts with digits followed by a unit letter
+	pos := l.readPosition
+
+	// Skip @ (already at current position)
+	if pos >= len(l.input) {
+		return false
+	}
+
+	// Count consecutive digits
+	digitCount := 0
+	for pos < len(l.input) && isDigit(l.input[pos]) {
+		digitCount++
+		pos++
+	}
+
+	// If we have 4 digits followed by '-', it's a datetime (YYYY-MM-DD)
+	if digitCount == 4 && pos < len(l.input) && l.input[pos] == '-' {
+		return true
+	}
+
+	// Otherwise, it's a duration
+	return false
+}
+
+// readDurationLiteral reads a duration literal after @
+// Supports formats: @2h30m, @7d, @1y6mo, @30s
+// Units: y (years), mo (months), w (weeks), d (days), h (hours), m (minutes), s (seconds)
+func (l *Lexer) readDurationLiteral() string {
+	var duration []byte
+	l.readChar() // skip @
+
+	// Read pairs of number + unit
+	for {
+		// Read number
+		if !isDigit(l.ch) {
+			break
+		}
+
+		for isDigit(l.ch) {
+			duration = append(duration, l.ch)
+			l.readChar()
+		}
+
+		// Read unit (could be single letter or "mo" for months)
+		if !isLetter(l.ch) {
+			break
+		}
+
+		// Check for "mo" (months)
+		if l.ch == 'm' && l.peekChar() == 'o' {
+			duration = append(duration, l.ch)
+			l.readChar()
+			duration = append(duration, l.ch)
+			l.readChar()
+		} else {
+			// Single letter unit
+			duration = append(duration, l.ch)
+			l.readChar()
+		}
+	}
+
+	// Back up one char since we consumed one too many
+	l.position = l.readPosition - 1
+	if l.position < len(l.input) {
+		l.ch = l.input[l.position]
+	} else {
+		l.ch = 0
+	}
+
+	return string(duration)
 }
 
 // shouldTreatAsRegex determines if / should be regex or division

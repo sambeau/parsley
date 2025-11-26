@@ -148,11 +148,11 @@ func TestDatetimeLiteralSubtraction(t *testing.T) {
 		input    string
 		expected string
 	}{
-		// Datetime - datetime returns seconds difference
-		{`@2024-12-26 - @2024-12-25`, `86400`},
-		{`@2024-12-25 - @2024-12-24`, `86400`},
-		{`@2024-12-25T15:30:00 - @2024-12-25T14:30:00`, `3600`},
-		{`@2024-01-01 - @2024-01-01`, `0`},
+		// BREAKING CHANGE: Datetime - datetime now returns Duration
+		{`let d = @2024-12-26 - @2024-12-25; d.seconds`, `86400`},
+		{`let d = @2024-12-25 - @2024-12-24; d.seconds`, `86400`},
+		{`let d = @2024-12-25T15:30:00 - @2024-12-25T14:30:00; d.seconds`, `3600`},
+		{`let d = @2024-01-01 - @2024-01-01; d.seconds`, `0`},
 	}
 
 	for _, tt := range tests {
@@ -195,7 +195,7 @@ func TestDatetimeLiteralInExpressions(t *testing.T) {
 		{`let christmas = @2024-12-25; christmas.day`, `25`},
 		{`let birthday = @2024-03-15T14:30:00; birthday.hour`, `14`},
 		// In conditionals
-		{`if @2024-12-25 < @2024-12-26 { "true" } else { "false" }`, `"true"`},
+		{`if(@2024-12-25 < @2024-12-26) { "true" } else { "false" }`, `true`},
 		// In arrays
 		{`[@2024-01-01, @2024-06-15, @2024-12-31][1].month`, `6`},
 		// In function calls
@@ -235,8 +235,8 @@ func TestDatetimeLiteralErrors(t *testing.T) {
 		{`@2024-13-01`, "invalid datetime literal"}, // Invalid month
 		{`@2024-02-30`, "invalid datetime literal"}, // Invalid day for February
 		{`@2024-04-31`, "invalid datetime literal"}, // Invalid day for April
-		{`@not-a-date`, "invalid datetime literal"}, // Completely invalid
-		{`@2024`, "invalid datetime literal"},       // Incomplete date
+		{`@not-a-date`, "identifier not found"},     // Lexed as @ followed by identifier
+		{`@2024`, "invalid duration literal"},       // Incomplete - parsed as duration, not datetime
 	}
 
 	for _, tt := range tests {

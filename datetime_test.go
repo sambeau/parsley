@@ -515,8 +515,8 @@ func TestDatetimeArithmetic(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "subtract datetimes (difference in seconds)",
-			code:     `time("2024-01-20T00:00:00Z") - time("2024-01-15T00:00:00Z")`,
+			name:     "subtract datetimes (returns Duration)",
+			code:     `let diff = time("2024-01-20T00:00:00Z") - time("2024-01-15T00:00:00Z"); diff.seconds`,
 			expected: "432000", // 5 days * 86400 seconds/day
 		},
 		{

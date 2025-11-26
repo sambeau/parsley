@@ -3,10 +3,14 @@
 - File type
 - Modules, import and export
 - Dictionaries to props in tags
-- Datetime
+- ~~Datetime~~ ✅ (v0.6.0)
+- ~~Datetime literals with @ syntax~~ ✅ (v0.7.0)
+- ~~Duration type~~ ✅ (v0.7.0)
+- ~~Duration literals with @ syntax~~ ✅ (v0.7.0)
 - URL type
 - File globbing to dictionary
-- Regular expressions
+- ~~Regular expressions~~ ✅ (v0.6.0)
+- ~~Regular expression literals with /pattern/ syntax~~ ✅ (v0.6.0)
 - file methods: read, write, append, delete
 - read JSON / write JSON
 - execute
@@ -16,3 +20,4 @@
 	- routing
 	- cookies
 - css support
+- Pipes

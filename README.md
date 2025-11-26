@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.6.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.7.0
 ```
 
 A concatenative programming language interpreter.
@@ -1080,6 +1080,107 @@ Equivalent to `time()` function:
 true
 ```
 
+#### Duration Literals
+
+**Version 0.7.0+** Duration literals use the `@` prefix with time units to create duration values:
+
+**Supported units:**
+- `s` - seconds
+- `m` - minutes  
+- `h` - hours
+- `d` - days
+- `w` - weeks
+- `mo` - months (note: two letters to distinguish from minutes)
+- `y` - years
+
+**Basic durations:**
+```
+>> @30s
+{__type: duration, months: 0, seconds: 30, totalSeconds: 30}
+>> @5m
+{__type: duration, months: 0, seconds: 300, totalSeconds: 300}
+>> @2h
+{__type: duration, months: 0, seconds: 7200, totalSeconds: 7200}
+>> @7d
+{__type: duration, months: 0, seconds: 604800, totalSeconds: 604800}
+```
+
+**Compound durations:**
+```
+>> @2h30m
+{__type: duration, months: 0, seconds: 9000, totalSeconds: 9000}
+>> @1y6mo
+{__type: duration, months: 18, seconds: 0, totalSeconds: null}
+>> @1y2mo3w4d5h6m7s
+{__type: duration, months: 14, seconds: 2178367, totalSeconds: null}
+```
+
+Duration dictionaries contain:
+- `__type`: Always "duration"
+- `months`: Number of months (variable-length, 12 months = 1 year)
+- `seconds`: Number of seconds (fixed-length)
+- `totalSeconds`: Total seconds if no months component, otherwise `null`
+
+**Duration arithmetic:**
+```
+>> @2h + @30m
+{__type: duration, months: 0, seconds: 9000, totalSeconds: 9000}
+>> @1d - @6h
+{__type: duration, months: 0, seconds: 64800, totalSeconds: 64800}
+>> @2h * 3
+{__type: duration, months: 0, seconds: 21600, totalSeconds: 21600}
+>> @1d / 2
+{__type: duration, months: 0, seconds: 43200, totalSeconds: 43200}
+```
+
+**Adding durations to datetimes:**
+```
+>> @2024-01-15 + @2d
+{year: 2024, month: 1, day: 17, ...}
+>> @2024-01-31 + @1mo  
+{year: 2024, month: 3, day: 2, ...}  // Feb 31 normalizes to Mar 2
+>> @2024-06-15T10:00:00 + @1h30m
+{year: 2024, month: 6, day: 15, hour: 11, minute: 30, ...}
+```
+
+**⚠️ BREAKING CHANGE (v0.7.0):** Datetime subtraction now returns a Duration:
+```
+>> @2024-12-26 - @2024-12-25
+{__type: duration, months: 0, seconds: 86400, totalSeconds: 86400}
+>> let diff = @2024-01-20 - @2024-01-15
+>> diff.seconds
+432000
+>> diff.seconds / 86400  // Convert to days
+5
+```
+
+**Duration comparison** (seconds-only durations):
+```
+>> @1h < @2h
+true
+>> @2h == @120m
+true
+>> @30d > @4w  // 30*86400 > 4*7*86400
+true
+```
+
+**Note:** Cannot compare durations with month components (months have variable length):
+```
+>> @1y < @12mo
+ERROR: cannot compare durations with month components
+```
+
+**Migration from v0.6.x:**
+If your code uses datetime subtraction expecting an integer result, update it:
+```
+// Old (v0.6.x):
+let diff = dt1 - dt2  // Returns integer seconds
+
+// New (v0.7.0+):
+let diff = dt1 - dt2
+let seconds = diff.seconds  // Access seconds field
+```
+
 #### Datetime Arithmetic
 
 Apply time deltas using a second dictionary argument with `years`, `months`, `days`, `hours`, `minutes`, or `seconds` fields:
@@ -1215,9 +1316,185 @@ false
 true
 ```
 
+### Durations
+
+Parsley provides first-class duration support through `@` prefix literals (like `@2h30m`, `@7d`, `@1y6mo`). Durations are dictionary-based with `__type: "duration"` and separate `months` and `seconds` components to handle variable-length months correctly.
+
+#### Duration Literal Syntax
+
+Duration literals start with `@` followed by number-unit pairs:
+
+**Supported units:**
+- `y` = years (12 months)
+- `mo` = months (variable length, converted to months)
+- `w` = weeks (7 days, converted to seconds)
+- `d` = days (24 hours, converted to seconds)
+- `h` = hours (3600 seconds)
+- `m` = minutes (60 seconds)
+- `s` = seconds
+
+**Examples:**
+```
+>> @30s
+{__type: duration, months: 0, seconds: 30, totalSeconds: 30}
+
+>> @2h30m
+{__type: duration, months: 0, seconds: 9000, totalSeconds: 9000}
+
+>> @7d
+{__type: duration, months: 0, seconds: 604800, totalSeconds: 604800}
+
+>> @1y6mo
+{__type: duration, months: 18, seconds: 0, totalSeconds: null}
+
+>> @1y2mo3w4d5h6m7s
+{__type: duration, months: 14, seconds: 2178367, totalSeconds: null}
+```
+
+**Note:** The `totalSeconds` field is `null` for durations with month components (since months have variable lengths). For pure seconds-based durations, `totalSeconds` equals `seconds`.
+
+#### Duration Fields
+
+Access duration components via dictionary fields:
+
+```
+>> let d = @2h30m
+>> d.months
+0
+>> d.seconds
+9000
+>> d.totalSeconds
+9000
+
+>> let longDuration = @1y6mo
+>> longDuration.months
+18
+>> longDuration.totalSeconds
+null
+```
+
+#### Duration Arithmetic
+
+**Add/subtract durations:**
+```
+>> @2h + @30m
+{__type: duration, months: 0, seconds: 9000, totalSeconds: 9000}
+
+>> @1d - @6h
+{__type: duration, months: 0, seconds: 64800, totalSeconds: 64800}
+
+>> @1y + @6mo
+{__type: duration, months: 18, seconds: 0, totalSeconds: null}
+```
+
+**Multiply/divide by numbers:**
+```
+>> @2h * 3
+{__type: duration, months: 0, seconds: 21600, totalSeconds: 21600}
+
+>> @1d / 2
+{__type: duration, months: 0, seconds: 43200, totalSeconds: 43200}
+
+>> @1y * 2
+{__type: duration, months: 24, seconds: 0, totalSeconds: null}
+```
+
+#### Duration Comparisons
+
+Comparison operators work **only for pure seconds-based durations** (no month components):
+
+```
+>> @1h < @2h
+true
+
+>> @2h == @7200s
+true
+
+>> @1d >= @12h
+true
+```
+
+**Error on month-based comparisons:**
+```
+>> @1y < @12mo
+ERROR: cannot compare durations with month components (months have variable length)
+```
+
+#### Datetime + Duration Operations
+
+Add or subtract durations from datetimes:
+
+```
+>> let start = @2024-01-15
+>> start + @2d
+{year: 2024, month: 1, day: 17, ...}
+
+>> let meeting = @2024-06-15T10:00:00
+>> meeting + @1h30m
+{year: 2024, month: 6, day: 15, hour: 11, minute: 30, ...}
+
+>> @2024-06-15 + @1y
+{year: 2025, month: 6, day: 15, ...}
+
+>> @2024-01-31 + @1mo
+{year: 2024, month: 3, day: 2, ...}  // Normalized from Feb 31
+```
+
+**Month arithmetic:** When adding months to dates like Jan 31, if the result would be invalid (like Feb 31), it normalizes to the next valid date (Mar 2/3).
+
+#### Breaking Change: Datetime Subtraction
+
+**BREAKING:** Subtracting datetimes now returns a Duration instead of seconds:
+
+**Before (v0.5.x):**
+```
+>> @2024-01-20 - @2024-01-15
+432000  // Just an integer
+```
+
+**Now (v0.6.0+):**
+```
+>> @2024-01-20 - @2024-01-15
+{__type: duration, months: 0, seconds: 432000, totalSeconds: 432000}
+
+>> let diff = @2024-01-20 - @2024-01-15
+>> diff.seconds / 86400  // Get days
+5
+```
+
+**Migration:** Update code that uses `datetime - datetime` to access the `.seconds` field.
+
+#### Practical Duration Examples
+
+```
+>> // Calculate project timeline
+>> let sprint = @2w
+>> let total = sprint * 6
+>> total.seconds / 86400
+84  // days
+
+>> // Meeting time calculation
+>> let daily_standup = @15m
+>> let weekly_total = daily_standup * 5
+>> weekly_total.seconds / 60
+75  // minutes
+
+>> // Date arithmetic with durations
+>> let deadline = @2024-01-01 + @3mo2w
+>> deadline.month
+3
+
+>> // Time until event
+>> let event = @2024-12-25T00:00:00
+>> let now_time = @2024-11-26T00:00:00
+>> let remaining = event - now_time
+>> remaining.seconds / 86400
+29  // days
+```
+
 ### Regular Expressions
 
-Parsley provides first-class regex support through `/pattern/flags` literals and the `~` match operator. Regular expressions are dictionary-based (like datetimes) with `__type: "regex"`, making them transparent and composable.
+Parsley provides first-class regex support through `/pattern/flags` literals and the `~` match operator. Regular expressions are dictionary-based (like datetimes and durations) with `__type: "regex"`, making them transparent and composable.
 
 #### Regex Literals
 

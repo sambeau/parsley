@@ -85,6 +85,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.TEMPLATE, p.parseTemplateLiteral)
 	p.registerPrefix(lexer.REGEX, p.parseRegexLiteral)
 	p.registerPrefix(lexer.DATETIME_LITERAL, p.parseDatetimeLiteral)
+	p.registerPrefix(lexer.DURATION_LITERAL, p.parseDurationLiteral)
 	p.registerPrefix(lexer.TAG, p.parseTagLiteral)
 	p.registerPrefix(lexer.TAG_START, p.parseTagPair)
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
@@ -485,6 +486,14 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 func (p *Parser) parseDatetimeLiteral() ast.Expression {
 	// Token.Literal contains the ISO-8601 datetime string (without the @ prefix)
 	return &ast.DatetimeLiteral{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
+}
+
+func (p *Parser) parseDurationLiteral() ast.Expression {
+	// Token.Literal contains the duration string (without the @ prefix)
+	return &ast.DurationLiteral{
 		Token: p.curToken,
 		Value: p.curToken.Literal,
 	}
