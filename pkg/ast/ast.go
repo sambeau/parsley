@@ -218,6 +218,16 @@ func (tl *TemplateLiteral) expressionNode()      {}
 func (tl *TemplateLiteral) TokenLiteral() string { return tl.Token.Literal }
 func (tl *TemplateLiteral) String() string       { return "`" + tl.Value + "`" }
 
+// TagLiteral represents singleton tags like <input type="text" />
+type TagLiteral struct {
+	Token lexer.Token // the lexer.TAG token
+	Raw   string      // the raw tag content (everything between < and />)
+}
+
+func (tg *TagLiteral) expressionNode()      {}
+func (tg *TagLiteral) TokenLiteral() string { return tg.Token.Literal }
+func (tg *TagLiteral) String() string       { return "<" + tg.Raw + " />" }
+
 // Boolean represents boolean literals
 type Boolean struct {
 	Token lexer.Token // the lexer.TRUE or lexer.FALSE token

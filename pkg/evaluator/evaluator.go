@@ -1107,6 +1107,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.TemplateLiteral:
 		return evalTemplateLiteral(node, env)
 
+	case *ast.TagLiteral:
+		return evalTagLiteral(node, env)
+
 	case *ast.Boolean:
 		return nativeBoolToParsBoolean(node.Value)
 
@@ -1901,6 +1904,329 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 	}
 
 	return &String{Value: result.String()}
+}
+
+// evalTagLiteral evaluates a singleton tag
+func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
+	raw := node.Raw
+
+	// Parse tag name (first word)
+	i := 0
+	for i < len(raw) && !unicode.IsSpace(rune(raw[i])) {
+		i++
+	}
+	tagName := raw[:i]
+	rest := raw[i:]
+
+	// Check if it's a custom tag (starts with uppercase)
+	isCustom := len(tagName) > 0 && unicode.IsUpper(rune(tagName[0]))
+
+	if isCustom {
+		// Custom tag - call function with props dictionary
+		return evalCustomTag(tagName, rest, env)
+	} else {
+		// Standard tag - return as interpolated string
+		return evalStandardTag(tagName, rest, env)
+	}
+}
+
+// evalStandardTag evaluates a standard (lowercase) tag as an interpolated string
+func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
+	var result strings.Builder
+	result.WriteByte('<')
+	result.WriteString(tagName)
+
+	// Process props with interpolation
+	i := 0
+	for i < len(propsStr) {
+		// Look for {expr}
+		if propsStr[i] == '{' {
+			// Find the closing }
+			i++ // skip {
+			braceCount := 1
+			exprStart := i
+
+			for i < len(propsStr) && braceCount > 0 {
+				if propsStr[i] == '"' {
+					// Skip quoted strings
+					i++
+					for i < len(propsStr) && propsStr[i] != '"' {
+						if propsStr[i] == '\\' {
+							i += 2
+						} else {
+							i++
+						}
+					}
+					if i < len(propsStr) {
+						i++
+					}
+					continue
+				}
+				if propsStr[i] == '{' {
+					braceCount++
+				} else if propsStr[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newError("unclosed { in tag")
+			}
+
+			// Extract and evaluate the expression
+			exprStr := propsStr[exprStart:i]
+			i++ // skip closing }
+
+			// Parse and evaluate the expression
+			l := lexer.New(exprStr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				return newError("error parsing tag expression: %s", p.Errors()[0])
+			}
+
+			// Evaluate the expression
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+
+			// Convert result to string (don't add quotes - they should be in the tag already)
+			if evaluated != nil {
+				result.WriteString(objectToTemplateString(evaluated))
+			}
+		} else {
+			// Regular character
+			result.WriteByte(propsStr[i])
+			i++
+		}
+	}
+
+	result.WriteString(" />")
+	return &String{Value: result.String()}
+}
+
+// evalCustomTag evaluates a custom (uppercase) tag as a function call
+func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
+	// Look up the function
+	fn, ok := env.Get(tagName)
+	if !ok {
+		if builtin, ok := getBuiltins()[tagName]; ok {
+			fn = builtin
+		} else {
+			return newError("function not found: " + tagName)
+		}
+	}
+
+	// Parse props into a dictionary
+	props := parseTagProps(propsStr, env)
+	if isError(props) {
+		return props
+	}
+
+	// Call the function with the props dictionary
+	return applyFunction(fn, []Object{props})
+}
+
+// parseTagProps parses tag properties into a dictionary
+func parseTagProps(propsStr string, env *Environment) Object {
+	pairs := make(map[string]ast.Expression)
+
+	i := 0
+	for i < len(propsStr) {
+		// Skip whitespace
+		for i < len(propsStr) && unicode.IsSpace(rune(propsStr[i])) {
+			i++
+		}
+		if i >= len(propsStr) {
+			break
+		}
+
+		// Read prop name
+		nameStart := i
+		for i < len(propsStr) && !unicode.IsSpace(rune(propsStr[i])) && propsStr[i] != '=' {
+			i++
+		}
+		if nameStart == i {
+			break
+		}
+		propName := propsStr[nameStart:i]
+
+		// Skip whitespace
+		for i < len(propsStr) && unicode.IsSpace(rune(propsStr[i])) {
+			i++
+		}
+
+		// Check for = or standalone prop
+		if i >= len(propsStr) || propsStr[i] != '=' {
+			// Standalone prop (boolean)
+			pairs[propName] = &ast.Boolean{Value: true}
+			continue
+		}
+
+		i++ // skip =
+
+		// Skip whitespace
+		for i < len(propsStr) && unicode.IsSpace(rune(propsStr[i])) {
+			i++
+		}
+
+		if i >= len(propsStr) {
+			break
+		}
+
+		// Read prop value
+		var valueStr string
+		if propsStr[i] == '"' {
+			// Quoted string - check if it contains interpolation
+			i++ // skip opening quote
+			valueStart := i
+			hasInterpolation := false
+			tempI := i
+			for tempI < len(propsStr) && propsStr[tempI] != '"' {
+				if propsStr[tempI] == '{' {
+					hasInterpolation = true
+					break
+				}
+				if propsStr[tempI] == '\\' {
+					tempI += 2
+				} else {
+					tempI++
+				}
+			}
+
+			if hasInterpolation {
+				// The string contains {expr}, treat it as an interpolation
+				// Extract content between quotes
+				for i < len(propsStr) && propsStr[i] != '"' {
+					if propsStr[i] == '\\' {
+						i += 2
+					} else {
+						i++
+					}
+				}
+				valueStr = propsStr[valueStart:i]
+				if i < len(propsStr) {
+					i++ // skip closing quote
+				}
+
+				// Now parse the interpolation - find the {expr}
+				j := 0
+				for j < len(valueStr) {
+					if valueStr[j] == '{' {
+						j++ // skip {
+						exprStart := j
+						braceCount := 1
+						for j < len(valueStr) && braceCount > 0 {
+							if valueStr[j] == '{' {
+								braceCount++
+							} else if valueStr[j] == '}' {
+								braceCount--
+							}
+							if braceCount > 0 {
+								j++
+							}
+						}
+						exprStr := valueStr[exprStart:j]
+						// Parse the expression
+						l := lexer.New(exprStr)
+						p := parser.New(l)
+						program := p.ParseProgram()
+
+						if len(p.Errors()) > 0 {
+							return newError("error parsing tag prop expression: %s", p.Errors()[0])
+						}
+
+						// Store as expression statement
+						if len(program.Statements) > 0 {
+							if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
+								pairs[propName] = exprStmt.Expression
+							}
+						}
+						break
+					}
+					j++
+				}
+			} else {
+				// Plain string with no interpolation
+				for i < len(propsStr) && propsStr[i] != '"' {
+					if propsStr[i] == '\\' {
+						i += 2
+					} else {
+						i++
+					}
+				}
+				valueStr = propsStr[valueStart:i]
+				if i < len(propsStr) {
+					i++ // skip closing quote
+				}
+				pairs[propName] = &ast.StringLiteral{Value: valueStr}
+			}
+		} else if propsStr[i] == '{' {
+			// Expression in braces
+			i++ // skip {
+			braceCount := 1
+			exprStart := i
+
+			for i < len(propsStr) && braceCount > 0 {
+				if propsStr[i] == '"' {
+					// Skip quoted strings
+					i++
+					for i < len(propsStr) && propsStr[i] != '"' {
+						if propsStr[i] == '\\' {
+							i += 2
+						} else {
+							i++
+						}
+					}
+					if i < len(propsStr) {
+						i++
+					}
+					continue
+				}
+				if propsStr[i] == '{' {
+					braceCount++
+				} else if propsStr[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newError("unclosed { in tag prop")
+			}
+
+			exprStr := propsStr[exprStart:i]
+			i++ // skip }
+
+			// Parse the expression
+			l := lexer.New(exprStr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				return newError("error parsing tag prop expression: %s", p.Errors()[0])
+			}
+
+			// Store as expression statement
+			if len(program.Statements) > 0 {
+				if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
+					pairs[propName] = exprStmt.Expression
+				}
+			}
+		}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
 }
 
 // objectToTemplateString converts an object to its string representation for template interpolation

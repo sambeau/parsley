@@ -138,7 +138,18 @@ joinWith = fn(x,xs){
 join = fn(xs){joinWith(" ",xs)}
 log(join(["Samuel","Edward","Phillips"]))
 
-f = fn(){}
+table = fn(rs){
+`<table>`,
+for(rs in rs){
+	`<tr>`,
+	for (t in rs){
+		`<td>`+t+`</td>`
+	},
+	`</tr>`
+},
+`</table>`
+
+}
 
 page = fn(contents){`
 	<html>
@@ -151,7 +162,7 @@ page = fn(contents){`
 }
 
 main = fn(){
-	page(f([
+	page(table([
 		[1,2,3],
 		[4,5,6],
 		[7,8,9]

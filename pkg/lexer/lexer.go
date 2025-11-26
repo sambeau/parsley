@@ -20,6 +20,7 @@ const (
 	FLOAT    // 3.14159
 	STRING   // "foobar"
 	TEMPLATE // `template ${expr}`
+	TAG      // <tag prop="value" />
 
 	// Operators
 	ASSIGN   // =
@@ -95,6 +96,8 @@ func (tt TokenType) String() string {
 		return "STRING"
 	case TEMPLATE:
 		return "TEMPLATE"
+	case TAG:
+		return "TAG"
 	case ASSIGN:
 		return "ASSIGN"
 	case PLUS:
@@ -306,6 +309,15 @@ func (l *Lexer) NextToken() Token {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: LTE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if isLetter(l.peekChar()) {
+			// This is a tag
+			line := l.line
+			column := l.column
+			tok.Type = TAG
+			tok.Literal = l.readTag()
+			tok.Line = line
+			tok.Column = column
+			return tok
 		} else {
 			tok = newToken(LT, l.ch, l.line, l.column)
 		}
@@ -478,6 +490,97 @@ func (l *Lexer) readTemplate() string {
 		} else {
 			result = append(result, l.ch)
 		}
+		l.readChar()
+	}
+
+	return string(result)
+}
+
+// readTag reads a singleton tag like <input type="text" />
+func (l *Lexer) readTag() string {
+	var result []byte
+	l.readChar() // skip opening <
+
+	// Read until we find />
+	for {
+		if l.ch == 0 {
+			// Unexpected EOF
+			break
+		}
+
+		// Check for closing />
+		if l.ch == '/' && l.peekChar() == '>' {
+			l.readChar() // consume /
+			l.readChar() // consume >
+			break
+		}
+
+		// Handle string literals within the tag
+		if l.ch == '"' {
+			result = append(result, l.ch)
+			l.readChar()
+			// Read until closing quote
+			for l.ch != '"' && l.ch != 0 {
+				if l.ch == '\\' {
+					result = append(result, l.ch)
+					l.readChar()
+					if l.ch != 0 {
+						result = append(result, l.ch)
+						l.readChar()
+					}
+				} else {
+					result = append(result, l.ch)
+					l.readChar()
+				}
+			}
+			if l.ch == '"' {
+				result = append(result, l.ch)
+				l.readChar()
+			}
+			continue
+		}
+
+		// Handle interpolation braces {}
+		if l.ch == '{' {
+			result = append(result, l.ch)
+			l.readChar()
+			braceDepth := 1
+			// Read until matching closing brace
+			for braceDepth > 0 && l.ch != 0 {
+				if l.ch == '{' {
+					braceDepth++
+				} else if l.ch == '}' {
+					braceDepth--
+				} else if l.ch == '"' {
+					// Handle string inside interpolation
+					result = append(result, l.ch)
+					l.readChar()
+					for l.ch != '"' && l.ch != 0 {
+						if l.ch == '\\' {
+							result = append(result, l.ch)
+							l.readChar()
+							if l.ch != 0 {
+								result = append(result, l.ch)
+								l.readChar()
+							}
+							continue
+						}
+						result = append(result, l.ch)
+						l.readChar()
+					}
+					if l.ch == '"' {
+						result = append(result, l.ch)
+						l.readChar()
+					}
+					continue
+				}
+				result = append(result, l.ch)
+				l.readChar()
+			}
+			continue
+		}
+
+		result = append(result, l.ch)
 		l.readChar()
 	}
 
