@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.5.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.5.1
 ```
 
 A concatenative programming language interpreter.
@@ -750,6 +750,81 @@ en: Hello, es: Hola, fr: Salut
 
 ### Strings
 
+Parsley supports two types of strings:
+
+#### String Literals (Double Quotes)
+
+String literals use double quotes and can span multiple lines:
+
+```
+>> "Hello, World!"
+Hello, World!
+>> name = "Alice"
+Alice
+```
+
+Multi-line string literals preserve newlines and formatting, making them ideal for embedding CSS, HTML, SQL, or other formatted text:
+
+```
+>> css = "
+body {
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 1200px;
+}
+"
+body {
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 1200px;
+}
+
+>> html = "<div class='card'>
+  <h1>Title</h1>
+  <p>Content</p>
+</div>"
+<div class='card'>
+  <h1>Title</h1>
+  <p>Content</p>
+</div>
+```
+
+#### Template Literals (Backticks)
+
+Template literals use backticks and support expression interpolation with `{expression}` syntax:
+
+```
+>> name = "Sam"
+Sam
+>> `Welcome, {name}!`
+Welcome, Sam!
+>> a = 5
+5
+>> b = 10
+10
+>> `Sum: {a + b}`
+Sum: 15
+```
+
+Template literals also support multi-line text:
+
+```
+>> card = `
+<div class="card">
+  <h2>{title}</h2>
+  <p>{description}</p>
+</div>
+`
+<div class="card">
+  <h2>{title}</h2>
+  <p>{description}</p>
+</div>
+```
+
 #### String Concatenation
 
 Use the `+` operator to join strings:
@@ -806,7 +881,7 @@ Hello, Parsley!
 
 #### Escape Sequences
 
-Strings support escape sequences for special characters:
+**In String Literals (double quotes):**
 
 ```
 >> "Line 1\nLine 2"
@@ -820,53 +895,62 @@ Quote: "Hello"
 Backslash: \
 ```
 
-Supported escape sequences in strings:
+Supported escape sequences:
 - `\n` - newline
 - `\t` - tab
+- `\r` - carriage return
 - `\\` - backslash
 - `\"` - double quote
 
-Template literals support additional escape sequences:
-- `\`` - backtick (literal backtick character)
-- `\{` - left brace (prevents interpolation)
-- `\}` - right brace (literal closing brace)
+Note: Multi-line string literals preserve newlines literally, so `\n` is typically only needed when constructing strings programmatically.
 
-#### Template Literals
-
-Template literals use backticks and support expression interpolation:
+**In Template Literals (backticks):**
 
 ```
->> `Hello, World!`
-Hello, World!
->> name = "Sam"
-Sam
->> `Welcome, {name}!`
-Welcome, Sam!
+>> `Literal backtick: \``
+Literal backtick: `
+>> `Not interpolated: \{variable}`
+Not interpolated: {variable}
+>> css = `body \{ margin: 0; \}`
+body { margin: 0; }
 ```
 
-Interpolate any expression with `{}`:
+Supported escape sequences:
+- `\n` - newline
+- `\t` - tab
+- `\r` - carriage return
+- `\\` - backslash
+- `\`` - backtick
+- `\{` - literal left brace (prevents interpolation)
+- `\}` - literal right brace (prevents interpolation)
 
-```
->> a = 5
-5
->> b = 10
-10
->> `Sum: {a + b}`
-Sum: 15
->> `Result: {a * 2 + b}`
-Result: 20
+Template literals also preserve literal newlines, making them ideal for multi-line formatted output.
+
+#### Practical Example: Inline CSS
+
+Multi-line string literals are particularly useful for embedding CSS directly in components:
+
+```javascript
+Page = fn({title, contents}) {
+  <html lang="en">
+    <head>
+      <title>{title}</title>
+      <style>{"
+        *, *:before, *:after { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+      "}</style>
+    </head>
+    <body>
+      {contents}
+    </body>
+  </html>
+}
 ```
 
-Template literals are multiline and preserve whitespace:
+The string literal preserves formatting and indentation, making the CSS easy to read and maintain.
 
-```
->> `Line 1
-   Line 2
-   Line 3`
-Line 1
-Line 2
-Line 3
-```
+#### Template Literal Interpolation Details
 
 Arrays in templates are joined without commas:
 
@@ -884,15 +968,6 @@ Number: 42
 Boolean: true
 >> `Expression: {10 > 5}`
 Expression: true
-```
-
-Escape special characters in templates:
-
-```
->> `Literal backtick: \``
-Literal backtick: `
->> `Not interpolated: \{variable}`
-Not interpolated: {variable}
 ```
 
 String concatenation with automatic type conversion:

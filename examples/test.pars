@@ -10,18 +10,28 @@ Table = fn({rows}){
 	</table>
 }
 
-Page = fn({contents}){
-	<html>
+Page = fn({title,contents}){
+	//<!DOCTYPE html>
+	<html lang="en">
 		<head>
+			<meta charset="UTF-8" />
+			<title>{title}</title>
+			<link rel="stylesheet" href="css/main.css" />
+<style>
+{"
+*, *:before, *:after { box-sizing: border-box; }
+html,body { margin:0; padding:0; }
+"}</style>
 		</head>
 		<body>
 			{contents}
+			<script></script>
 		</body>
 	</html>
 }
 
 main = fn(){
-	<Page>
+	<Page title="Table Test">
 		<Table rows={[
 			[1,2,3],
 			[4,5,6],
