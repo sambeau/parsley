@@ -1,6 +1,13 @@
 # Parsley
 
-A Go-based toy concatenative programming language interpreter.
+```
+█▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.2.2
+```
+
+A concatenative programming language interpreter.
+- Writen in Go
+- Similar to JSX
 
 ## Features
 
@@ -111,6 +118,15 @@ A Go-based toy concatenative programming language interpreter.
    go mod tidy
    ```
 
+3. Build the project:
+   ```bash
+   make build
+   # or manually:
+   go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
+   ```
+
+The version number is read from the `VERSION` file at the repository root and compiled into the binary.
+
 ### Running the Project
 
 To start the interactive REPL:
@@ -131,17 +147,25 @@ To execute a pars source file:
 ./pars filename.pars
 ```
 
-To build the project:
-
-```bash
-go build -o pars
-./pars
-```
-
 To see the version:
 
 ```bash
 ./pars --version
+```
+
+### Build Commands
+
+Using Make:
+```bash
+make build    # Build the binary
+make test     # Run tests
+make clean    # Remove built binary
+make install  # Install to $GOPATH/bin
+```
+
+Manual build:
+```bash
+go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
 ```
 
 ## Usage Examples

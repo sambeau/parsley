@@ -11,7 +11,8 @@ import (
 	"github.com/sambeau/parsley/pkg/repl"
 )
 
-const VERSION = "0.3.0"
+// Version is set at compile time via -ldflags
+var Version = "dev"
 
 func main() {
 	// Check if a filename argument was provided
@@ -20,7 +21,7 @@ func main() {
 
 		// Check for version flag
 		if arg == "-V" || arg == "--version" {
-			fmt.Printf("pars version %s\n", VERSION)
+			fmt.Printf("pars version %s\n", Version)
 			os.Exit(0)
 		}
 
@@ -28,7 +29,7 @@ func main() {
 		executeFile(arg)
 	} else {
 		// REPL mode
-		repl.Start(os.Stdin, os.Stdout)
+		repl.Start(os.Stdin, os.Stdout, Version)
 	}
 }
 

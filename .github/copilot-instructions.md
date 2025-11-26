@@ -37,3 +37,12 @@ This is a Go project using standard Go practices and conventions.
 - Use the standard `testing` package
 - Aim for high test coverage on critical paths
 - Use `testify` for more complex assertions if needed
+
+## Version Numbering
+- Use a `VERSION` file at the root of the repository to track the current version
+- Keep the version number in in the README.md file up to date
+- Increment minor version when major changes are made to the documentation
+- Follow Semantic Versioning (SemVer) principles
+- Increment major version for breaking changes
+- Increment minor version for new features in a backward-compatible manner
+- Increment patch version for backward-compatible bug fixes

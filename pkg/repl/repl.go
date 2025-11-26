@@ -12,19 +12,17 @@ import (
 
 const PROMPT = ">> "
 
-const VERSION = "0.2.0"
-
 const PARSER_LOGO = `
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
 █▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ `
 
 // Start starts the REPL
-func Start(in io.Reader, out io.Writer) {
+func Start(in io.Reader, out io.Writer, version string) {
 	scanner := bufio.NewScanner(in)
 	env := evaluator.NewEnvironment()
 
 	fmt.Fprintf(out, "%s", PARSER_LOGO)
-	fmt.Fprintln(out, "v", VERSION)
+	fmt.Fprintln(out, "v", version)
 	fmt.Fprintln(out, "")
 
 	for {
