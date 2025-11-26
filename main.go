@@ -36,7 +36,7 @@ func main() {
 		}
 
 		// Check for pretty-print flag
-		if arg == "--pp" {
+		if arg == "-pp" || arg == "--pretty" {
 			prettyPrint = true
 			continue
 		}
@@ -65,13 +65,13 @@ Usage:
 Options:
   -h, --help       Show this help message
   -V, --version    Show version information
-  --pp             Pretty-print HTML output with proper indentation
+  -pp, --pretty    Pretty-print HTML output with proper indentation
 
 Examples:
   pars                      Start interactive REPL
   pars script.pars          Execute a Parsley script
-  pars --pp page.pars       Execute and pretty-print HTML output
-  pars page.pars --pp       Pretty-print (flag order doesn't matter)
+  pars -pp page.pars        Execute and pretty-print HTML output
+  pars page.pars --pretty   Pretty-print (flag order doesn't matter)
 
 For more information, visit: https://github.com/sambeau/parsley
 `, Version)

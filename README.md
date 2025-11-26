@@ -152,10 +152,12 @@ To execute a pars source file:
 To pretty-print HTML output:
 
 ```bash
-./pars --pp filename.pars
+./pars -pp filename.pars
+# or
+./pars --pretty filename.pars
 ```
 
-The `--pp` flag auto-detects HTML output and formats it with proper indentation, making it easier to read and debug. Non-HTML output is left unchanged.
+The `-pp` or `--pretty` flag auto-detects HTML output and formats it with proper indentation, making it easier to read and debug. Non-HTML output is left unchanged.
 
 To see the version:
 
