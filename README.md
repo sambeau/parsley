@@ -7,7 +7,8 @@
 
 A concatenative programming language interpreter.
 - Writen in Go
-- Similar to JSX
+- If JSX and PHP had a cool baby
+- Based on Basil from 2001
 
 ## Features
 
