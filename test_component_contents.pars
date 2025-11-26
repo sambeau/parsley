@@ -1,0 +1,11 @@
+// Example from documentation: Basic Component with contents
+
+SiteName = "MyGroovySite"
+
+Title = fn(props){
+    <title>{props.contents} - {SiteName}</title>
+}
+
+title = <Title>Home Page</Title>
+
+title

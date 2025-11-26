@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/sambeau/parsley/pkg/ast"
 	"github.com/sambeau/parsley/pkg/lexer"
@@ -81,6 +82,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.STRING, p.parseStringLiteral)
 	p.registerPrefix(lexer.TEMPLATE, p.parseTemplateLiteral)
 	p.registerPrefix(lexer.TAG, p.parseTagLiteral)
+	p.registerPrefix(lexer.TAG_START, p.parseTagPair)
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
@@ -380,6 +382,115 @@ func (p *Parser) parseTemplateLiteral() ast.Expression {
 
 func (p *Parser) parseTagLiteral() ast.Expression {
 	return &ast.TagLiteral{Token: p.curToken, Raw: p.curToken.Literal}
+}
+
+func (p *Parser) parseTagPair() ast.Expression {
+	tagExpr := &ast.TagPairExpression{
+		Token:    p.curToken,
+		Contents: []ast.Node{},
+	}
+
+	// Parse tag name and props from the TAG_START token literal
+	// Format: "tagname attr1="value" attr2={expr}" or empty string for <>
+	raw := p.curToken.Literal
+	tagExpr.Name, tagExpr.Props = parseTagNameAndProps(raw)
+
+	// Parse tag contents
+	p.nextToken()
+	tagExpr.Contents = p.parseTagContents(tagExpr.Name)
+
+	// Current token should be TAG_END
+	if !p.curTokenIs(lexer.TAG_END) {
+		p.errors = append(p.errors, fmt.Sprintf("expected closing tag, got %s at line %d, column %d",
+			p.curToken.Type, p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+
+	// Validate closing tag matches opening tag
+	closingName := p.curToken.Literal
+	if closingName != tagExpr.Name {
+		p.errors = append(p.errors, fmt.Sprintf("mismatched tags: opening <%s> but closing </%s> at line %d, column %d",
+			tagExpr.Name, closingName, p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+
+	return tagExpr
+}
+
+// parseTagContents parses the contents between opening and closing tags
+func (p *Parser) parseTagContents(tagName string) []ast.Node {
+	var contents []ast.Node
+
+	for !p.curTokenIs(lexer.TAG_END) && !p.curTokenIs(lexer.EOF) {
+		switch p.curToken.Type {
+		case lexer.TAG_TEXT:
+			// Raw text content
+			textNode := &ast.TextNode{
+				Token: p.curToken,
+				Value: p.curToken.Literal,
+			}
+			contents = append(contents, textNode)
+			p.nextToken()
+
+		case lexer.TAG_START:
+			// Nested tag pair
+			nestedTag := p.parseTagPair()
+			if nestedTag != nil {
+				contents = append(contents, nestedTag)
+			}
+			p.nextToken()
+
+		case lexer.TAG:
+			// Singleton tag
+			singletonTag := p.parseTagLiteral()
+			if singletonTag != nil {
+				contents = append(contents, singletonTag)
+			}
+			p.nextToken()
+
+		case lexer.LBRACE:
+			// Interpolation expression
+			p.nextToken() // skip {
+			expr := p.parseExpression(LOWEST)
+			if expr != nil {
+				contents = append(contents, expr)
+			}
+			// Re-enter tag content mode BEFORE checking for }
+			p.l.EnterTagContentMode()
+			if !p.expectPeek(lexer.RBRACE) {
+				return contents
+			}
+			p.nextToken() // move past }
+
+		default:
+			// Unexpected token
+			p.errors = append(p.errors, fmt.Sprintf("unexpected token in tag contents: %s at line %d, column %d",
+				p.curToken.Type, p.curToken.Line, p.curToken.Column))
+			p.nextToken()
+		}
+	}
+
+	return contents
+}
+
+// parseTagNameAndProps splits raw tag content into name and props
+// Examples: "div class=\"foo\"" -> ("div", "class=\"foo\"")
+//
+//	"" -> ("", "")
+func parseTagNameAndProps(raw string) (string, string) {
+	if raw == "" {
+		return "", "" // empty grouping tag
+	}
+
+	// Find first space to separate name from props
+	for i, ch := range raw {
+		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+			return raw[:i], strings.TrimSpace(raw[i:])
+		}
+	}
+
+	// No spaces, all tag name
+	return raw, ""
 }
 
 func (p *Parser) parseBoolean() ast.Expression {

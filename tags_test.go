@@ -466,3 +466,421 @@ func TestMultilineTagsPreserveWhitespace(t *testing.T) {
 		t.Error("Expected multiline tag to preserve newlines")
 	}
 }
+
+func TestBasicTagPairs(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple div tag",
+			input:    `<div>Hello, World!</div>`,
+			expected: "<div>Hello, World!</div>",
+		},
+		{
+			name:     "paragraph tag",
+			input:    `<p>This is a paragraph.</p>`,
+			expected: "<p>This is a paragraph.</p>",
+		},
+		{
+			name:     "empty tag",
+			input:    `<div></div>`,
+			expected: "<div></div>",
+		},
+		{
+			name:     "tag with trailing space",
+			input:    `<div>Hello </div>`,
+			expected: "<div>Hello </div>",
+		},
+		{
+			name:     "tag with leading space",
+			input:    `<div> Hello</div>`,
+			expected: "<div> Hello</div>",
+		},
+		{
+			name:     "tag with multiple spaces",
+			input:    `<div>Hello   World</div>`,
+			expected: "<div>Hello   World</div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestNestedTags(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple nesting",
+			input:    `<div><p>Nested</p></div>`,
+			expected: "<div><p>Nested</p></div>",
+		},
+		{
+			name:     "multiple nested tags",
+			input:    `<div><h1>Title</h1><p>Content</p></div>`,
+			expected: "<div><h1>Title</h1><p>Content</p></div>",
+		},
+		{
+			name:     "deeply nested tags",
+			input:    `<div><section><article><p>Deep</p></article></section></div>`,
+			expected: "<div><section><article><p>Deep</p></article></section></div>",
+		},
+		{
+			name:     "nested with text between",
+			input:    `<div>Before<p>Middle</p>After</div>`,
+			expected: "<div>Before<p>Middle</p>After</div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestTagsWithInterpolation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple interpolation",
+			input:    "name = \"World\"\n<div>Hello, {name}!</div>",
+			expected: "<div>Hello, World!</div>",
+		},
+		{
+			name:     "multiple interpolations",
+			input:    "x = \"A\"\ny = \"B\"\n<div>{x} and {y}</div>",
+			expected: "<div>A and B</div>",
+		},
+		{
+			name:     "interpolation with spaces",
+			input:    "x = \"FIRST\"\ny = \"SECOND\"\n<div>{x} - {y}</div>",
+			expected: "<div>FIRST - SECOND</div>",
+		},
+		{
+			name:     "interpolation at start",
+			input:    "name = \"Start\"\n<div>{name} here</div>",
+			expected: "<div>Start here</div>",
+		},
+		{
+			name:     "interpolation at end",
+			input:    "name = \"End\"\n<div>Here is {name}</div>",
+			expected: "<div>Here is End</div>",
+		},
+		{
+			name:     "only interpolation",
+			input:    "name = \"Only\"\n<div>{name}</div>",
+			expected: "<div>Only</div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestEmptyGroupingTags(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "simple grouping",
+			input:    `<>Hello</>`,
+			expected: "Hello",
+		},
+		{
+			name:     "grouping with nested tags",
+			input:    `<><div>First</div><div>Second</div></>`,
+			expected: "<div>First</div><div>Second</div>",
+		},
+		{
+			name:     "grouping with interpolation",
+			input:    "x = \"Test\"\n<>{x}</>",
+			expected: "Test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestComponentsWithContents(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "basic component with contents",
+			input: `Title = fn(props) {
+				<title>{props.contents}</title>
+			}
+			<Title>Home Page</Title>`,
+			expected: "<title>Home Page</title>",
+		},
+		{
+			name: "component with contents and interpolation",
+			input: `SiteName = "MyGroovySite"
+			Title = fn(props) {
+				<title>{props.contents} - {SiteName}</title>
+			}
+			<Title>Home Page</Title>`,
+			expected: "<title>Home Page - MyGroovySite</title>",
+		},
+		{
+			name: "component with nested tags in contents",
+			input: `Card = fn(props) {
+				<div>{props.contents}</div>
+			}
+			<Card><h2>Title</h2><p>Body</p></Card>`,
+			expected: "<div><h2>Title</h2><p>Body</p></div>",
+		},
+		{
+			name: "component with interpolation in contents",
+			input: `name = "Alice"
+			Wrapper = fn(props) {
+				<div>{props.contents}</div>
+			}
+			<Wrapper>Hello, {name}!</Wrapper>`,
+			expected: "<div>Hello, Alice!</div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestComponentsWithProps(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "component with single prop",
+			input: `Greeting = fn(props) {
+				<h1>Hello, {props.name}!</h1>
+			}
+			<Greeting name="World" />`,
+			expected: "<h1>Hello, World!</h1>",
+		},
+		{
+			name: "component with multiple props",
+			input: `Person = fn(props) {
+				<div>{props.name} is {props.age} years old</div>
+			}
+			<Person name="Alice" age="30" />`,
+			expected: "<div>Alice is 30 years old</div>",
+		},
+		{
+			name: "component used in map",
+			input: `Welcome = fn(name) {
+				<h2>Hello, {name}</h2>
+			}
+			names = ["Sara", "Cahal", "Edite"]
+			result = map(Welcome, names)
+			<div>{result}</div>`,
+			expected: "<div><h2>Hello, Sara</h2><h2>Hello, Cahal</h2><h2>Hello, Edite</h2></div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestWhitespacePreservation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "preserve space after comma",
+			input:    "name = \"Sara\"\n<h2>Hello, {name}</h2>",
+			expected: "<h2>Hello, Sara</h2>",
+		},
+		{
+			name:     "preserve spaces around dash",
+			input:    "x = \"A\"\ny = \"B\"\n<div>{x} - {y}</div>",
+			expected: "<div>A - B</div>",
+		},
+		{
+			name:     "preserve trailing space before interpolation",
+			input:    "name = \"World\"\n<div>Hello {name}</div>",
+			expected: "<div>Hello World</div>",
+		},
+		{
+			name:     "preserve space after interpolation",
+			input:    "name = \"Alice\"\n<div>{name} here</div>",
+			expected: "<div>Alice here</div>",
+		},
+		{
+			name:     "preserve multiple spaces",
+			input:    `<div>A    B</div>`,
+			expected: "<div>A    B</div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestComplexTagExamples(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "component composition",
+			input: `Card = fn(props) {
+				<div><h3>{props.title}</h3><p>{props.body}</p></div>
+			}
+			<Card title="Welcome" body="This is the content" />`,
+			expected: "<div><h3>Welcome</h3><p>This is the content</p></div>",
+		},
+		{
+			name: "nested components with contents",
+			input: `Inner = fn(props) { <span>{props.contents}</span> }
+			Outer = fn(props) { <div>{props.contents}</div> }
+			<Outer><Inner>Hello</Inner></Outer>`,
+			expected: "<div><span>Hello</span></div>",
+		},
+		{
+			name: "tag with expressions",
+			input: `x = 5
+			y = 10
+			<div>The sum is {x + y}</div>`,
+			expected: "<div>The sum is 15</div>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			if len(p.Errors()) != 0 {
+				t.Fatalf("Parser errors: %v", p.Errors())
+			}
+
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

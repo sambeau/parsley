@@ -1110,6 +1110,12 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.TagLiteral:
 		return evalTagLiteral(node, env)
 
+	case *ast.TagPairExpression:
+		return evalTagPair(node, env)
+
+	case *ast.TextNode:
+		return &String{Value: node.Value}
+
 	case *ast.Boolean:
 		return nativeBoolToParsBoolean(node.Value)
 
@@ -1933,6 +1939,239 @@ func evalTagLiteral(node *ast.TagLiteral, env *Environment) Object {
 	} else {
 		// Standard tag - return as interpolated string
 		return evalStandardTag(tagName, rest, env)
+	}
+}
+
+// evalTagPair evaluates a paired tag like <div>content</div> or <Component>content</Component>
+func evalTagPair(node *ast.TagPairExpression, env *Environment) Object {
+	// Empty grouping tag <> just returns its contents
+	if node.Name == "" {
+		return evalTagContents(node.Contents, env)
+	}
+
+	// Check if it's a custom component (starts with uppercase)
+	isCustom := len(node.Name) > 0 && unicode.IsUpper(rune(node.Name[0]))
+
+	if isCustom {
+		// Custom component - call function with props dictionary including contents
+		return evalCustomTagPair(node, env)
+	} else {
+		// Standard tag - return as HTML string
+		return evalStandardTagPair(node, env)
+	}
+}
+
+// evalStandardTagPair evaluates a standard (lowercase) tag pair as HTML string
+func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
+	var result strings.Builder
+
+	result.WriteByte('<')
+	result.WriteString(node.Name)
+
+	// Process props with interpolation (similar to singleton tags)
+	if node.Props != "" {
+		result.WriteByte(' ')
+		propsResult := evalTagProps(node.Props, env)
+		if isError(propsResult) {
+			return propsResult
+		}
+		result.WriteString(propsResult.(*String).Value)
+	}
+
+	result.WriteByte('>')
+
+	// Evaluate and append contents
+	contentsObj := evalTagContents(node.Contents, env)
+	if isError(contentsObj) {
+		return contentsObj
+	}
+	result.WriteString(contentsObj.(*String).Value)
+
+	result.WriteString("</")
+	result.WriteString(node.Name)
+	result.WriteByte('>')
+
+	return &String{Value: result.String()}
+}
+
+// evalCustomTagPair evaluates a custom (uppercase) tag pair as a function call
+func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
+	// Look up the component function
+	fn, ok := env.Get(node.Name)
+	if !ok {
+		return newError("undefined component: %s", node.Name)
+	}
+
+	// Parse props into a dictionary and add contents
+	propsDict := parseTagProps(node.Props, env)
+	if isError(propsDict) {
+		return propsDict
+	}
+
+	dict := propsDict.(*Dictionary)
+
+	// Evaluate contents and add to props as "contents"
+	contentsObj := evalTagContentsAsArray(node.Contents, env)
+	if isError(contentsObj) {
+		return contentsObj
+	}
+
+	// Create a literal expression for the contents array
+	// We need to wrap the evaluated contents in an expression
+	dict.Pairs["contents"] = &ast.ArrayLiteral{Elements: []ast.Expression{}}
+
+	// Store the evaluated contents directly in the environment temporarily
+	contentsEnv := NewEnclosedEnvironment(env)
+	contentsEnv.Set("__tag_contents__", contentsObj)
+
+	// Actually, let's simplify - evaluate contents as a single value
+	if contentsArray, ok := contentsObj.(*Array); ok && len(contentsArray.Elements) == 1 {
+		// Single item - pass directly
+		dict.Pairs["contents"] = createLiteralExpression(contentsArray.Elements[0])
+	} else {
+		// Multiple items or empty - pass as array
+		dict.Pairs["contents"] = createLiteralExpression(contentsObj)
+	}
+
+	// Call the function with the props dictionary
+	return applyFunction(fn, []Object{dict})
+}
+
+// evalTagContents evaluates tag contents and returns as a concatenated string
+func evalTagContents(contents []ast.Node, env *Environment) Object {
+	var result strings.Builder
+
+	for _, node := range contents {
+		obj := Eval(node, env)
+		if isError(obj) {
+			return obj
+		}
+		result.WriteString(objectToTemplateString(obj))
+	}
+
+	return &String{Value: result.String()}
+}
+
+// evalTagContentsAsArray evaluates tag contents and returns as an array
+func evalTagContentsAsArray(contents []ast.Node, env *Environment) Object {
+	if len(contents) == 0 {
+		return NULL
+	}
+
+	elements := make([]Object, 0, len(contents))
+	for _, node := range contents {
+		obj := Eval(node, env)
+		if isError(obj) {
+			return obj
+		}
+		// Convert to string for consistency
+		elements = append(elements, &String{Value: objectToTemplateString(obj)})
+	}
+
+	return &Array{Elements: elements}
+}
+
+// evalTagProps evaluates tag props string with interpolations
+func evalTagProps(propsStr string, env *Environment) Object {
+	var result strings.Builder
+
+	i := 0
+	for i < len(propsStr) {
+		// Look for {expr}
+		if propsStr[i] == '{' {
+			// Find the closing }
+			i++ // skip {
+			braceCount := 1
+			exprStart := i
+
+			for i < len(propsStr) && braceCount > 0 {
+				if propsStr[i] == '"' {
+					// Skip quoted strings
+					i++
+					for i < len(propsStr) && propsStr[i] != '"' {
+						if propsStr[i] == '\\' {
+							i += 2
+						} else {
+							i++
+						}
+					}
+					if i < len(propsStr) {
+						i++
+					}
+					continue
+				}
+				if propsStr[i] == '{' {
+					braceCount++
+				} else if propsStr[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newError("unclosed { in tag props")
+			}
+
+			// Extract and evaluate the expression
+			exprStr := propsStr[exprStart:i]
+			i++ // skip closing }
+
+			// Parse and evaluate the expression
+			l := lexer.New(exprStr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				return newError("error parsing tag prop expression: %s", p.Errors()[0])
+			}
+
+			// Evaluate the expression
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+
+			// Convert result to string
+			if evaluated != nil {
+				result.WriteString(objectToTemplateString(evaluated))
+			}
+		} else {
+			// Regular character
+			result.WriteByte(propsStr[i])
+			i++
+		}
+	}
+
+	return &String{Value: result.String()}
+}
+
+// createLiteralExpression creates an AST expression from an evaluated object
+// This is a helper for passing evaluated values back through the AST
+func createLiteralExpression(obj Object) ast.Expression {
+	switch obj := obj.(type) {
+	case *Integer:
+		return &ast.IntegerLiteral{Value: obj.Value}
+	case *Float:
+		return &ast.FloatLiteral{Value: obj.Value}
+	case *String:
+		return &ast.StringLiteral{Value: obj.Value}
+	case *Boolean:
+		return &ast.Boolean{Value: obj.Value}
+	case *Array:
+		// For arrays, create array literal with elements
+		elements := make([]ast.Expression, len(obj.Elements))
+		for i, elem := range obj.Elements {
+			elements[i] = createLiteralExpression(elem)
+		}
+		return &ast.ArrayLiteral{Elements: elements}
+	default:
+		// For other types, return a string literal
+		return &ast.StringLiteral{Value: obj.Inspect()}
 	}
 }
 

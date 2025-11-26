@@ -228,6 +228,48 @@ func (tg *TagLiteral) expressionNode()      {}
 func (tg *TagLiteral) TokenLiteral() string { return tg.Token.Literal }
 func (tg *TagLiteral) String() string       { return "<" + tg.Raw + " />" }
 
+// TagPairExpression represents paired tags like <div>content</div>
+type TagPairExpression struct {
+	Token    lexer.Token // the lexer.TAG_START token
+	Name     string      // tag name (empty string for grouping tags <>)
+	Props    string      // raw props content
+	Contents []Node      // mixed content: text nodes, expressions, nested tags
+}
+
+func (tp *TagPairExpression) expressionNode()      {}
+func (tp *TagPairExpression) TokenLiteral() string { return tp.Token.Literal }
+func (tp *TagPairExpression) String() string {
+	var out bytes.Buffer
+	if tp.Name == "" {
+		out.WriteString("<>")
+	} else {
+		out.WriteString("<" + tp.Name)
+		if tp.Props != "" {
+			out.WriteString(" " + tp.Props)
+		}
+		out.WriteString(">")
+	}
+	for _, content := range tp.Contents {
+		out.WriteString(content.String())
+	}
+	if tp.Name == "" {
+		out.WriteString("</>")
+	} else {
+		out.WriteString("</" + tp.Name + ">")
+	}
+	return out.String()
+}
+
+// TextNode represents raw text content within tags
+type TextNode struct {
+	Token lexer.Token // the lexer.TAG_TEXT token
+	Value string      // the text content
+}
+
+func (tn *TextNode) expressionNode()      {}
+func (tn *TextNode) TokenLiteral() string { return tn.Token.Literal }
+func (tn *TextNode) String() string       { return tn.Value }
+
 // Boolean represents boolean literals
 type Boolean struct {
 	Token lexer.Token // the lexer.TRUE or lexer.FALSE token

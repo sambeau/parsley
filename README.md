@@ -28,6 +28,9 @@ A Go-based toy concatenative programming language interpreter.
 - String escape sequences (`\n`, `\t`, etc.)
 - Template literals with `{}` interpolation
 - Singleton tags for HTML/XML markup (`<tag attr="value" />`)
+- Tag pairs for structured content (`<tag>content</tag>`)
+- Component system with props and contents
+- Empty grouping tags (`<>...</>`) for fragments
 - Integer and floating-point arithmetic
 - Modulo operator (`%`) for remainder calculations
 - Boolean logic
@@ -1039,6 +1042,332 @@ Tags work seamlessly with other Parsley features:
 
 >> toString(<br/>, <hr/>, <br/>)
 <br /><hr /><br />
+```
+
+### Tag Pairs
+
+Tag pairs provide opening and closing tags with content between them, enabling the creation of complete HTML documents and components.
+
+#### Basic Tag Pairs
+
+Tag pairs use `<tag>content</tag>` syntax with text, interpolations, and nested tags:
+
+```
+>> <div>Hello, World!</div>
+<div>Hello, World!</div>
+
+>> <p>This is a paragraph.</p>
+<p>This is a paragraph.</p>
+
+>> name = "Alice"
+Alice
+>> <h1>Welcome, {name}!</h1>
+<h1>Welcome, Alice!</h1>
+```
+
+#### Nested Tags
+
+Tags can be nested to create complex structures:
+
+```
+>> <div><p>Nested content</p></div>
+<div><p>Nested content</p></div>
+
+>> <article><h1>Title</h1><p>Content goes here</p></article>
+<article><h1>Title</h1><p>Content goes here</p></article>
+```
+
+#### Interpolation in Tag Content
+
+Use `{expr}` to interpolate expressions within tag content:
+
+```
+>> x = "First"
+First
+>> y = "Second"
+Second
+>> <div>{x} - {y}</div>
+<div>First - Second</div>
+
+>> count = 5
+5
+>> <p>You have {count} new messages.</p>
+<p>You have 5 new messages.</p>
+```
+
+#### Empty Grouping Tags
+
+Use `<>...</>` to group content without adding wrapper tags:
+
+```
+>> <>Hello</>
+Hello
+
+>> <><div>First</div><div>Second</div></>
+<div>First</div><div>Second</div>
+```
+
+#### Creating HTML Documents
+
+Build complete, valid HTML pages:
+
+```
+>> Page = fn(props) {
+   title = props.title
+   content = props.content
+   <html>
+     <head>
+       <title>{title}</title>
+       <meta charset="utf-8" />
+     </head>
+     <body>
+       <h1>{title}</h1>
+       <div>{content}</div>
+     </body>
+   </html>
+}
+
+>> <Page title="My Site" content="Welcome!" />
+<html>
+  <head>
+    <title>My Site</title>
+    <meta charset="utf-8" />
+  </head>
+  <body>
+    <h1>My Site</h1>
+    <div>Welcome!</div>
+  </body>
+</html>
+```
+
+#### HTML Components with Contents
+
+Components can receive content via `props.contents`:
+
+```
+>> Card = fn(props) {
+   <div class="card">
+     <div class="card-body">
+       {props.contents}
+     </div>
+   </div>
+}
+
+>> <Card><h3>Title</h3><p>Description</p></Card>
+<div class="card">
+  <div class="card-body">
+    <h3>Title</h3><p>Description</p>
+  </div>
+</div>
+```
+
+Navigation menu component:
+
+```
+>> Nav = fn(props) {
+   <nav>
+     <ul>
+       {props.contents}
+     </ul>
+   </nav>
+}
+
+>> <Nav>
+   <li><a href="/">Home</a></li>
+   <li><a href="/about">About</a></li>
+   <li><a href="/contact">Contact</a></li>
+</Nav>
+<nav>
+  <ul>
+    <li><a href="/">Home</a></li>
+    <li><a href="/about">About</a></li>
+    <li><a href="/contact">Contact</a></li>
+  </ul>
+</nav>
+```
+
+#### HTML Components with Props and Contents
+
+Combine props and contents for flexible components:
+
+```
+>> Section = fn(props) {
+   <section class="{props.theme}">
+     <h2>{props.title}</h2>
+     <div class="content">
+       {props.contents}
+     </div>
+   </section>
+}
+
+>> <Section title="Welcome" theme="dark">
+   <p>This is the section content.</p>
+   <p>It can contain multiple paragraphs.</p>
+</Section>
+<section class="dark">
+  <h2>Welcome</h2>
+  <div class="content">
+    <p>This is the section content.</p>
+    <p>It can contain multiple paragraphs.</p>
+  </div>
+</section>
+```
+
+Article with metadata:
+
+```
+>> Article = fn(props) {
+   <article>
+     <header>
+       <h1>{props.title}</h1>
+       <p class="meta">By {props.author} on {props.date}</p>
+     </header>
+     <div class="body">
+       {props.contents}
+     </div>
+   </article>
+}
+
+>> <Article title="Getting Started" author="Sam" date="2025-11-26">
+   <p>This is the first paragraph.</p>
+   <p>This is the second paragraph.</p>
+</Article>
+<article>
+  <header>
+    <h1>Getting Started</h1>
+    <p class="meta">By Sam on 2025-11-26</p>
+  </header>
+  <div class="body">
+    <p>This is the first paragraph.</p>
+    <p>This is the second paragraph.</p>
+  </div>
+</article>
+```
+
+#### SVG Components
+
+Create scalable vector graphics with tag pairs:
+
+```
+>> Circle = fn(props) {
+   <circle 
+     cx="{props.x}" 
+     cy="{props.y}" 
+     r="{props.radius}" 
+     fill="{props.color}" />
+}
+
+>> <svg width="200" height="200">
+   <Circle x="100" y="100" radius="50" color="blue" />
+   <Circle x="150" y="100" radius="30" color="red" />
+</svg>
+<svg width="200" height="200">
+  <circle 
+    cx="100" 
+    cy="100" 
+    r="50" 
+    fill="blue" />
+  <circle 
+    cx="150" 
+    cy="100" 
+    r="30" 
+    fill="red" />
+</svg>
+```
+
+Complete SVG icon component:
+
+```
+>> Icon = fn(props) {
+   size = props.size
+   <svg width="{size}" height="{size}" viewBox="0 0 24 24">
+     <path d="{props.path}" fill="{props.color}" />
+   </svg>
+}
+
+>> heartPath = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z
+
+>> <Icon size="24" color="red" path="{heartPath}" />
+<svg width="24" height="24" viewBox="0 0 24 24">
+  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="red" />
+</svg>
+```
+
+Simple chart component:
+
+```
+>> BarChart = fn(props) {
+   values = props.values
+   max = props.max
+   
+   <svg width="400" height="200">
+     <rect x="10" y="{200 - (values[0] / max * 180)}" 
+           width="80" height="{values[0] / max * 180}" fill="blue" />
+     <rect x="110" y="{200 - (values[1] / max * 180)}" 
+           width="80" height="{values[1] / max * 180}" fill="green" />
+     <rect x="210" y="{200 - (values[2] / max * 180)}" 
+           width="80" height="{values[2] / max * 180}" fill="orange" />
+   </svg>
+}
+
+>> <BarChart values="[75, 120, 90]" max="150" />
+<svg width="400" height="200">
+  <rect x="10" y="110" 
+        width="80" height="90" fill="blue" />
+  <rect x="110" y="56" 
+        width="80" height="144" fill="green" />
+  <rect x="210" y="92" 
+        width="80" height="108" fill="orange" />
+</svg>
+```
+
+#### Combining Features
+
+Use loops to generate repeated content:
+
+```
+>> items = ["Apple", "Banana", "Cherry"]
+["Apple", "Banana", "Cherry"]
+
+>> List = fn(props) {
+   <ul>
+     {for(item in props.items) {
+       <li>{item}</li>
+     }}
+   </ul>
+}
+
+>> <List items="{items}" />
+<ul>
+  <li>Apple</li>
+  <li>Banana</li>
+  <li>Cherry</li>
+</ul>
+```
+
+Conditional rendering:
+
+```
+>> UserGreeting = fn(props) {
+   <div>
+     {if(props.loggedIn) {
+       <p>Welcome back, {props.name}!</p>
+     } else {
+       <p>Please log in.</p>
+     }}
+   </div>
+}
+
+>> <UserGreeting loggedIn="{true}" name="Alice" />
+<div>
+  <p>Welcome back, Alice!</p>
+</div>
+
+>> <UserGreeting loggedIn="{false}" name="Alice" />
+<div>
+  <p>Please log in.</p>
+</div>
 ```
 
 ### Type Conversions

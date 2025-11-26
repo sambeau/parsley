@@ -15,12 +15,15 @@ const (
 	EOF
 
 	// Identifiers and literals
-	IDENT    // add, foobar, x, y, ...
-	INT      // 1343456
-	FLOAT    // 3.14159
-	STRING   // "foobar"
-	TEMPLATE // `template ${expr}`
-	TAG      // <tag prop="value" />
+	IDENT     // add, foobar, x, y, ...
+	INT       // 1343456
+	FLOAT     // 3.14159
+	STRING    // "foobar"
+	TEMPLATE  // `template ${expr}`
+	TAG       // <tag prop="value" />
+	TAG_START // <tag> or <tag attr="value">
+	TAG_END   // </tag>
+	TAG_TEXT  // raw text content within tags
 
 	// Operators
 	ASSIGN   // =
@@ -98,6 +101,12 @@ func (tt TokenType) String() string {
 		return "TEMPLATE"
 	case TAG:
 		return "TAG"
+	case TAG_START:
+		return "TAG_START"
+	case TAG_END:
+		return "TAG_END"
+	case TAG_TEXT:
+		return "TAG_TEXT"
 	case ASSIGN:
 		return "ASSIGN"
 	case PLUS:
@@ -209,6 +218,8 @@ type Lexer struct {
 	ch           byte // current char under examination
 	line         int  // current line number
 	column       int  // current column number
+	inTagContent bool // whether we're currently lexing tag content
+	tagDepth     int  // nesting depth of tags (for proper TAG_END matching)
 }
 
 // New creates a new lexer instance
@@ -265,6 +276,11 @@ func (l *Lexer) peekChar() byte {
 func (l *Lexer) NextToken() Token {
 	var tok Token
 
+	// Special handling when inside tag content
+	if l.inTagContent {
+		return l.nextTagContentToken()
+	}
+
 	l.skipWhitespace()
 
 	switch l.ch {
@@ -309,12 +325,29 @@ func (l *Lexer) NextToken() Token {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: LTE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
-		} else if isLetter(l.peekChar()) {
-			// This is a tag
+		} else if l.peekChar() == '/' {
+			// This is a closing tag </tag>
 			line := l.line
 			column := l.column
-			tok.Type = TAG
-			tok.Literal = l.readTag()
+			tok.Type = TAG_END
+			tok.Literal = l.readTagEnd()
+			tok.Line = line
+			tok.Column = column
+			return tok
+		} else if isLetter(l.peekChar()) || l.peekChar() == '>' {
+			// Could be a tag start <tag> or singleton <tag />
+			line := l.line
+			column := l.column
+			tagContent, isSingleton := l.readTagStartOrSingleton()
+			if isSingleton {
+				tok.Type = TAG
+			} else {
+				tok.Type = TAG_START
+				// Enter tag content mode
+				l.inTagContent = true
+				l.tagDepth = 1
+			}
+			tok.Literal = tagContent
 			tok.Line = line
 			tok.Column = column
 			return tok
@@ -588,6 +621,248 @@ func (l *Lexer) readTag() string {
 	}
 
 	return string(result)
+}
+
+// readTagEnd reads a closing tag like </div>
+func (l *Lexer) readTagEnd() string {
+	var result []byte
+	l.readChar() // skip <
+	l.readChar() // skip /
+
+	// Read tag name
+	for isLetter(l.ch) || isDigit(l.ch) {
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	// Skip whitespace before >
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+		l.readChar()
+	}
+
+	// Expect >
+	if l.ch != '>' {
+		// Error: expected >
+		return string(result)
+	}
+	l.readChar() // consume >
+
+	return string(result)
+}
+
+// readTagStartOrSingleton reads a tag start <tag> or singleton <tag />
+// Returns the tag content and a boolean indicating if it's a singleton
+func (l *Lexer) readTagStartOrSingleton() (string, bool) {
+	var result []byte
+	l.readChar() // skip opening <
+
+	// Check for empty grouping tag <>
+	if l.ch == '>' {
+		l.readChar()     // consume >
+		return "", false // empty grouping tag is a tag start
+	}
+
+	// Read until we find > or />
+	isSingleton := false
+	for {
+		if l.ch == 0 {
+			// Unexpected EOF
+			break
+		}
+
+		// Check for closing />
+		if l.ch == '/' && l.peekChar() == '>' {
+			l.readChar() // consume /
+			l.readChar() // consume >
+			isSingleton = true
+			break
+		}
+
+		// Check for just >
+		if l.ch == '>' {
+			l.readChar() // consume >
+			break
+		}
+
+		// Handle string literals within the tag
+		if l.ch == '"' {
+			result = append(result, l.ch)
+			l.readChar()
+			// Read until closing quote
+			for l.ch != '"' && l.ch != 0 {
+				if l.ch == '\\' {
+					result = append(result, l.ch)
+					l.readChar()
+					if l.ch != 0 {
+						result = append(result, l.ch)
+						l.readChar()
+					}
+				} else {
+					result = append(result, l.ch)
+					l.readChar()
+				}
+			}
+			if l.ch == '"' {
+				result = append(result, l.ch)
+				l.readChar()
+			}
+			continue
+		}
+
+		// Handle interpolation braces {}
+		if l.ch == '{' {
+			result = append(result, l.ch)
+			l.readChar()
+			braceDepth := 1
+			// Read until matching closing brace
+			for braceDepth > 0 && l.ch != 0 {
+				if l.ch == '{' {
+					braceDepth++
+				} else if l.ch == '}' {
+					braceDepth--
+				} else if l.ch == '"' {
+					// Handle string inside interpolation
+					result = append(result, l.ch)
+					l.readChar()
+					for l.ch != '"' && l.ch != 0 {
+						if l.ch == '\\' {
+							result = append(result, l.ch)
+							l.readChar()
+							if l.ch != 0 {
+								result = append(result, l.ch)
+								l.readChar()
+							}
+							continue
+						}
+						result = append(result, l.ch)
+						l.readChar()
+					}
+					if l.ch == '"' {
+						result = append(result, l.ch)
+						l.readChar()
+					}
+					continue
+				}
+				result = append(result, l.ch)
+				l.readChar()
+			}
+			continue
+		}
+
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	return string(result), isSingleton
+}
+
+// nextTagContentToken returns the next token while in tag content mode
+func (l *Lexer) nextTagContentToken() Token {
+	var tok Token
+
+	// Consolidate multiple newlines into single spaces
+	if l.ch == '\n' || l.ch == '\r' {
+		for l.ch == '\n' || l.ch == '\r' || l.ch == ' ' || l.ch == '\t' {
+			l.readChar()
+		}
+		// Don't return whitespace token, just continue to next content
+		if l.ch == 0 || l.ch == '<' || l.ch == '{' {
+			// Fall through to handle these special cases
+		} else {
+			// Start with a space before the next text
+			line := l.line
+			column := l.column
+			text := l.readTagText()
+			tok = Token{Type: TAG_TEXT, Literal: " " + text, Line: line, Column: column}
+			return tok
+		}
+	}
+
+	line := l.line
+	column := l.column
+
+	switch l.ch {
+	case 0:
+		tok = Token{Type: EOF, Literal: "", Line: l.line, Column: l.column}
+		l.inTagContent = false
+
+	case '<':
+		if l.peekChar() == '/' {
+			// Closing tag
+			tok.Type = TAG_END
+			tok.Literal = l.readTagEnd()
+			tok.Line = line
+			tok.Column = column
+			l.tagDepth--
+			if l.tagDepth == 0 {
+				l.inTagContent = false
+			}
+			return tok
+		} else if l.peekChar() == '>' {
+			// Empty grouping tag start
+			l.readChar() // skip <
+			l.readChar() // skip >
+			tok = Token{Type: TAG_START, Literal: "", Line: line, Column: column}
+			l.tagDepth++
+			return tok
+		} else if isLetter(l.peekChar()) {
+			// Nested tag (start or singleton)
+			tagContent, isSingleton := l.readTagStartOrSingleton()
+			if isSingleton {
+				tok.Type = TAG
+			} else {
+				tok.Type = TAG_START
+				l.tagDepth++
+			}
+			tok.Literal = tagContent
+			tok.Line = line
+			tok.Column = column
+			return tok
+		} else {
+			// Literal < character in content
+			tok.Type = TAG_TEXT
+			tok.Literal = string(l.ch)
+			tok.Line = line
+			tok.Column = column
+			l.readChar()
+			return tok
+		}
+
+	case '{':
+		// Interpolation - temporarily exit tag content mode
+		tok = newToken(LBRACE, l.ch, l.line, l.column)
+		l.readChar()
+		l.inTagContent = false
+		return tok
+
+	default:
+		// Regular text content
+		tok.Type = TAG_TEXT
+		tok.Literal = l.readTagText()
+		tok.Line = line
+		tok.Column = column
+	}
+
+	return tok
+}
+
+// readTagText reads text content until we hit <, {, or EOF
+func (l *Lexer) readTagText() string {
+	var result []byte
+
+	for l.ch != 0 && l.ch != '<' && l.ch != '{' {
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	return string(result)
+}
+
+// EnterTagContentMode sets the lexer into tag content mode
+func (l *Lexer) EnterTagContentMode() {
+	if l.tagDepth > 0 {
+		l.inTagContent = true
+	}
 }
 
 // skipWhitespace skips whitespace characters
