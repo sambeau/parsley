@@ -27,6 +27,7 @@ A Go-based toy concatenative programming language interpreter.
 - String concatenation with `+`
 - String escape sequences (`\n`, `\t`, etc.)
 - Template literals with `${}` interpolation
+- Singleton tags for HTML/XML markup (`<tag attr="value" />`)
 - Integer and floating-point arithmetic
 - Modulo operator (`%`) for remainder calculations
 - Boolean logic
@@ -859,6 +860,180 @@ String concatenation with automatic type conversion:
 Count: 42
 >> "Result: " + (5 + 3)
 Result: 8
+```
+
+### Singleton Tags
+
+Singleton tags provide a convenient syntax for generating HTML/XML markup. Tags are self-closing and use the `<tagname ... />` syntax.
+
+#### Standard Tags (Lowercase)
+
+Standard tags have lowercase names and are evaluated as interpolated strings that produce HTML/XML output:
+
+```
+>> <br/>
+<br />
+>> <meta charset="utf-8" />
+<meta charset="utf-8"  />
+>> <img src="photo.jpg" width="300" height="200" />
+<img src="photo.jpg" width="300" height="200"  />
+```
+
+#### Tag Interpolation
+
+Tags support expression interpolation using `{expr}` syntax (note: single braces, unlike template literals which use `${expr}`):
+
+```
+>> charset = "utf-8"
+utf-8
+>> <meta charset="{charset}" />
+<meta charset="utf-8"  />
+
+>> width = 300
+300
+>> height = 200
+200
+>> <img width="{width}" height="{height}" />
+<img width="300" height="200"  />
+```
+
+Interpolate any expression:
+
+```
+>> x = 10
+10
+>> <div data-value="{x * 2}" />
+<div data-value="20"  />
+
+>> disabled = true
+true
+>> <button disabled="{if(disabled){"disabled"}}" />
+<button disabled="disabled"  />
+```
+
+#### Boolean Props
+
+Standalone props without values are treated as boolean attributes:
+
+```
+>> <input type="checkbox" checked />
+<input type="checkbox" checked  />
+>> <button type="submit" disabled />
+<button type="submit" disabled  />
+```
+
+#### Multiline Tags
+
+Tags can span multiple lines for better readability:
+
+```
+>> <img
+   src="https://example.com/image.png"
+   width="{300}"
+   height="{200}"
+   alt="Example Image" />
+<img
+   src="https://example.com/image.png"
+   width="300"
+   height="200"
+   alt="Example Image"  />
+```
+
+#### Custom Tags (Uppercase/TitleCase)
+
+Custom tags have names starting with an uppercase letter and are treated as function calls. The tag props are passed as a dictionary to the function:
+
+```
+>> Dog = fn(props) {
+   name = props.name
+   age = props.age
+   toString("Dog: ", name, ", Age: ", age)
+}
+>> <Dog name="Rover" age="5" />
+Dog: Rover, Age: 5
+```
+
+Interpolate expressions in custom tag props:
+
+```
+>> Card = fn(props) {
+   title = props.title
+   content = props.content
+   `<div class="card">
+     <h2>${title}</h2>
+     <p>${content}</p>
+   </div>`
+}
+>> <Card title="Welcome" content="Hello World" />
+<div class="card">
+     <h2>Welcome</h2>
+     <p>Hello World</p>
+   </div>
+```
+
+Custom tags with computed values:
+
+```
+>> Double = fn(props) {
+   value = props.value
+   value * 2
+}
+>> <Double value="{10 + 5}" />
+30
+```
+
+Boolean props in custom tags:
+
+```
+>> Button = fn(props) {
+   isDisabled = has(props, "disabled")
+   if (isDisabled) {
+     "Button is disabled"
+   } else {
+     "Button is enabled"
+   }
+}
+>> <Button disabled />
+Button is disabled
+>> <Button type="submit" />
+Button is enabled
+```
+
+#### Practical Tag Examples
+
+Generate HTML components:
+
+```
+>> Link = fn(props) {
+   url = props.url
+   text = props.text
+   `<a href="${url}">${text}</a>`
+}
+>> <Link url="https://example.com" text="Click here" />
+<a href="https://example.com">Click here</a>
+```
+
+Build reusable UI components:
+
+```
+>> Alert = fn(props) {
+   type = props.type
+   message = props.message
+   `<div class="alert alert-${type}">${message}</div>`
+}
+>> <Alert type="warning" message="Please save your work" />
+<div class="alert alert-warning">Please save your work</div>
+```
+
+Tags work seamlessly with other Pars features:
+
+```
+>> tags = [<br/>, <hr/>]
+>> tags[0]
+<br />
+
+>> toString(<br/>, <hr/>, <br/>)
+<br /><hr /><br />
 ```
 
 ### Type Conversions
