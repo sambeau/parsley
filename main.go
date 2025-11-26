@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sambeau/parsley/pkg/evaluator"
+	"github.com/sambeau/parsley/pkg/formatter"
 	"github.com/sambeau/parsley/pkg/lexer"
 	"github.com/sambeau/parsley/pkg/parser"
 	"github.com/sambeau/parsley/pkg/repl"
@@ -15,18 +16,34 @@ import (
 var Version = "dev"
 
 func main() {
-	// Check if a filename argument was provided
-	if len(os.Args) > 1 {
-		arg := os.Args[1]
-
+	// Parse command line arguments
+	prettyPrint := false
+	filename := ""
+	
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		
 		// Check for version flag
 		if arg == "-V" || arg == "--version" {
 			fmt.Printf("pars version %s\n", Version)
 			os.Exit(0)
 		}
-
+		
+		// Check for pretty-print flag
+		if arg == "--pp" {
+			prettyPrint = true
+			continue
+		}
+		
+		// Assume it's a filename
+		if filename == "" {
+			filename = arg
+		}
+	}
+	
+	if filename != "" {
 		// File execution mode
-		executeFile(arg)
+		executeFile(filename, prettyPrint)
 	} else {
 		// REPL mode
 		repl.Start(os.Stdin, os.Stdout, Version)
@@ -34,7 +51,7 @@ func main() {
 }
 
 // executeFile reads and executes a pars source file
-func executeFile(filename string) {
+func executeFile(filename string, prettyPrint bool) {
 	// Read the file
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -74,7 +91,14 @@ func executeFile(filename string) {
 
 	// Print result if not null and not an error
 	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ && evaluated.Type() != evaluator.NULL_OBJ {
-		fmt.Println(evaluator.ObjectToPrintString(evaluated))
+		output := evaluator.ObjectToPrintString(evaluated)
+		
+		// Apply HTML formatting if --pp flag is set
+		if prettyPrint {
+			output = formatter.FormatHTML(output)
+		}
+		
+		fmt.Println(output)
 	}
 }
 

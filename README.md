@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.4.1
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.5.0
 ```
 
 A concatenative programming language interpreter.
@@ -148,6 +148,14 @@ To execute a pars source file:
 ```bash
 ./pars filename.pars
 ```
+
+To pretty-print HTML output:
+
+```bash
+./pars --pp filename.pars
+```
+
+The `--pp` flag auto-detects HTML output and formats it with proper indentation, making it easier to read and debug. Non-HTML output is left unchanged.
 
 To see the version:
 

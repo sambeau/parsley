@@ -2457,7 +2457,7 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 		if builtin, ok := getBuiltins()[tagName]; ok {
 			fn = builtin
 		} else {
-			return newError("function not found: " + tagName)
+			return newError("function not found: %s", tagName)
 		}
 	}
 
