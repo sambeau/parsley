@@ -9,25 +9,25 @@ b = 10
 
 `Basic template: Sam was here!`
 
-`Template with number: ${42}`
+`Template with number: {42}`
 
-`Template with boolean: ${true}`
+`Template with boolean: {true}`
 
-`Template with expression: ${a + b}`
+`Template with expression: {a + b}`
 
 a = 5
 b = 10
-`Fifteen is ${a + b} and
-not ${2 * a + b}.`
+`Fifteen is {a + b} and
+not {2 * a + b}.`
 
-`Array without commas: ${"Sam","was","here!"}`
+`Array without commas: {"Sam","was","here!"}`
 
-`String concat: ${"Hello" + " " + "World"}`
+`String concat: {"Hello" + " " + "World"}`
 
 `Escaped backtick: \``
 
-`Escaped dollar: \${not interpolated}`
+`Escaped brace: \{not interpolated}`
 
 name = "Pars"
 version = "0.1.0"
-`Welcome to ${name} v${version}!`
+`Welcome to {name} v{version}!`

@@ -479,9 +479,12 @@ func (l *Lexer) readTemplate() string {
 			switch l.ch {
 			case '`':
 				result = append(result, '`')
-			case '$':
+			case '{':
 				// Use a special marker that evaluator won't interpret
-				result = append(result, '\\', '0', '$') // \0$ as escape marker
+				result = append(result, '\\', '0', '{') // \0{ as escape marker
+			case '}':
+				// Use a special marker that evaluator won't interpret
+				result = append(result, '\\', '0', '}') // \0} as escape marker
 			default:
 				// Unknown escape, keep as-is
 				result = append(result, '\\')

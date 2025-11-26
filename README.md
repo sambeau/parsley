@@ -26,7 +26,7 @@ A Go-based toy concatenative programming language interpreter.
 - String indexing and slicing
 - String concatenation with `+`
 - String escape sequences (`\n`, `\t`, etc.)
-- Template literals with `${}` interpolation
+- Template literals with `{}` interpolation
 - Singleton tags for HTML/XML markup (`<tag attr="value" />`)
 - Integer and floating-point arithmetic
 - Modulo operator (`%`) for remainder calculations
@@ -798,20 +798,20 @@ Template literals use backticks and support expression interpolation:
 Hello, World!
 >> name = "Sam"
 Sam
->> `Welcome, ${name}!`
+>> `Welcome, {name}!`
 Welcome, Sam!
 ```
 
-Interpolate any expression with `${}`:
+Interpolate any expression with `{}`:
 
 ```
 >> a = 5
 5
 >> b = 10
 10
->> `Sum: ${a + b}`
+>> `Sum: {a + b}`
 Sum: 15
->> `Result: ${a * 2 + b}`
+>> `Result: {a * 2 + b}`
 Result: 20
 ```
 
@@ -829,18 +829,18 @@ Line 3
 Arrays in templates are joined without commas:
 
 ```
->> `Items: ${"A","B","C"}`
+>> `Items: {"A","B","C"}`
 Items: ABC
 ```
 
 Type coercion in templates:
 
 ```
->> `Number: ${42}`
+>> `Number: {42}`
 Number: 42
->> `Boolean: ${true}`
+>> `Boolean: {true}`
 Boolean: true
->> `Expression: ${10 > 5}`
+>> `Expression: {10 > 5}`
 Expression: true
 ```
 
@@ -849,8 +849,8 @@ Escape special characters in templates:
 ```
 >> `Literal backtick: \``
 Literal backtick: `
->> `Not interpolated: \${variable}`
-Not interpolated: ${variable}
+>> `Not interpolated: \{variable}`
+Not interpolated: {variable}
 ```
 
 String concatenation with automatic type conversion:
@@ -881,7 +881,7 @@ Standard tags have lowercase names and are evaluated as interpolated strings tha
 
 #### Tag Interpolation
 
-Tags support expression interpolation using `{expr}` syntax (note: single braces, unlike template literals which use `${expr}`):
+Tags support expression interpolation using `{expr}` syntax:
 
 ```
 >> charset = "utf-8"
@@ -960,8 +960,8 @@ Interpolate expressions in custom tag props:
    title = props.title
    content = props.content
    `<div class="card">
-     <h2>${title}</h2>
-     <p>${content}</p>
+     <h2>{title}</h2>
+     <p>{content}</p>
    </div>`
 }
 >> <Card title="Welcome" content="Hello World" />
@@ -1007,7 +1007,7 @@ Generate HTML components:
 >> Link = fn(props) {
    url = props.url
    text = props.text
-   `<a href="${url}">${text}</a>`
+   `<a href="{url}">{text}</a>`
 }
 >> <Link url="https://example.com" text="Click here" />
 <a href="https://example.com">Click here</a>
@@ -1019,7 +1019,7 @@ Build reusable UI components:
 >> Alert = fn(props) {
    type = props.type
    message = props.message
-   `<div class="alert alert-${type}">${message}</div>`
+   `<div class="alert alert-{type}">{message}</div>`
 }
 >> <Alert type="warning" message="Please save your work" />
 <div class="alert alert-warning">Please save your work</div>

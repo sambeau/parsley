@@ -16,7 +16,7 @@
 //zs = for(ys in xs){
 //	`<div>`,
 //	for (y in ys){
-//		`<p>${y}</p>`
+//		`<p>{y}</p>`
 //	},
 //	`</div>`
 //}

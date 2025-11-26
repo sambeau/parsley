@@ -1841,17 +1841,23 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 
 	i := 0
 	for i < len(template) {
-		// Check for escaped dollar sign marker \0$
-		if i < len(template)-2 && template[i] == '\\' && template[i+1] == '0' && template[i+2] == '$' {
-			result.WriteByte('$')
-			i += 3
-			continue
+		// Check for escaped brace markers \0{ and \0}
+		if i < len(template)-2 && template[i] == '\\' && template[i+1] == '0' {
+			if template[i+2] == '{' {
+				result.WriteByte('{')
+				i += 3
+				continue
+			} else if template[i+2] == '}' {
+				result.WriteByte('}')
+				i += 3
+				continue
+			}
 		}
 
-		// Look for ${
-		if i < len(template)-1 && template[i] == '$' && template[i+1] == '{' {
+		// Look for {
+		if template[i] == '{' {
 			// Find the closing }
-			i += 2 // skip ${
+			i++ // skip {
 			braceCount := 1
 			exprStart := i
 
@@ -1867,7 +1873,7 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 			}
 
 			if braceCount != 0 {
-				return newError("unclosed ${ in template literal")
+				return newError("unclosed { in template literal")
 			}
 
 			// Extract and evaluate the expression
