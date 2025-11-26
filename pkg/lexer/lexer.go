@@ -27,22 +27,22 @@ const (
 	TAG_TEXT  // raw text content within tags
 
 	// Operators
-	ASSIGN   // =
-	PLUS     // +
-	MINUS    // -
-	BANG     // !
-	ASTERISK // *
-	SLASH    // /
-	PERCENT  // %
-	LT       // <
-	GT       // >
-	LTE      // <=
-	GTE      // >=
-	EQ       // ==
-	NOT_EQ   // !=
-	AND      // & or and
-	OR       // | or or
-	MATCH    // ~
+	ASSIGN    // =
+	PLUS      // +
+	MINUS     // -
+	BANG      // !
+	ASTERISK  // *
+	SLASH     // /
+	PERCENT   // %
+	LT        // <
+	GT        // >
+	LTE       // <=
+	GTE       // >=
+	EQ        // ==
+	NOT_EQ    // !=
+	AND       // & or and
+	OR        // | or or
+	MATCH     // ~
 	NOT_MATCH // !~
 
 	// Delimiters
@@ -229,13 +229,13 @@ func LookupIdent(ident string) TokenType {
 type Lexer struct {
 	filename      string
 	input         string
-	position      int  // current position in input (points to current char)
-	readPosition  int  // current reading position in input (after current char)
-	ch            byte // current char under examination
-	line          int  // current line number
-	column        int  // current column number
-	inTagContent  bool // whether we're currently lexing tag content
-	tagDepth      int  // nesting depth of tags (for proper TAG_END matching)
+	position      int       // current position in input (points to current char)
+	readPosition  int       // current reading position in input (after current char)
+	ch            byte      // current char under examination
+	line          int       // current line number
+	column        int       // current column number
+	inTagContent  bool      // whether we're currently lexing tag content
+	tagDepth      int       // nesting depth of tags (for proper TAG_END matching)
 	lastTokenType TokenType // last token type for regex context detection
 }
 
@@ -999,7 +999,7 @@ func (l *Lexer) readRegex() (string, string) {
 }
 
 // shouldTreatAsRegex determines if / should be regex or division
-// Regex context: after operators, keywords, commas, open parens/brackets  
+// Regex context: after operators, keywords, commas, open parens/brackets
 // But NOT after complete expressions like identifiers, numbers, close parens
 func (l *Lexer) shouldTreatAsRegex(lastToken TokenType) bool {
 	switch lastToken {

@@ -35,8 +35,8 @@ func TestRegexMatch(t *testing.T) {
 		{`"no numbers" ~ /\d+/`, `null`},
 		{`"user@example.com" ~ /(\w+)@([\w.]+)/`, `["user@example.com", "user", "example.com"]`},
 		{`"2024-01-15" ~ /(\d+)-(\d+)-(\d+)/`, `["2024-01-15", "2024", "01", "15"]`},
-		{`"Test" ~ /test/`, `null`},  // case-sensitive
-		{`"Test" ~ /test/i`, `["Test"]`},  // case-insensitive with flag
+		{`"Test" ~ /test/`, `null`},      // case-sensitive
+		{`"Test" ~ /test/i`, `["Test"]`}, // case-insensitive with flag
 	}
 
 	for _, tt := range tests {
@@ -144,7 +144,7 @@ func TestRegexFlags(t *testing.T) {
 		// Case-insensitive flag
 		{`"Hello" ~ /hello/i`, `["Hello"]`},
 		{`"Hello" ~ /hello/`, `null`},
-		
+
 		// Multi-line flag - test simpler pattern
 		{`"test" ~ /test/m`, `["test"]`},
 	}
@@ -187,10 +187,10 @@ func TestRegexComplexPatterns(t *testing.T) {
 		// Email validation
 		{`"valid@email.com" ~ /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/`, `["valid@email.com"]`},
 		{`"invalid@" ~ /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/`, `null`},
-		
+
 		// URL parsing
 		{`"https://example.com" ~ /^(https?):\/\/([^\/]+)/`, `["https://example.com", "https", "example.com"]`},
-		
+
 		// Phone number
 		{`"(123) 456-7890" ~ /\((\d{3})\) (\d{3})-(\d{4})/`, `["(123) 456-7890", "123", "456", "7890"]`},
 	}

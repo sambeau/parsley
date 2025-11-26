@@ -554,18 +554,18 @@ func applyDelta(t time.Time, delta *Dictionary, env *Environment) time.Time {
 // evalRegexLiteral evaluates a regex literal and returns a Dictionary with __type: "regex"
 func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
 	pairs := make(map[string]ast.Expression)
-	
+
 	// Mark this as a regex dictionary
 	pairs["__type"] = &ast.StringLiteral{Value: "regex"}
 	pairs["pattern"] = &ast.StringLiteral{Value: node.Pattern}
 	pairs["flags"] = &ast.StringLiteral{Value: node.Flags}
-	
+
 	// Try to compile the regex to validate it
 	_, err := compileRegex(node.Pattern, node.Flags)
 	if err != nil {
 		return newError("invalid regex pattern: %s", err.Error())
 	}
-	
+
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
@@ -592,11 +592,11 @@ func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
 			prefix += "(?m)"
 		case 's': // dot matches newline
 			prefix += "(?s)"
-		// 'g' (global) is handled by match operator, not compilation
-		// Other flags like 'x' (verbose) could be added
+			// 'g' (global) is handled by match operator, not compilation
+			// Other flags like 'x' (verbose) could be added
 		}
 	}
-	
+
 	fullPattern := prefix + pattern
 	return regexp.Compile(fullPattern)
 }
@@ -614,7 +614,7 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 	if !ok {
 		return newErrorWithPos(tok, "regex pattern must be a string")
 	}
-	
+
 	flagsExpr, ok := regexDict.Pairs["flags"]
 	var flags string
 	if ok {
@@ -623,25 +623,25 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 			flags = flagsStr.Value
 		}
 	}
-	
+
 	// Compile the regex
 	re, err := compileRegex(patternStr.Value, flags)
 	if err != nil {
 		return newErrorWithPos(tok, "invalid regex: %s", err.Error())
 	}
-	
+
 	// Find matches
 	matches := re.FindStringSubmatch(text)
 	if matches == nil {
 		return NULL // No match - returns null (falsy)
 	}
-	
+
 	// Convert matches to array of strings
 	elements := make([]Object, len(matches))
 	for i, match := range matches {
 		elements[i] = &String{Value: match}
 	}
-	
+
 	return &Array{Elements: elements}
 }
 
