@@ -3,6 +3,7 @@
 - File type
 - Modules, import and export
 - Dictionaries to props in tags
+- Datetime
 - URL type
 - File globbing to dictionary
 - Regular expressions
