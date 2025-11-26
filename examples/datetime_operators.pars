@@ -1,0 +1,69 @@
+// Datetime Operators Demo - Test comparisons and arithmetic
+
+log("=== Datetime Comparisons ===\n");
+
+// Create two different datetimes
+let dt1 = time("2024-01-15T10:30:00Z");
+let dt2 = time("2024-01-20T10:30:00Z");
+
+log("dt1:", dt1.iso);
+log("dt2:", dt2.iso);
+
+// Comparison operators
+log("\ndt1 < dt2:", dt1 < dt2);
+log("dt1 > dt2:", dt1 > dt2);
+log("dt1 <= dt2:", dt1 <= dt2);
+log("dt1 >= dt2:", dt1 >= dt2);
+log("dt1 == dt2:", dt1 == dt2);
+log("dt1 != dt2:", dt1 != dt2);
+
+// Equal datetimes
+let dt3 = time("2024-01-15T10:30:00Z");
+log("\ndt1 == dt3:", dt1 == dt3);
+
+log("\n=== Datetime Arithmetic ===\n");
+
+// Difference between datetimes (in seconds)
+let diff = dt2 - dt1;
+log("Difference in seconds (dt2 - dt1):", diff);
+log("Difference in days:", diff / 86400);
+
+// Add seconds to datetime
+log("\nAdding 7 days (604800 seconds) to dt1:");
+let future = dt1 + 604800;
+log("Result:", future.iso);
+
+// Subtract seconds from datetime
+log("\nSubtracting 7 days from dt1:");
+let past = dt1 - 604800;
+log("Result:", past.iso);
+
+// Integer + datetime (commutative)
+log("\n604800 + dt1 (commutative addition):");
+let future2 = 604800 + dt1;
+log("Result:", future2.iso);
+
+log("\n=== Practical Examples ===\n");
+
+// Check if event has passed
+let eventDate = time("2024-12-25T00:00:00Z");
+let today = now();
+log("Event date:", eventDate.iso);
+log("Today:", today.iso);
+log("Has Christmas 2024 passed?", today > eventDate);
+
+// Calculate days until/since event
+let secondsUntil = eventDate - today;
+let daysUntil = secondsUntil / 86400;
+log("Days until Christmas 2024:", daysUntil);
+
+// Add 30 days to current date
+log("\n30 days from now:");
+let in30days = today + (30 * 86400);
+log(in30days.iso);
+
+// Check if date is within range
+let rangeStart = time("2024-01-01T00:00:00Z");
+let rangeEnd = time("2024-12-31T23:59:59Z");
+let checkDate = time("2024-06-15T12:00:00Z");
+log("\nIs June 15, 2024 within 2024?", checkDate >= rangeStart & checkDate <= rangeEnd);

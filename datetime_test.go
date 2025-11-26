@@ -426,3 +426,166 @@ func TestDatetimeSpecificValues(t *testing.T) {
 		})
 	}
 }
+
+func TestDatetimeComparisons(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "less than true",
+			code:     `time("2024-01-15T00:00:00Z") < time("2024-01-20T00:00:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "less than false",
+			code:     `time("2024-01-20T00:00:00Z") < time("2024-01-15T00:00:00Z")`,
+			expected: "false",
+		},
+		{
+			name:     "greater than true",
+			code:     `time("2024-01-20T00:00:00Z") > time("2024-01-15T00:00:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "greater than false",
+			code:     `time("2024-01-15T00:00:00Z") > time("2024-01-20T00:00:00Z")`,
+			expected: "false",
+		},
+		{
+			name:     "less than or equal true (less)",
+			code:     `time("2024-01-15T00:00:00Z") <= time("2024-01-20T00:00:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "less than or equal true (equal)",
+			code:     `time("2024-01-15T00:00:00Z") <= time("2024-01-15T00:00:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "greater than or equal true (greater)",
+			code:     `time("2024-01-20T00:00:00Z") >= time("2024-01-15T00:00:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "greater than or equal true (equal)",
+			code:     `time("2024-01-15T00:00:00Z") >= time("2024-01-15T00:00:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "equal true",
+			code:     `time("2024-01-15T10:30:00Z") == time("2024-01-15T10:30:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "equal false",
+			code:     `time("2024-01-15T10:30:00Z") == time("2024-01-15T10:31:00Z")`,
+			expected: "false",
+		},
+		{
+			name:     "not equal true",
+			code:     `time("2024-01-15T10:30:00Z") != time("2024-01-15T10:31:00Z")`,
+			expected: "true",
+		},
+		{
+			name:     "not equal false",
+			code:     `time("2024-01-15T10:30:00Z") != time("2024-01-15T10:30:00Z")`,
+			expected: "false",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDatetimeCode(tt.code)
+			if hasErr {
+				t.Fatalf("testDatetimeCode() unexpected error: %v", result)
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestDatetimeArithmetic(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "subtract datetimes (difference in seconds)",
+			code:     `time("2024-01-20T00:00:00Z") - time("2024-01-15T00:00:00Z")`,
+			expected: "432000", // 5 days * 86400 seconds/day
+		},
+		{
+			name:     "add seconds to datetime",
+			code:     `let dt = time("2024-01-15T00:00:00Z") + 86400; dt.day`,
+			expected: "16", // Next day
+		},
+		{
+			name:     "subtract seconds from datetime",
+			code:     `let dt = time("2024-01-15T00:00:00Z") - 86400; dt.day`,
+			expected: "14", // Previous day
+		},
+		{
+			name:     "add seconds to datetime (commutative)",
+			code:     `let dt = 86400 + time("2024-01-15T00:00:00Z"); dt.day`,
+			expected: "16",
+		},
+		{
+			name:     "add week to datetime",
+			code:     `let dt = time("2024-01-01T12:00:00Z") + 604800; dt.day`,
+			expected: "8", // 7 days later
+		},
+		{
+			name:     "subtract week from datetime",
+			code:     `let dt = time("2024-01-15T12:00:00Z") - 604800; dt.day`,
+			expected: "8", // 7 days earlier
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDatetimeCode(tt.code)
+			if hasErr {
+				t.Fatalf("testDatetimeCode() unexpected error: %v", result)
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+func TestDatetimeTypeField(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "check __type field exists",
+			code:     `let dt = now(); dt.__type`,
+			expected: "datetime",
+		},
+		{
+			name:     "check __type on time() result",
+			code:     `time("2024-01-15T00:00:00Z").__type`,
+			expected: "datetime",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDatetimeCode(tt.code)
+			if hasErr {
+				t.Fatalf("testDatetimeCode() unexpected error: %v", result)
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

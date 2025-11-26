@@ -1094,8 +1094,82 @@ Datetime dictionaries contain the following fields:
 - `weekday` - Day name ("Monday", "Tuesday", etc.)
 - `unix` - Unix timestamp (seconds since 1970-01-01)
 - `iso` - ISO 8601 string (e.g., "2024-01-15T10:30:00Z")
+- `__type` - Internal type tag ("datetime") for operator overloading
 
 All times are in UTC.
+
+#### Datetime Comparisons
+
+Datetime dictionaries support standard comparison operators:
+
+```
+>> let dt1 = time("2024-01-15T10:30:00Z")
+{year: 2024, month: 1, day: 15, hour: 10, minute: 30, second: 0, weekday: "Monday", unix: 1705316400, iso: "2024-01-15T10:30:00Z", __type: "datetime"}
+>> let dt2 = time("2024-01-20T10:30:00Z")
+{year: 2024, month: 1, day: 20, hour: 10, minute: 30, second: 0, weekday: "Saturday", unix: 1705748400, iso: "2024-01-20T10:30:00Z", __type: "datetime"}
+>> dt1 < dt2
+true
+>> dt1 > dt2
+false
+>> dt1 == dt2
+false
+>> dt1 != dt2
+true
+```
+
+All comparison operators work: `<`, `>`, `<=`, `>=`, `==`, `!=`
+
+**Practical example:**
+```
+>> let deadline = time("2024-12-31T23:59:59Z")
+>> let today = now()
+>> today > deadline
+false
+>> log("Deadline passed:", today > deadline)
+```
+
+#### Datetime Arithmetic
+
+**Difference between datetimes** returns seconds:
+```
+>> let dt1 = time("2024-01-15T00:00:00Z")
+>> let dt2 = time("2024-01-20T00:00:00Z")
+>> dt2 - dt1
+432000
+>> (dt2 - dt1) / 86400  // Convert to days
+5
+```
+
+**Add/subtract seconds** from datetimes:
+```
+>> let dt = time("2024-01-15T12:00:00Z")
+>> dt + 86400  // Add 1 day (86400 seconds)
+{year: 2024, month: 1, day: 16, hour: 12, minute: 0, second: 0, weekday: "Tuesday", unix: 1705411200, iso: "2024-01-16T12:00:00Z", __type: "datetime"}
+>> dt - 86400  // Subtract 1 day
+{year: 2024, month: 1, day: 14, hour: 12, minute: 0, second: 0, weekday: "Sunday", unix: 1705238400, iso: "2024-01-14T12:00:00Z", __type: "datetime"}
+>> 604800 + dt  // Addition is commutative (7 days)
+{year: 2024, month: 1, day: 22, hour: 12, minute: 0, second: 0, weekday: "Monday", unix: 1705929600, iso: "2024-01-22T12:00:00Z", __type: "datetime"}
+```
+
+**Common time intervals:**
+- 1 hour: `3600`
+- 1 day: `86400`
+- 1 week: `604800`
+- 30 days: `2592000`
+
+**Practical examples:**
+```
+>> let now_dt = now()
+>> let in_one_week = now_dt + 604800
+>> let days_ago = now_dt - (30 * 86400)
+
+>> // Check if date is within range
+>> let start = time("2024-01-01T00:00:00Z")
+>> let end = time("2024-12-31T23:59:59Z")
+>> let check = time("2024-06-15T12:00:00Z")
+>> check >= start & check <= end
+true
+```
 
 ### Singleton Tags
 

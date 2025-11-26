@@ -387,6 +387,9 @@ func objectsEqual(a, b Object) bool {
 func timeToDict(t time.Time, env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
 
+	// Mark this as a datetime dictionary for special operator handling
+	pairs["__type"] = &ast.StringLiteral{Value: "datetime"}
+
 	// Create integer literals for numeric values
 	pairs["year"] = &ast.IntegerLiteral{Value: int64(t.Year())}
 	pairs["month"] = &ast.IntegerLiteral{Value: int64(t.Month())}
@@ -472,6 +475,30 @@ func dictToTime(dict *Dictionary, env *Environment) (time.Time, error) {
 		0,
 		time.UTC,
 	), nil
+}
+
+// isDatetimeDict checks if a dictionary is a datetime by looking for __type field
+func isDatetimeDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "datetime"
+		}
+	}
+	return false
+}
+
+// getDatetimeUnix extracts the unix timestamp from a datetime dictionary
+func getDatetimeUnix(dict *Dictionary, env *Environment) (int64, error) {
+	unixExpr, ok := dict.Pairs["unix"]
+	if !ok {
+		return 0, fmt.Errorf("datetime dictionary missing unix field")
+	}
+	unixObj := Eval(unixExpr, env)
+	unixInt, ok := unixObj.(*Integer)
+	if !ok {
+		return 0, fmt.Errorf("unix field is not an integer")
+	}
+	return unixInt.Value, nil
 }
 
 // applyDelta applies time deltas to a time.Time
@@ -1546,6 +1573,30 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 	case operator == "+" && (left.Type() == STRING_OBJ || right.Type() == STRING_OBJ):
 		// String concatenation with automatic type conversion
 		return evalStringConcatExpression(left, right)
+	// Datetime dictionary operations
+	case left.Type() == DICTIONARY_OBJ && right.Type() == DICTIONARY_OBJ:
+		leftDict := left.(*Dictionary)
+		rightDict := right.(*Dictionary)
+		if isDatetimeDict(leftDict) && isDatetimeDict(rightDict) {
+			return evalDatetimeInfixExpression(tok, operator, leftDict, rightDict)
+		}
+		// Fall through to default comparison for non-datetime dicts
+		if operator == "==" {
+			return nativeBoolToParsBoolean(left == right)
+		} else if operator == "!=" {
+			return nativeBoolToParsBoolean(left != right)
+		}
+		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+	case left.Type() == DICTIONARY_OBJ && right.Type() == INTEGER_OBJ:
+		if dict := left.(*Dictionary); isDatetimeDict(dict) {
+			return evalDatetimeIntegerInfixExpression(tok, operator, dict, right.(*Integer))
+		}
+		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
+	case left.Type() == INTEGER_OBJ && right.Type() == DICTIONARY_OBJ:
+		if dict := right.(*Dictionary); isDatetimeDict(dict) {
+			return evalIntegerDatetimeInfixExpression(tok, operator, left.(*Integer), dict)
+		}
+		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
 		return evalIntegerInfixExpression(tok, operator, left, right)
 	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
@@ -1702,6 +1753,79 @@ func evalStringInfixExpression(operator string, left, right Object) Object {
 		return nativeBoolToParsBoolean(leftVal != rightVal)
 	default:
 		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+	}
+}
+
+// evalDatetimeInfixExpression handles operations between two datetime dictionaries
+func evalDatetimeInfixExpression(tok lexer.Token, operator string, left, right *Dictionary) Object {
+	env := NewEnvironment()
+	leftUnix, err := getDatetimeUnix(left, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+	rightUnix, err := getDatetimeUnix(right, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+
+	switch operator {
+	case "<":
+		return nativeBoolToParsBoolean(leftUnix < rightUnix)
+	case ">":
+		return nativeBoolToParsBoolean(leftUnix > rightUnix)
+	case "<=":
+		return nativeBoolToParsBoolean(leftUnix <= rightUnix)
+	case ">=":
+		return nativeBoolToParsBoolean(leftUnix >= rightUnix)
+	case "==":
+		return nativeBoolToParsBoolean(leftUnix == rightUnix)
+	case "!=":
+		return nativeBoolToParsBoolean(leftUnix != rightUnix)
+	case "-":
+		// Return difference in seconds
+		return &Integer{Value: leftUnix - rightUnix}
+	default:
+		return newErrorWithPos(tok, "unknown operator for datetime: %s", operator)
+	}
+}
+
+// evalDatetimeIntegerInfixExpression handles datetime + integer or datetime - integer
+func evalDatetimeIntegerInfixExpression(tok lexer.Token, operator string, dt *Dictionary, seconds *Integer) Object {
+	env := NewEnvironment()
+	unixTime, err := getDatetimeUnix(dt, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+
+	switch operator {
+	case "+":
+		// Add seconds to datetime
+		newTime := time.Unix(unixTime+seconds.Value, 0).UTC()
+		return timeToDict(newTime, env)
+	case "-":
+		// Subtract seconds from datetime
+		newTime := time.Unix(unixTime-seconds.Value, 0).UTC()
+		return timeToDict(newTime, env)
+	default:
+		return newErrorWithPos(tok, "unknown operator for datetime and integer: %s", operator)
+	}
+}
+
+// evalIntegerDatetimeInfixExpression handles integer + datetime
+func evalIntegerDatetimeInfixExpression(tok lexer.Token, operator string, seconds *Integer, dt *Dictionary) Object {
+	env := NewEnvironment()
+	unixTime, err := getDatetimeUnix(dt, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+
+	switch operator {
+	case "+":
+		// Add seconds to datetime (commutative)
+		newTime := time.Unix(unixTime+seconds.Value, 0).UTC()
+		return timeToDict(newTime, env)
+	default:
+		return newErrorWithPos(tok, "unknown operator for integer and datetime: %s", operator)
 	}
 }
 
