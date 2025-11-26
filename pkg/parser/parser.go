@@ -728,7 +728,8 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 		return nil
 	}
 
-	lit.Parameters = p.parseFunctionParameters()
+	// Use new parameter parsing that supports destructuring
+	lit.Params = p.parseFunctionParametersNew()
 
 	if !p.expectPeek(lexer.LBRACE) {
 		return nil
@@ -764,6 +765,80 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	}
 
 	return identifiers
+}
+
+// parseFunctionParametersNew parses function parameters with destructuring support
+func (p *Parser) parseFunctionParametersNew() []*ast.FunctionParameter {
+	params := []*ast.FunctionParameter{}
+
+	if p.peekTokenIs(lexer.RPAREN) {
+		p.nextToken()
+		return params
+	}
+
+	p.nextToken()
+
+	// Parse first parameter
+	param := p.parseFunctionParameter()
+	if param != nil {
+		params = append(params, param)
+	}
+
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // consume comma
+		p.nextToken() // move to next parameter
+		param := p.parseFunctionParameter()
+		if param != nil {
+			params = append(params, param)
+		}
+	}
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return params
+}
+
+// parseFunctionParameter parses a single function parameter (can be identifier, array, or dict pattern)
+func (p *Parser) parseFunctionParameter() *ast.FunctionParameter {
+	param := &ast.FunctionParameter{}
+
+	switch p.curToken.Type {
+	case lexer.LBRACE:
+		// Dictionary destructuring pattern
+		param.DictPattern = p.parseDictDestructuringPattern()
+		return param
+
+	case lexer.LBRACKET:
+		// Array destructuring pattern
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		idents := []*ast.Identifier{
+			{Token: p.curToken, Value: p.curToken.Literal},
+		}
+		for p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			idents = append(idents, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		}
+		if !p.expectPeek(lexer.RBRACKET) {
+			return nil
+		}
+		param.ArrayPattern = idents
+		return param
+
+	case lexer.IDENT:
+		// Simple identifier
+		param.Ident = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		return param
+
+	default:
+		return nil
+	}
 }
 
 // parseForExpression parses for expressions

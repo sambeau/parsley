@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.3.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.4.0
 ```
 
 A concatenative programming language interpreter.
@@ -15,7 +15,9 @@ A concatenative programming language interpreter.
 - Variable declarations with `let`
 - Direct variable assignment (e.g., `x = 5`)
 - Array destructuring assignment (e.g., `x,y,z = 1,2,3`)
+- Dictionary destructuring in assignments and function parameters
 - Functions with `fn`
+- Function parameter destructuring for arrays and dictionaries
 - If-else expressions with block or expression forms
 - Single return statements allowed after if without braces
 - Arrays with comma separator or square bracket notation `[...]`
@@ -1685,6 +1687,57 @@ Functions are first-class objects in pars, meaning they can be assigned to varia
 >> let circleArea = fn(r) { pi() * pow(r, 2) }
 >> circleArea(10)
 314.1592653589793
+```
+
+#### Function Parameter Destructuring
+
+Functions can destructure their parameters to extract values from dictionaries and arrays directly:
+
+**Dictionary Destructuring:**
+```
+>> let greet = fn({name, age}) { "Hello " + name + " (" + toString(age) + ")" }
+>> greet({name: "Alice", age: 30})
+Hello Alice (30)
+
+>> let add = fn({x, y}) { x + y }
+>> add({x: 10, y: 20})
+30
+```
+
+**Array Destructuring:**
+```
+>> let swap = fn([a, b]) { [b, a] }
+>> swap([1, 2])
+2, 1
+
+>> let distance = fn([x1, y1], [x2, y2]) { sqrt(pow(x2-x1, 2) + pow(y2-y1, 2)) }
+>> distance([0, 0], [3, 4])
+5
+```
+
+**Nested Destructuring:**
+```
+>> let getEmail = fn({profile: {email}}) { email }
+>> getEmail({profile: {email: "test@example.com"}})
+test@example.com
+
+>> let displayUser = fn({name, address: {city}}) { name + " from " + city }
+>> displayUser({name: "Bob", address: {city: "NYC", zip: "10001"}})
+Bob from NYC
+```
+
+**Rest Operator in Dictionaries:**
+```
+>> let extract = fn({a, ...rest}) { rest }
+>> extract({a: 1, b: 2, c: 3})
+{b: 2, c: 3}
+```
+
+**Mixed Parameters:**
+```
+>> let calculate = fn(op, {x, y}) { op(x, y) }
+>> calculate(fn(a,b){a+b}, {x: 5, y: 3})
+8
 ```
 
 #### Functions as Array Elements

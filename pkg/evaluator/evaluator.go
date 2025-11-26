@@ -93,14 +93,26 @@ func (e *Error) Inspect() string  { return "ERROR: " + e.Message }
 
 // Function represents function objects
 type Function struct {
-	Parameters []*ast.Identifier
+	Parameters []*ast.Identifier        // deprecated - kept for compatibility
+	Params     []*ast.FunctionParameter // new parameter list with destructuring support
 	Body       *ast.BlockStatement
 	Env        *Environment
 }
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
 func (f *Function) Inspect() string {
+	if len(f.Params) > 0 {
+		return fmt.Sprintf("fn(%v) {\n%s\n}", f.Params, f.Body.String())
+	}
 	return fmt.Sprintf("fn(%v) {\n%s\n}", f.Parameters, f.Body.String())
+}
+
+// ParamCount returns the number of parameters for this function
+func (f *Function) ParamCount() int {
+	if len(f.Params) > 0 {
+		return len(f.Params)
+	}
+	return len(f.Parameters)
 }
 
 // BuiltinFunction represents a built-in function
@@ -562,15 +574,15 @@ func getBuiltins() map[string]*Builtin {
 					arr = &Array{Elements: args[1:]}
 				}
 
-				if len(fn.Parameters) != 1 {
-					return newError("function passed to `map` must take exactly 1 parameter, got %d", len(fn.Parameters))
+				// Validate function parameter count
+				if fn.ParamCount() != 1 {
+					return newError("function passed to `map` must take exactly 1 parameter, got %d", fn.ParamCount())
 				}
 
 				result := []Object{}
 				for _, elem := range arr.Elements {
-					// Apply function to each element by creating new environment
-					extendedEnv := NewEnclosedEnvironment(fn.Env)
-					extendedEnv.Set(fn.Parameters[0].Value, elem)
+					// Apply function to each element
+					extendedEnv := extendFunctionEnv(fn, []Object{elem})
 
 					// Evaluate the function body
 					var evaluated Object
@@ -837,8 +849,8 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				// Verify the function takes exactly 2 parameters
-				if len(fn.Parameters) != 2 {
-					return newError("comparison function must take exactly 2 parameters, got %d", len(fn.Parameters))
+				if fn.ParamCount() != 2 {
+					return newError("comparison function must take exactly 2 parameters, got %d", fn.ParamCount())
 				}
 
 				// Create a copy to avoid modifying the original
@@ -945,12 +957,12 @@ func getBuiltins() map[string]*Builtin {
 					val := Eval(expr, dictEnv)
 
 					// Skip functions with parameters (they can't be called without args)
-					if fn, ok := val.(*Function); ok && len(fn.Parameters) > 0 {
+					if fn, ok := val.(*Function); ok && fn.ParamCount() > 0 {
 						continue
 					}
 
 					// If it's a function with no parameters, call it
-					if fn, ok := val.(*Function); ok && len(fn.Parameters) == 0 {
+					if fn, ok := val.(*Function); ok && fn.ParamCount() == 0 {
 						val = applyFunction(fn, []Object{})
 					}
 
@@ -1154,9 +1166,12 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalIdentifier(node, env)
 
 	case *ast.FunctionLiteral:
-		params := node.Parameters
 		body := node.Body
-		return &Function{Parameters: params, Env: env, Body: body}
+		// Use new-style params if available, otherwise fall back to old parameters
+		if len(node.Params) > 0 {
+			return &Function{Params: node.Params, Env: env, Body: body}
+		}
+		return &Function{Parameters: node.Parameters, Env: env, Body: body}
 
 	case *ast.ArrayLiteral:
 		elements := evalExpressions(node.Elements, env)
@@ -1625,11 +1640,76 @@ func evalLogLine(args []Object, env *Environment) Object {
 func extendFunctionEnv(fn *Function, args []Object) *Environment {
 	env := NewEnclosedEnvironment(fn.Env)
 
-	for paramIdx, param := range fn.Parameters {
-		env.Set(param.Value, args[paramIdx])
+	// Use new-style parameters if available
+	if len(fn.Params) > 0 {
+		for paramIdx, param := range fn.Params {
+			if paramIdx >= len(args) {
+				break
+			}
+			arg := args[paramIdx]
+
+			// Handle different parameter types
+			if param.DictPattern != nil {
+				// Dictionary destructuring
+				evalDictDestructuringAssignment(param.DictPattern, arg, env, true)
+			} else if len(param.ArrayPattern) > 0 {
+				// Array destructuring
+				evalArrayDestructuringForParam(param.ArrayPattern, arg, env)
+			} else if param.Ident != nil {
+				// Simple identifier
+				env.Set(param.Ident.Value, arg)
+			}
+		}
+	} else {
+		// Fallback to old-style parameters
+		for paramIdx, param := range fn.Parameters {
+			if paramIdx >= len(args) {
+				break
+			}
+			env.Set(param.Value, args[paramIdx])
+		}
 	}
 
 	return env
+}
+
+// evalArrayDestructuringForParam handles array destructuring in function parameters
+func evalArrayDestructuringForParam(pattern []*ast.Identifier, val Object, env *Environment) {
+	// Convert value to array if it isn't already
+	var elements []Object
+
+	switch v := val.(type) {
+	case *Array:
+		elements = v.Elements
+	default:
+		// Single value becomes single-element array
+		elements = []Object{v}
+	}
+
+	// Assign each element to corresponding variable
+	for i, name := range pattern {
+		if i < len(elements) {
+			if name.Value != "_" {
+				env.Set(name.Value, elements[i])
+			}
+		} else {
+			// No more elements, assign null
+			if name.Value != "_" {
+				env.Set(name.Value, NULL)
+			}
+		}
+	}
+
+	// If there are more elements than names, assign remaining as array to last variable
+	if len(elements) > len(pattern) && len(pattern) > 0 {
+		lastIdx := len(pattern) - 1
+		lastName := pattern[lastIdx]
+		if lastName.Value != "_" {
+			// Replace the last assignment with an array of remaining elements
+			remaining := &Array{Elements: elements[lastIdx:]}
+			env.Set(lastName.Value, remaining)
+		}
+	}
 }
 
 func unwrapReturnValue(obj Object) Object {
@@ -1706,14 +1786,12 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			evaluated = f.Fn(elem)
 		case *Function:
 			// Call user function
-			if len(f.Parameters) != 1 {
-				return newError("function passed to for must take exactly 1 parameter, got %d", len(f.Parameters))
+			if f.ParamCount() != 1 {
+				return newError("function passed to for must take exactly 1 parameter, got %d", f.ParamCount())
 			}
 
-			// Create a new environment that extends the function's environment
-			// This allows the loop body to access and modify parent scope variables
-			extendedEnv := NewEnclosedEnvironment(f.Env)
-			extendedEnv.Set(f.Parameters[0].Value, elem)
+			// Create a new environment and bind the parameter
+			extendedEnv := extendFunctionEnv(f, []Object{elem})
 
 			// Evaluate all statements in the body
 			for _, stmt := range f.Body.Statements {
@@ -1746,18 +1824,27 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 	// Determine which function to use
 	var fn *Function
 	if node.Body != nil {
-		fn = &Function{
-			Parameters: node.Body.(*ast.FunctionLiteral).Parameters,
-			Body:       node.Body.(*ast.FunctionLiteral).Body,
-			Env:        env,
+		bodyFn := node.Body.(*ast.FunctionLiteral)
+		if len(bodyFn.Params) > 0 {
+			fn = &Function{
+				Params: bodyFn.Params,
+				Body:   bodyFn.Body,
+				Env:    env,
+			}
+		} else {
+			fn = &Function{
+				Parameters: bodyFn.Parameters,
+				Body:       bodyFn.Body,
+				Env:        env,
+			}
 		}
 	} else {
 		return newError("for loop over dictionary requires body with key, value parameters")
 	}
 
 	// Check parameter count
-	if len(fn.Parameters) != 2 {
-		return newError("for loop over dictionary requires exactly 2 parameters (key, value), got %d", len(fn.Parameters))
+	if fn.ParamCount() != 2 {
+		return newError("for loop over dictionary requires exactly 2 parameters (key, value), got %d", fn.ParamCount())
 	}
 
 	// Iterate over dictionary key-value pairs
@@ -1769,10 +1856,8 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 			return value
 		}
 
-		// Create environment for loop body
-		extendedEnv := NewEnclosedEnvironment(fn.Env)
-		extendedEnv.Set(fn.Parameters[0].Value, &String{Value: key})
-		extendedEnv.Set(fn.Parameters[1].Value, value)
+		// Create environment for loop body with both key and value
+		extendedEnv := extendFunctionEnv(fn, []Object{&String{Value: key}, value})
 
 		// Evaluate all statements in the body
 		var evaluated Object

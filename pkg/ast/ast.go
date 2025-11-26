@@ -355,9 +355,36 @@ func (ie *IfExpression) String() string {
 }
 
 // FunctionLiteral represents function literals
+// FunctionParameter represents a function parameter (identifier, array pattern, or dict pattern)
+type FunctionParameter struct {
+	Ident        *Identifier               // simple identifier parameter
+	ArrayPattern []*Identifier             // array destructuring pattern
+	DictPattern  *DictDestructuringPattern // dict destructuring pattern
+}
+
+func (fp *FunctionParameter) String() string {
+	if fp.DictPattern != nil {
+		return fp.DictPattern.String()
+	}
+	if len(fp.ArrayPattern) > 0 {
+		var out bytes.Buffer
+		out.WriteString("[")
+		for i, p := range fp.ArrayPattern {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(p.String())
+		}
+		out.WriteString("]")
+		return out.String()
+	}
+	return fp.Ident.String()
+}
+
 type FunctionLiteral struct {
-	Token      lexer.Token // the 'fn' token
-	Parameters []*Identifier
+	Token      lexer.Token          // the 'fn' token
+	Parameters []*Identifier        // deprecated - kept for backwards compatibility
+	Params     []*FunctionParameter // new parameter list supporting destructuring
 	Body       *BlockStatement
 }
 
@@ -367,8 +394,15 @@ func (fl *FunctionLiteral) String() string {
 	var out bytes.Buffer
 
 	params := []string{}
-	for _, p := range fl.Parameters {
-		params = append(params, p.String())
+	if len(fl.Params) > 0 {
+		for _, p := range fl.Params {
+			params = append(params, p.String())
+		}
+	} else {
+		// Fallback for old-style parameters
+		for _, p := range fl.Parameters {
+			params = append(params, p.String())
+		}
 	}
 
 	out.WriteString(fl.TokenLiteral())
