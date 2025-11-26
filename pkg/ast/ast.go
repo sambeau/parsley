@@ -237,6 +237,16 @@ func (rl *RegexLiteral) String() string {
 	return "/" + rl.Pattern + "/" + rl.Flags
 }
 
+// DatetimeLiteral represents datetime literals like @2024-12-25T14:30:00Z
+type DatetimeLiteral struct {
+	Token lexer.Token // the lexer.DATETIME_LITERAL token
+	Value string      // the ISO-8601 datetime string
+}
+
+func (dl *DatetimeLiteral) expressionNode()      {}
+func (dl *DatetimeLiteral) TokenLiteral() string { return dl.Token.Literal }
+func (dl *DatetimeLiteral) String() string       { return "@" + dl.Value }
+
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
 	Token lexer.Token // the lexer.TAG token

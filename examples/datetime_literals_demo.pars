@@ -1,0 +1,46 @@
+// Datetime Literal Syntax Demo
+
+// Creating datetimes with @ syntax
+let birthday = @2024-03-15;
+let meeting = @2024-12-25T14:30:00;
+let deadline = @2024-12-31T23:59:59Z;
+
+log("Birthday:", birthday.iso);
+log("Meeting:", meeting.year, meeting.month, meeting.day, "at", meeting.hour, ":", meeting.minute);
+
+// Comparison (returns boolean)
+let is_future = @2024-12-25 > now();
+log("Christmas in future:", is_future);
+
+// Array of dates
+let holidays = [@2024-01-01, @2024-07-04, @2024-12-25];
+log("Number of holidays:", len(holidays));
+
+// Field access
+let event = @2024-06-15T10:30:00;
+log("Event is on:", event.weekday);
+log("Event time:", event.hour, ":", event.minute);
+
+// Arithmetic with seconds
+let tomorrow = @2024-11-27 + 86400;  // Add 24 hours
+log("Tomorrow:", tomorrow.iso);
+
+// Time difference
+let start = @2024-01-01;
+let end = @2024-12-31;
+let seconds_in_year = end - start;
+log("Seconds in 2024:", seconds_in_year);
+log("Days in 2024:", seconds_in_year / 86400);
+
+// Comparison operators
+log("Before:", @2024-01-01 < @2024-12-31);
+log("After:", @2024-12-31 > @2024-01-01);
+log("Equal:", @2024-06-15 == @2024-06-15);
+
+// Timezone support
+let utc_time = @2024-12-25T12:00:00Z;
+let est_time = @2024-12-25T12:00:00-05:00;
+log("UTC:", utc_time.unix);
+log("EST:", est_time.unix);
+log("Different by 5 hours:", (est_time.unix - utc_time.unix) / 3600, "hours");
+

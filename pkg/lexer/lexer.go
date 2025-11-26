@@ -18,10 +18,11 @@ const (
 	IDENT     // add, foobar, x, y, ...
 	INT       // 1343456
 	FLOAT     // 3.14159
-	STRING    // "foobar"
-	TEMPLATE  // `template ${expr}`
-	REGEX     // /pattern/flags
-	TAG       // <tag prop="value" />
+	STRING           // "foobar"
+	TEMPLATE         // `template ${expr}`
+	REGEX            // /pattern/flags
+	DATETIME_LITERAL // @2024-12-25T14:30:00Z
+	TAG              // <tag prop="value" />
 	TAG_START // <tag> or <tag attr="value">
 	TAG_END   // </tag>
 	TAG_TEXT  // raw text content within tags
@@ -106,6 +107,8 @@ func (tt TokenType) String() string {
 		return "TEMPLATE"
 	case REGEX:
 		return "REGEX"
+	case DATETIME_LITERAL:
+		return "DATETIME_LITERAL"
 	case TAG:
 		return "TAG"
 	case TAG_START:
@@ -445,6 +448,15 @@ func (l *Lexer) NextToken() Token {
 		tok.Literal = l.readTemplate()
 		tok.Line = line
 		tok.Column = column
+	case '@':
+		line := l.line
+		column := l.column
+		tok.Type = DATETIME_LITERAL
+		tok.Literal = l.readDatetimeLiteral()
+		tok.Line = line
+		tok.Column = column
+		l.lastTokenType = tok.Type
+		return tok
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
@@ -996,6 +1008,68 @@ func (l *Lexer) readRegex() (string, string) {
 	}
 
 	return string(pattern), string(flags)
+}
+
+// readDatetimeLiteral reads a datetime literal after @
+// Supports formats: @2024-12-25, @2024-12-25T14:30:00, @2024-12-25T14:30:00Z, @2024-12-25T14:30:00-05:00
+func (l *Lexer) readDatetimeLiteral() string {
+	var datetime []byte
+	l.readChar() // skip @
+
+	// Read date part: YYYY-MM-DD
+	for isDigit(l.ch) || l.ch == '-' {
+		datetime = append(datetime, l.ch)
+		l.readChar()
+	}
+	
+	// Check for time part: T14:30:00
+	if l.ch == 'T' {
+		datetime = append(datetime, l.ch)
+		l.readChar()
+		// Read time: HH:MM:SS
+		for isDigit(l.ch) || l.ch == ':' {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+		}
+	}
+	
+	// Check for fractional seconds (.123)
+	if l.ch == '.' && isDigit(l.peekChar()) {
+		datetime = append(datetime, l.ch)
+		l.readChar()
+		// Read the fractional part
+		for isDigit(l.ch) {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+		}
+	}
+	
+	// Check for timezone: Z or +05:00 or -05:00
+	if l.ch == 'Z' {
+		datetime = append(datetime, l.ch)
+		l.readChar()
+	} else if l.ch == '+' || l.ch == '-' {
+		// Only consume if followed by digit (timezone offset)
+		if isDigit(l.peekChar()) {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+			// Read timezone offset
+			for isDigit(l.ch) || l.ch == ':' {
+				datetime = append(datetime, l.ch)
+				l.readChar()
+			}
+		}
+	}
+
+	// Back up one char since we consumed one too many
+	l.position = l.readPosition - 1
+	if l.position < len(l.input) {
+		l.ch = l.input[l.position]
+	} else {
+		l.ch = 0
+	}
+
+	return string(datetime)
 }
 
 // shouldTreatAsRegex determines if / should be regex or division

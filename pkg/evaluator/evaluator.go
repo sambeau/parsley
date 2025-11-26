@@ -389,20 +389,52 @@ func timeToDict(t time.Time, env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
 
 	// Mark this as a datetime dictionary for special operator handling
-	pairs["__type"] = &ast.StringLiteral{Value: "datetime"}
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "datetime"},
+		Value: "datetime",
+	}
 
-	// Create integer literals for numeric values
-	pairs["year"] = &ast.IntegerLiteral{Value: int64(t.Year())}
-	pairs["month"] = &ast.IntegerLiteral{Value: int64(t.Month())}
-	pairs["day"] = &ast.IntegerLiteral{Value: int64(t.Day())}
-	pairs["hour"] = &ast.IntegerLiteral{Value: int64(t.Hour())}
-	pairs["minute"] = &ast.IntegerLiteral{Value: int64(t.Minute())}
-	pairs["second"] = &ast.IntegerLiteral{Value: int64(t.Second())}
-	pairs["unix"] = &ast.IntegerLiteral{Value: t.Unix()}
+	// Create integer literals for numeric values with proper tokens
+	pairs["year"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Year())},
+		Value: int64(t.Year()),
+	}
+	pairs["month"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Month())},
+		Value: int64(t.Month()),
+	}
+	pairs["day"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Day())},
+		Value: int64(t.Day()),
+	}
+	pairs["hour"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Hour())},
+		Value: int64(t.Hour()),
+	}
+	pairs["minute"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Minute())},
+		Value: int64(t.Minute()),
+	}
+	pairs["second"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Second())},
+		Value: int64(t.Second()),
+	}
+	pairs["unix"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", t.Unix())},
+		Value: t.Unix(),
+	}
 
-	// Create string literals for string values
-	pairs["weekday"] = &ast.StringLiteral{Value: t.Weekday().String()}
-	pairs["iso"] = &ast.StringLiteral{Value: t.Format(time.RFC3339)}
+	// Create string literals for string values with proper tokens
+	weekday := t.Weekday().String()
+	pairs["weekday"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: weekday},
+		Value: weekday,
+	}
+	iso := t.Format(time.RFC3339)
+	pairs["iso"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: iso},
+		Value: iso,
+	}
 
 	return &Dictionary{Pairs: pairs, Env: env}
 }
@@ -567,6 +599,30 @@ func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
 	}
 
 	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// evalDatetimeLiteral evaluates a datetime literal like @2024-12-25T14:30:00Z
+func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
+	// Parse the ISO-8601 datetime string
+	var t time.Time
+	var err error
+
+	// Try parsing as RFC3339 first (most complete format with timezone)
+	t, err = time.Parse(time.RFC3339, node.Value)
+	if err != nil {
+		// Try date-only format (2024-12-25) - interpret as UTC
+		t, err = time.ParseInLocation("2006-01-02", node.Value, time.UTC)
+		if err != nil {
+			// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
+			t, err = time.ParseInLocation("2006-01-02T15:04:05", node.Value, time.UTC)
+			if err != nil {
+				return newError("invalid datetime literal: %s", node.Value)
+			}
+		}
+	}
+
+	// Convert to dictionary using the same function as the time() builtin
+	return timeToDict(t, env)
 }
 
 // isRegexDict checks if a dictionary is a regex by looking for __type field
@@ -1598,6 +1654,9 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.RegexLiteral:
 		return evalRegexLiteral(node, env)
+
+	case *ast.DatetimeLiteral:
+		return evalDatetimeLiteral(node, env)
 
 	case *ast.TagLiteral:
 		return evalTagLiteral(node, env)

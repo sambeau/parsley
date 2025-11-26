@@ -1045,6 +1045,41 @@ The `time()` function creates datetimes from multiple input types:
 {year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0, weekday: "Wednesday", unix: 1735081200, iso: "2024-12-25T00:00:00Z"}
 ```
 
+#### Datetime Literal Syntax
+
+For cleaner code, use the `@` prefix with ISO-8601 format to create datetime literals directly:
+
+```
+>> @2024-12-25
+{year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0, weekday: "Wednesday", unix: 1735084800, iso: "2024-12-25T00:00:00Z"}
+>> @2024-12-25T14:30:00
+{year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 0, weekday: "Wednesday", iso: "2024-12-25T14:30:00Z"}
+>> @2024-12-25T14:30:00Z
+{year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 0, weekday: "Wednesday", iso: "2024-12-25T14:30:00Z"}
+```
+
+With timezone offsets:
+```
+>> @2024-12-25T14:30:00-05:00  // EST timezone
+>> @2024-06-15T08:00:00+08:00  // Singapore timezone
+```
+
+Datetime literals work anywhere a datetime dictionary is expected:
+
+```
+>> let christmas = @2024-12-25;
+>> christmas.day
+25
+>> if @2024-12-25 < now() { "Past" } else { "Future" }
+>> [@2024-01-01, @2024-06-15, @2024-12-31]
+```
+
+Equivalent to `time()` function:
+```
+>> @2024-12-25 == time("2024-12-25")
+true
+```
+
 #### Datetime Arithmetic
 
 Apply time deltas using a second dictionary argument with `years`, `months`, `days`, `hours`, `minutes`, or `seconds` fields:
