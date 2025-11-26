@@ -12,23 +12,23 @@ import (
 func FormatHTML(input string) string {
 	// Trim whitespace for detection
 	trimmed := strings.TrimSpace(input)
-	
+
 	// Auto-detect: must start with < and contain >
 	if !strings.HasPrefix(trimmed, "<") || !strings.Contains(trimmed, ">") {
 		return input
 	}
-	
+
 	// Try to parse as HTML
 	doc, err := html.Parse(strings.NewReader(input))
 	if err != nil {
 		// Not valid HTML, return original
 		return input
 	}
-	
+
 	// Pretty-print the document
 	var buf bytes.Buffer
 	renderNode(&buf, doc, 0)
-	
+
 	result := buf.String()
 	// Remove leading/trailing newlines
 	return strings.TrimSpace(result)
@@ -40,28 +40,28 @@ func renderNode(buf *bytes.Buffer, n *html.Node, level int) {
 	if level > 0 {
 		indent = strings.Repeat("  ", level-1)
 	}
-	
+
 	switch n.Type {
 	case html.DocumentNode:
 		// Document node - just render children
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			renderNode(buf, c, level+1)
 		}
-		
+
 	case html.ElementNode:
 		// Determine if this is an inline element that should not add newlines
 		isInline := isInlineElement(n.Data)
 		isVoid := isVoidElement(n.Data)
-		
+
 		// Only add indent and newline for block elements at level > 0
 		if !isInline && level >= 0 {
 			buf.WriteString(indent)
 		}
-		
+
 		// Opening tag
 		buf.WriteString("<")
 		buf.WriteString(n.Data)
-		
+
 		// Attributes
 		for _, attr := range n.Attr {
 			buf.WriteString(" ")
@@ -70,7 +70,7 @@ func renderNode(buf *bytes.Buffer, n *html.Node, level int) {
 			buf.WriteString(html.EscapeString(attr.Val))
 			buf.WriteString("\"")
 		}
-		
+
 		// Self-closing tag
 		if isVoid {
 			buf.WriteString(" />")
@@ -79,12 +79,12 @@ func renderNode(buf *bytes.Buffer, n *html.Node, level int) {
 			}
 			return
 		}
-		
+
 		buf.WriteString(">")
-		
+
 		// Check if element has only text content
 		hasOnlyText := hasOnlyTextChildren(n)
-		
+
 		// For inline elements or elements with only text, keep content on same line
 		if isInline || hasOnlyText {
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -103,17 +103,17 @@ func renderNode(buf *bytes.Buffer, n *html.Node, level int) {
 				buf.WriteString(indent)
 			}
 		}
-		
+
 		// Closing tag
 		buf.WriteString("</")
 		buf.WriteString(n.Data)
 		buf.WriteString(">")
-		
+
 		// Add newline after block elements
 		if !isInline && level >= 0 {
 			buf.WriteString("\n")
 		}
-		
+
 	case html.TextNode:
 		// Text content - preserve it exactly
 		text := n.Data
@@ -121,7 +121,7 @@ func renderNode(buf *bytes.Buffer, n *html.Node, level int) {
 		if strings.TrimSpace(text) != "" {
 			buf.WriteString(text)
 		}
-		
+
 	case html.CommentNode:
 		// Comments
 		if level >= 0 {
@@ -141,7 +141,7 @@ func hasOnlyTextChildren(n *html.Node) bool {
 	if n.FirstChild == nil {
 		return false
 	}
-	
+
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type != html.TextNode {
 			return false

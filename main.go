@@ -19,28 +19,28 @@ func main() {
 	// Parse command line arguments
 	prettyPrint := false
 	filename := ""
-	
+
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
-		
+
 		// Check for version flag
 		if arg == "-V" || arg == "--version" {
 			fmt.Printf("pars version %s\n", Version)
 			os.Exit(0)
 		}
-		
+
 		// Check for pretty-print flag
 		if arg == "--pp" {
 			prettyPrint = true
 			continue
 		}
-		
+
 		// Assume it's a filename
 		if filename == "" {
 			filename = arg
 		}
 	}
-	
+
 	if filename != "" {
 		// File execution mode
 		executeFile(filename, prettyPrint)
@@ -92,12 +92,12 @@ func executeFile(filename string, prettyPrint bool) {
 	// Print result if not null and not an error
 	if evaluated != nil && evaluated.Type() != evaluator.ERROR_OBJ && evaluated.Type() != evaluator.NULL_OBJ {
 		output := evaluator.ObjectToPrintString(evaluated)
-		
+
 		// Apply HTML formatting if --pp flag is set
 		if prettyPrint {
 			output = formatter.FormatHTML(output)
 		}
-		
+
 		fmt.Println(output)
 	}
 }
