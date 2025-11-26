@@ -386,7 +386,7 @@ func objectsEqual(a, b Object) bool {
 // timeToDict converts a Go time.Time to a Parsley Dictionary
 func timeToDict(t time.Time, env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
-	
+
 	// Create integer literals for numeric values
 	pairs["year"] = &ast.IntegerLiteral{Value: int64(t.Year())}
 	pairs["month"] = &ast.IntegerLiteral{Value: int64(t.Month())}
@@ -395,11 +395,11 @@ func timeToDict(t time.Time, env *Environment) *Dictionary {
 	pairs["minute"] = &ast.IntegerLiteral{Value: int64(t.Minute())}
 	pairs["second"] = &ast.IntegerLiteral{Value: int64(t.Second())}
 	pairs["unix"] = &ast.IntegerLiteral{Value: t.Unix()}
-	
+
 	// Create string literals for string values
 	pairs["weekday"] = &ast.StringLiteral{Value: t.Weekday().String()}
 	pairs["iso"] = &ast.StringLiteral{Value: t.Format(time.RFC3339)}
-	
+
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
@@ -415,7 +415,7 @@ func dictToTime(dict *Dictionary, env *Environment) (time.Time, error) {
 	if !ok {
 		return time.Time{}, fmt.Errorf("'year' must be an integer")
 	}
-	
+
 	// Evaluate the month field
 	monthExpr, ok := dict.Pairs["month"]
 	if !ok {
@@ -426,7 +426,7 @@ func dictToTime(dict *Dictionary, env *Environment) (time.Time, error) {
 	if !ok {
 		return time.Time{}, fmt.Errorf("'month' must be an integer")
 	}
-	
+
 	// Evaluate the day field
 	dayExpr, ok := dict.Pairs["day"]
 	if !ok {
@@ -437,31 +437,31 @@ func dictToTime(dict *Dictionary, env *Environment) (time.Time, error) {
 	if !ok {
 		return time.Time{}, fmt.Errorf("'day' must be an integer")
 	}
-	
+
 	// Hour, minute, second are optional (default to 0)
 	var hour, minute, second int64
-	
+
 	if hExpr, ok := dict.Pairs["hour"]; ok {
 		hObj := Eval(hExpr, env)
 		if hInt, ok := hObj.(*Integer); ok {
 			hour = hInt.Value
 		}
 	}
-	
+
 	if mExpr, ok := dict.Pairs["minute"]; ok {
 		mObj := Eval(mExpr, env)
 		if mInt, ok := mObj.(*Integer); ok {
 			minute = mInt.Value
 		}
 	}
-	
+
 	if sExpr, ok := dict.Pairs["second"]; ok {
 		sObj := Eval(sExpr, env)
 		if sInt, ok := sObj.(*Integer); ok {
 			second = sInt.Value
 		}
 	}
-	
+
 	return time.Date(
 		int(yearInt.Value),
 		time.Month(monthInt.Value),
@@ -483,21 +483,21 @@ func applyDelta(t time.Time, delta *Dictionary, env *Environment) time.Time {
 			t = t.AddDate(int(yearsInt.Value), 0, 0)
 		}
 	}
-	
+
 	if monthsExpr, ok := delta.Pairs["months"]; ok {
 		monthsObj := Eval(monthsExpr, env)
 		if monthsInt, ok := monthsObj.(*Integer); ok {
 			t = t.AddDate(0, int(monthsInt.Value), 0)
 		}
 	}
-	
+
 	if daysExpr, ok := delta.Pairs["days"]; ok {
 		daysObj := Eval(daysExpr, env)
 		if daysInt, ok := daysObj.(*Integer); ok {
 			t = t.AddDate(0, 0, int(daysInt.Value))
 		}
 	}
-	
+
 	// Apply time-based deltas (hours, minutes, seconds)
 	if hoursExpr, ok := delta.Pairs["hours"]; ok {
 		hoursObj := Eval(hoursExpr, env)
@@ -505,21 +505,21 @@ func applyDelta(t time.Time, delta *Dictionary, env *Environment) time.Time {
 			t = t.Add(time.Duration(hoursInt.Value) * time.Hour)
 		}
 	}
-	
+
 	if minutesExpr, ok := delta.Pairs["minutes"]; ok {
 		minutesObj := Eval(minutesExpr, env)
 		if minutesInt, ok := minutesObj.(*Integer); ok {
 			t = t.Add(time.Duration(minutesInt.Value) * time.Minute)
 		}
 	}
-	
+
 	if secondsExpr, ok := delta.Pairs["seconds"]; ok {
 		secondsObj := Eval(secondsExpr, env)
 		if secondsInt, ok := secondsObj.(*Integer); ok {
 			t = t.Add(time.Duration(secondsInt.Value) * time.Second)
 		}
 	}
-	
+
 	return t
 }
 
@@ -718,11 +718,11 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) < 1 || len(args) > 2 {
 					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
 				}
-				
+
 				env := NewEnvironment()
 				var t time.Time
 				var err error
-				
+
 				switch arg := args[0].(type) {
 				case *String:
 					// Try parsing as ISO 8601 first, then fall back to date-only format
@@ -748,7 +748,7 @@ func getBuiltins() map[string]*Builtin {
 				default:
 					return newError("argument to `time` must be STRING, INTEGER, or DICTIONARY, got %s", args[0].Type())
 				}
-				
+
 				// Apply delta if provided
 				if len(args) == 2 {
 					delta, ok := args[1].(*Dictionary)
@@ -757,7 +757,7 @@ func getBuiltins() map[string]*Builtin {
 					}
 					t = applyDelta(t, delta, env)
 				}
-				
+
 				return timeToDict(t, env)
 			},
 		},

@@ -22,11 +22,11 @@ func testDatetimeCode(input string) (evaluator.Object, bool) {
 
 	env := evaluator.NewEnvironment()
 	result := evaluator.Eval(program, env)
-	
+
 	if _, ok := result.(*evaluator.Error); ok {
 		return result, true
 	}
-	
+
 	return result, false
 }
 
