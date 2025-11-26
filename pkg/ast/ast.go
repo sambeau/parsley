@@ -49,10 +49,10 @@ func (p *Program) String() string {
 
 // LetStatement represents let statements like 'let x = 5;' or 'let x,y,z = 1,2,3;'
 type LetStatement struct {
-	Token       lexer.Token                // the lexer.LET token
-	Name        *Identifier                // single name (for backwards compatibility)
-	Names       []*Identifier              // multiple names for array destructuring
-	DictPattern *DictDestructuringPattern  // pattern for dictionary destructuring
+	Token       lexer.Token               // the lexer.LET token
+	Name        *Identifier               // single name (for backwards compatibility)
+	Names       []*Identifier             // multiple names for array destructuring
+	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
 	Value       Expression
 }
 
@@ -86,10 +86,10 @@ func (ls *LetStatement) String() string {
 
 // AssignmentStatement represents assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;'
 type AssignmentStatement struct {
-	Token       lexer.Token                // the identifier token
-	Name        *Identifier                // single name (for backwards compatibility)
-	Names       []*Identifier              // multiple names for array destructuring
-	DictPattern *DictDestructuringPattern  // pattern for dictionary destructuring
+	Token       lexer.Token               // the identifier token
+	Name        *Identifier               // single name (for backwards compatibility)
+	Names       []*Identifier             // multiple names for array destructuring
+	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
 	Value       Expression
 }
 
@@ -574,9 +574,9 @@ func (ds *DeleteStatement) String() string {
 
 // DictDestructuringPattern represents a dictionary destructuring pattern like {a, b as c, ...rest}
 type DictDestructuringPattern struct {
-	Token lexer.Token            // the '{' token
+	Token lexer.Token             // the '{' token
 	Keys  []*DictDestructuringKey // the keys to extract
-	Rest  *Identifier            // optional rest identifier (for ...rest)
+	Rest  *Identifier             // optional rest identifier (for ...rest)
 }
 
 func (ddp *DictDestructuringPattern) expressionNode()      {}

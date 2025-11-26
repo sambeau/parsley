@@ -1208,7 +1208,7 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 				return nil
 			}
 			pattern.Rest = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-			
+
 			// Rest must be at the end
 			if !p.peekTokenIs(lexer.RBRACE) {
 				msg := fmt.Sprintf("rest element must be last in destructuring pattern at line %d, column %d",
@@ -1246,7 +1246,7 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 		if p.peekTokenIs(lexer.COLON) {
 			p.nextToken() // consume ':'
 			p.nextToken() // move to pattern start
-			
+
 			// Parse nested pattern
 			if p.curTokenIs(lexer.LBRACE) {
 				key.Nested = p.parseDictDestructuringPattern()
@@ -1271,12 +1271,12 @@ func (p *Parser) parseDictDestructuringPattern() *ast.DictDestructuringPattern {
 			break
 		}
 		p.nextToken() // consume comma
-		
+
 		// Check for trailing comma before }
 		if p.peekTokenIs(lexer.RBRACE) {
 			break
 		}
-		
+
 		// Move to next key or rest operator
 		p.nextToken()
 	}

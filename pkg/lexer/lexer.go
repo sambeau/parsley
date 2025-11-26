@@ -43,18 +43,18 @@ const (
 	OR       // | or or
 
 	// Delimiters
-	COMMA      // ,
-	SEMICOLON  // ;
-	COLON      // :
-	DOT        // .
-	DOTDOTDOT  // ... (spread/rest operator)
-	LPAREN     // (
-	RPAREN     // )
-	LBRACE     // {
-	RBRACE     // }
-	LBRACKET   // [
-	RBRACKET   // ]
-	PLUSPLUS   // ++
+	COMMA     // ,
+	SEMICOLON // ;
+	COLON     // :
+	DOT       // .
+	DOTDOTDOT // ... (spread/rest operator)
+	LPAREN    // (
+	RPAREN    // )
+	LBRACE    // {
+	RBRACE    // }
+	LBRACKET  // [
+	RBRACKET  // ]
+	PLUSPLUS  // ++
 
 	// Keywords
 	FUNCTION // "fn"
