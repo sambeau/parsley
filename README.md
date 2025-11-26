@@ -783,11 +783,16 @@ Quote: "Hello"
 Backslash: \
 ```
 
-Supported escape sequences:
+Supported escape sequences in strings:
 - `\n` - newline
 - `\t` - tab
 - `\\` - backslash
 - `\"` - double quote
+
+Template literals support additional escape sequences:
+- `\`` - backtick (literal backtick character)
+- `\{` - left brace (prevents interpolation)
+- `\}` - right brace (literal closing brace)
 
 #### Template Literals
 
