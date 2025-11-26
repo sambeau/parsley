@@ -1,3 +1,5 @@
+// A simple table test
+
 Table = fn({rows}){
 	<table>{
 	for(cols in rows){

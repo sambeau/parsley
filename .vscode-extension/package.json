@@ -1,0 +1,46 @@
+{
+  "name": "parsley-language",
+  "displayName": "Parsley Language Support",
+  "description": "Syntax highlighting and language support for the Parsley programming language",
+  "version": "0.1.0",
+  "publisher": "sambeau",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "parsley",
+    "concatenative",
+    "jsx",
+    "html"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "parsley",
+        "aliases": [
+          "Parsley",
+          "parsley"
+        ],
+        "extensions": [
+          ".pars"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "parsley",
+        "scopeName": "source.parsley",
+        "path": "./syntaxes/parsley.tmLanguage.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sambeau/parsley.git"
+  },
+  "license": "MIT"
+}
