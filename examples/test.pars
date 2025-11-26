@@ -17,11 +17,11 @@ Page = fn({title,contents}){
 			<meta charset="UTF-8" />
 			<title>{title}</title>
 			<link rel="stylesheet" href="css/main.css" />
-<style>
-{"
-*, *:before, *:after { box-sizing: border-box; }
-html,body { margin:0; padding:0; }
-"}</style>
+			<style>{"
+				*, *:before, *:after { box-sizing: border-box; }
+				html,body { margin:0; padding:0; }
+			"}
+			</style>
 		</head>
 		<body>
 			{contents}
