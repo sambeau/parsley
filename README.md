@@ -50,10 +50,14 @@ A concatenative programming language interpreter.
 ### Data Types
 - **Integers:** `42`, `-15`
 - **Floats:** `3.14159`, `2.718`
-- **Strings:** `"hello world"`
+- **Strings:** `"hello world"`, multi-line strings supported
 - **Booleans:** `true`, `false`
+- **Null:** `null` - represents absence of a value
 - **Arrays:** `1,2,3`, `[1,2,3]`, `[[1,2],[3,4]]`, mixed types allowed
 - **Dictionaries:** `{ name: "Sam", age: 57 }`, key-value pairs with lazy evaluation
+- **Functions:** `fn(x) { x * 2 }`, first-class functions with closures
+
+**Note:** Tags (`<div>`, `<Component />`) are syntactic constructs that evaluate to strings, not a separate data type.
 
 ### Built-in Functions
 
