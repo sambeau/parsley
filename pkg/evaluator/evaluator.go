@@ -601,6 +601,92 @@ func getDatetimeUnix(dict *Dictionary, env *Environment) (int64, error) {
 	return unixInt.Value, nil
 }
 
+// datetimeDictToString converts a datetime dictionary to a human-friendly ISO 8601 string
+func datetimeDictToString(dict *Dictionary) string {
+	// Check if we have time components to determine format
+	var hour, minute, second int64
+	hasTimeComponents := false
+
+	if hExpr, ok := dict.Pairs["hour"]; ok {
+		if hLit, ok := hExpr.(*ast.IntegerLiteral); ok {
+			hour = hLit.Value
+			hasTimeComponents = true
+		}
+	}
+	if minExpr, ok := dict.Pairs["minute"]; ok {
+		if minLit, ok := minExpr.(*ast.IntegerLiteral); ok {
+			minute = minLit.Value
+			hasTimeComponents = true
+		}
+	}
+	if sExpr, ok := dict.Pairs["second"]; ok {
+		if sLit, ok := sExpr.(*ast.IntegerLiteral); ok {
+			second = sLit.Value
+			hasTimeComponents = true
+		}
+	}
+
+	// If time is all zeros, return just the date part
+	if hasTimeComponents && hour == 0 && minute == 0 && second == 0 {
+		if isoExpr, ok := dict.Pairs["iso"]; ok {
+			if strLit, ok := isoExpr.(*ast.StringLiteral); ok {
+				isoStr := strLit.Value
+				// Strip off time portion if it's T00:00:00Z
+				if len(isoStr) >= 10 {
+					return isoStr[:10] // Just return YYYY-MM-DD
+				}
+			}
+		}
+	}
+
+	// Try to get the iso field (most reliable for full datetime)
+	if isoExpr, ok := dict.Pairs["iso"]; ok {
+		if strLit, ok := isoExpr.(*ast.StringLiteral); ok {
+			return strLit.Value
+		}
+		// If it's an identifier (evaluated), evaluate it
+		if ident, ok := isoExpr.(*ast.Identifier); ok {
+			if dict.Env != nil {
+				if obj, _ := dict.Env.Get(ident.Value); obj != nil {
+					if str, ok := obj.(*String); ok {
+						return str.Value
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback: construct from components if available
+	if yearExpr, ok := dict.Pairs["year"]; ok {
+		var year, month, day int64
+
+		if yLit, ok := yearExpr.(*ast.IntegerLiteral); ok {
+			year = yLit.Value
+		}
+		if mExpr, ok := dict.Pairs["month"]; ok {
+			if mLit, ok := mExpr.(*ast.IntegerLiteral); ok {
+				month = mLit.Value
+			}
+		}
+		if dExpr, ok := dict.Pairs["day"]; ok {
+			if dLit, ok := dExpr.(*ast.IntegerLiteral); ok {
+				day = dLit.Value
+			}
+		}
+
+		// Format as ISO 8601
+		if hour == 0 && minute == 0 && second == 0 {
+			// Date only
+			return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+		}
+		// Date and time
+		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02dZ", year, month, day, hour, minute, second)
+	}
+
+	// Last resort: return the dictionary inspection
+	return dict.Inspect()
+}
+
 // applyDelta applies time deltas to a time.Time
 func applyDelta(t time.Time, delta *Dictionary, env *Environment) time.Time {
 	// Apply date-based deltas first (years, months, days)
@@ -4840,6 +4926,21 @@ func objectToTemplateString(obj Object) string {
 			result.WriteString(objectToTemplateString(elem))
 		}
 		return result.String()
+	case *Dictionary:
+		// Check for special dictionary types
+		if isPathDict(obj) {
+			return pathDictToString(obj)
+		}
+		if isUrlDict(obj) {
+			return urlDictToString(obj)
+		}
+		if isTagDict(obj) {
+			return tagDictToString(obj)
+		}
+		if isDatetimeDict(obj) {
+			return datetimeDictToString(obj)
+		}
+		return obj.Inspect()
 	case *Null:
 		return ""
 	default:
@@ -4885,6 +4986,10 @@ func objectToPrintString(obj Object) string {
 		if isTagDict(obj) {
 			// Convert tag dictionary to HTML string
 			return tagDictToString(obj)
+		}
+		if isDatetimeDict(obj) {
+			// Convert datetime dictionary to ISO 8601 string
+			return datetimeDictToString(obj)
 		}
 		return obj.Inspect()
 	case *Null:
