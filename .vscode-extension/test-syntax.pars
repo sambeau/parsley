@@ -1,0 +1,127 @@
+// Parsley Syntax Highlighting Test
+// This file demonstrates all the syntax features
+
+// Keywords and Variables
+let x = 42
+let name = "Alice"
+let _ = "ignored"
+
+// Functions
+let greet = fn(name) {
+    if (name) {
+        "Hello, " + name
+    } else {
+        "Hello, stranger"
+    }
+}
+
+// Module imports
+let utils = import(@./lib/utils.pars)
+let {add, multiply} = import(@./math.pars)
+let {square as sq} = import(@./helpers.pars)
+
+// Regular expression literals
+let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
+let match = "user@example.com" ~ emailRegex
+let notMatch = "invalid" !~ emailRegex
+
+// Path literals
+let configPath = @./config/settings.json
+let binPath = @/usr/local/bin
+let homePath = @~/documents/file.txt
+
+// URL literals
+let apiUrl = @https://api.example.com/v1/users
+let localUrl = @http://localhost:8080/api
+let secureUrl = @https://user:pass@example.com:8080/path?q=test#section
+
+// String interpolation
+let greeting = "Hello, {name}!"
+let html = "<p>{greeting}</p>"
+
+// Template literals
+let template = `
+  Name: {name}
+  Age: {x}
+`
+
+// Arrays and destructuring
+let nums = [1, 2, 3, 4, 5]
+let first, second, rest = nums
+
+// Dictionaries
+let person = {
+    name: "Sam",
+    age: 57,
+    greet: fn() { "Hello, " + this.name }
+}
+
+let {name: userName, age: userAge} = person
+
+// Built-in functions
+log("Testing built-in functions")
+logLine("With line numbers")
+let upper = toUpper("hello")
+let sorted = sort([5, 2, 8, 1])
+let mapped = map(fn(x) { x * 2 }, nums)
+
+// Math functions
+let result = sqrt(16) + pow(2, 3)
+let angle = sin(pi() / 2)
+
+// Date/time functions
+let current = now()
+let timestamp = time("2024-11-26")
+
+// Path and URL functions
+let p = path("/usr/local/bin/tool.exe")
+let u = url("https://example.com/api?limit=10")
+
+// Regex functions
+let pattern = regex("\\d+", "g")
+let replaced = replace("abc123def456", /\d+/g, "X")
+let parts = split("a,b,c", ",")
+
+// Dictionary functions
+let allKeys = keys(person)
+let allValues = values(person)
+let hasName = has(person, "name")
+
+// Control flow
+for (num in nums) {
+    if (num % 2 == 0) {
+        log("Even:", num)
+    } else {
+        log("Odd:", num)
+    }
+}
+
+// HTML/XML tags
+let page = <html>
+    <head>
+        <title>My Page</title>
+        <meta charset="utf-8" />
+    </head>
+    <body>
+        <h1>Welcome</h1>
+        <p>Hello, {name}!</p>
+        <img src="photo.jpg" width="{300}" />
+    </body>
+</html>
+
+// Operators
+let sum = 1 + 2
+let diff = 10 - 5
+let product = 3 * 4
+let quotient = 20 / 4
+let remainder = 17 % 5
+let concat = [1, 2] ++ [3, 4]
+let comparison = x == 42 && name != ""
+let logical = true || false && !false
+
+// Constants
+let isTrue = true
+let isFalse = false
+let nothing = null
+
+return "Syntax test complete"

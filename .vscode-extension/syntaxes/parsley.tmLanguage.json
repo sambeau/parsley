@@ -9,6 +9,15 @@
       "include": "#keywords"
     },
     {
+      "include": "#regex-literals"
+    },
+    {
+      "include": "#path-literals"
+    },
+    {
+      "include": "#url-literals"
+    },
+    {
       "include": "#strings"
     },
     {
@@ -75,7 +84,27 @@
           "patterns": [
             {
               "name": "constant.character.escape.parsley",
-              "match": "\\\\([ntr\\\\\"'])"
+              "match": "\\\\([ntr\\\\\"'{}])"
+            },
+            {
+              "name": "meta.embedded.line.parsley",
+              "begin": "(?<!\\\\)\\{",
+              "end": "\\}",
+              "patterns": [
+                {
+                  "include": "$self"
+                }
+              ],
+              "beginCaptures": {
+                "0": {
+                  "name": "punctuation.definition.template-expression.begin.parsley"
+                }
+              },
+              "endCaptures": {
+                "0": {
+                  "name": "punctuation.definition.template-expression.end.parsley"
+                }
+              }
             }
           ]
         }
@@ -128,11 +157,62 @@
         }
       ]
     },
+    "regex-literals": {
+      "patterns": [
+        {
+          "name": "string.regexp.parsley",
+          "begin": "/(?![*/])",
+          "end": "/[gimsuvy]*",
+          "patterns": [
+            {
+              "name": "constant.character.escape.parsley",
+              "match": "\\\\."
+            }
+          ],
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.parsley"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.parsley"
+            }
+          }
+        }
+      ]
+    },
+    "path-literals": {
+      "patterns": [
+        {
+          "name": "string.unquoted.path.parsley",
+          "match": "@(\\./|\\.\\./)([^\\s<>\"{}|\\\\^`\\[\\]]*)|@(/|~/)([^\\s<>\"{}|\\\\^`\\[\\]]*)",
+          "captures": {
+            "0": {
+              "name": "constant.other.path.parsley"
+            }
+          }
+        }
+      ]
+    },
+    "url-literals": {
+      "patterns": [
+        {
+          "name": "string.unquoted.url.parsley",
+          "match": "@(https?|ftp|file)://[^\\s<>\"{}|\\\\^`\\[\\]]+",
+          "captures": {
+            "0": {
+              "name": "constant.other.url.parsley"
+            }
+          }
+        }
+      ]
+    },
     "functions": {
       "patterns": [
         {
           "name": "support.function.builtin.parsley",
-          "match": "\\b(len|first|last|rest|push|pop|join|joinWith|split|map|filter|reduce|sort|sortBy|reverse|toString|toDebug|toNumber|toInt|toFloat|toUpper|toLower|log|logLine|print|has|keys|values|toArray|toDict|delete|sin|cos|tan|asin|acos|atan|sqrt|round|pow|pi)\\b"
+          "match": "\\b(import|len|map|sort|sortBy|reverse|toString|toDebug|toNumber|toInt|toFloat|toUpper|toLower|log|logLine|has|keys|values|toArray|toDict|delete|sin|cos|tan|asin|acos|atan|sqrt|round|pow|pi|now|time|path|url|regex|replace|split)\\b"
         },
         {
           "name": "entity.name.function.parsley",
@@ -196,6 +276,10 @@
     },
     "operators": {
       "patterns": [
+        {
+          "name": "keyword.operator.regex.parsley",
+          "match": "(~|!~)"
+        },
         {
           "name": "keyword.operator.comparison.parsley",
           "match": "(==|!=|<=|>=|<(?![a-zA-Z])|>(?![>/]))"

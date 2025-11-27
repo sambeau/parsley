@@ -7,14 +7,17 @@ Syntax highlighting and language support for the Parsley programming language.
 - **Syntax Highlighting** for:
   - Keywords (`if`, `else`, `return`, `for`, `in`, `let`, `fn`, `as`)
   - Comments (`//`)
-  - Strings (double-quoted) with escape sequences
-  - Template literals (backticks) with interpolation `{expr}`
+  - Strings (double-quoted) with escape sequences and template interpolation `{expr}`
+  - Template literals (backticks) with interpolation
+  - Regular expression literals (`/pattern/flags`)
+  - Path literals (`@/usr/local/bin`, `@./file.pars`)
+  - URL literals (`@https://example.com/api`)
   - Numbers (integers and floats)
   - Boolean constants (`true`, `false`, `null`)
   - Special `_` variable (write-only)
-  - Built-in functions (`len`, `map`, `filter`, `sort`, `toString`, `log`, etc.)
+  - Built-in functions (`import`, `map`, `sort`, `toString`, `log`, `regex`, `path`, `url`, etc.)
   - HTML/XML tags (singleton and paired)
-  - Operators (arithmetic, comparison, logical, assignment)
+  - Operators (arithmetic, comparison, logical, assignment, regex match `~` and `!~`)
   - Destructuring syntax
 
 - **Language Features**:
@@ -31,12 +34,12 @@ Syntax highlighting and language support for the Parsley programming language.
 
    **macOS/Linux:**
    ```bash
-   cp -r .vscode-extension ~/.vscode/extensions/parsley-language-0.1.0
+   cp -r .vscode-extension ~/.vscode/extensions/parsley-language-0.9.0
    ```
 
    **Windows:**
    ```powershell
-   Copy-Item -Recurse .vscode-extension "$env:USERPROFILE\\.vscode\\extensions\\parsley-language-0.1.0"
+   Copy-Item -Recurse .vscode-extension "$env:USERPROFILE\\.vscode\\extensions\\parsley-language-0.9.0"
    ```
 
 2. Reload VS Code (`Cmd/Ctrl + Shift + P` → "Developer: Reload Window")
@@ -117,6 +120,33 @@ _ = "ignored value"  // Write-only variable
 ```parsley
 square = fn(x) { x * x }
 add = fn(a, b) { a + b }
+```
+
+### Modules
+```parsley
+// Import entire module
+let utils = import(@./lib/utils.pars)
+
+// Destructure imports
+let {add, multiply} = import(@./math.pars)
+
+// Aliasing
+let {square as sq} = import(@./math.pars)
+```
+
+### Literals
+```parsley
+// Regular expressions
+let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
+let match = "user@example.com" ~ emailRegex
+
+// Paths
+let configPath = @./config/settings.json
+let binPath = @/usr/local/bin
+
+// URLs
+let apiUrl = @https://api.example.com/v1/users
+let localUrl = @http://localhost:8080/api
 ```
 
 ### Destructuring

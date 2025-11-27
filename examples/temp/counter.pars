@@ -1,0 +1,5 @@
+let count = 0
+let increment = fn() {
+    count = count + 1
+    count
+}
