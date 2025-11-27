@@ -24,3 +24,4 @@
 - css support
 - Sort out what is and isn't a 'let'
 - Add 'const'?
+- $Decimal type for money?
