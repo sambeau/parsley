@@ -30,6 +30,7 @@ const (
 var precedences = map[lexer.TokenType]int{
 	lexer.COMMA:     COMMA_PREC,
 	lexer.OR:        LOGIC_OR,
+	lexer.NULLISH:   LOGIC_OR,
 	lexer.AND:       LOGIC_AND,
 	lexer.EQ:        EQUALS,
 	lexer.NOT_EQ:    EQUALS,
@@ -116,6 +117,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.GTE, p.parseInfixExpression)
 	p.registerInfix(lexer.AND, p.parseInfixExpression)
 	p.registerInfix(lexer.OR, p.parseInfixExpression)
+	p.registerInfix(lexer.NULLISH, p.parseInfixExpression)
 	p.registerInfix(lexer.MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)

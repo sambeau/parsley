@@ -46,6 +46,7 @@ const (
 	NOT_EQ    // !=
 	AND       // & or and
 	OR        // | or or
+	NULLISH   // ??
 	MATCH     // ~
 	NOT_MATCH // !~
 
@@ -152,6 +153,8 @@ func (tt TokenType) String() string {
 		return "AND"
 	case OR:
 		return "OR"
+	case NULLISH:
+		return "NULLISH"
 	case MATCH:
 		return "MATCH"
 	case NOT_MATCH:
@@ -469,6 +472,14 @@ func (l *Lexer) NextToken() Token {
 		tok = newToken(AND, l.ch, l.line, l.column)
 	case '|':
 		tok = newToken(OR, l.ch, l.line, l.column)
+	case '?':
+		if l.peekChar() == '?' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: NULLISH, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(ILLEGAL, l.ch, l.line, l.column)
+		}
 	case ';':
 		tok = newToken(SEMICOLON, l.ch, l.line, l.column)
 	case ',':

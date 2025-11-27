@@ -3436,6 +3436,21 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalPrefixExpression(node.Operator, right)
 
 	case *ast.InfixExpression:
+		// Special handling for nullish coalescing operator (??)
+		// It's short-circuit: only evaluate right if left is NULL
+		if node.Operator == "??" {
+			left := Eval(node.Left, env)
+			if isError(left) {
+				return left
+			}
+			// If left is not NULL, return it (short-circuit)
+			if left != NULL {
+				return left
+			}
+			// Left is NULL, evaluate and return right
+			return Eval(node.Right, env)
+		}
+
 		left := Eval(node.Left, env)
 		if isError(left) {
 			return left
@@ -4338,6 +4353,11 @@ func isTruthy(obj Object) bool {
 func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 	// Special handling for '_' - always returns null
 	if node.Value == "_" {
+		return NULL
+	}
+
+	// Special handling for 'null' - returns null
+	if node.Value == "null" {
 		return NULL
 	}
 
