@@ -1375,21 +1375,25 @@ func urlDictToString(dict *Dictionary) string {
 	// Path
 	if pathExpr, ok := dict.Pairs["path"]; ok {
 		pathObj := Eval(pathExpr, dict.Env)
-		if arr, ok := pathObj.(*Array); ok {
-			hasLeadingSlash := false
-			for i, elem := range arr.Elements {
-				if str, ok := elem.(*String); ok {
-					if i == 0 && str.Value == "" {
-						// Leading empty string means absolute path
+		if arr, ok := pathObj.(*Array); ok && len(arr.Elements) > 0 {
+			// Check if first element is empty string (indicates leading slash)
+			startIdx := 0
+			if str, ok := arr.Elements[0].(*String); ok && str.Value == "" {
+				// Leading empty string means path starts with /
+				result.WriteString("/")
+				startIdx = 1
+			} else if len(arr.Elements) > 0 {
+				// No leading empty, but we have segments, so add /
+				result.WriteString("/")
+			}
+			
+			// Add remaining path segments
+			for i := startIdx; i < len(arr.Elements); i++ {
+				if str, ok := arr.Elements[i].(*String); ok && str.Value != "" {
+					if i > startIdx {
 						result.WriteString("/")
-						hasLeadingSlash = true
-					} else if str.Value != "" {
-						// Add slash before element (but not if we just added leading slash)
-						if i > 0 && !(i == 1 && hasLeadingSlash) {
-							result.WriteString("/")
-						}
-						result.WriteString(str.Value)
 					}
+					result.WriteString(str.Value)
 				}
 			}
 		}
@@ -2637,6 +2641,19 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		return nativeBoolToParsBoolean(isTruthy(left) || isTruthy(right))
 	case operator == "++":
 		return evalConcatExpression(left, right)
+	// Path and URL operators with strings (must come before general string concatenation)
+	case left.Type() == DICTIONARY_OBJ && right.Type() == STRING_OBJ:
+		if dict := left.(*Dictionary); isPathDict(dict) {
+			return evalPathStringInfixExpression(tok, operator, dict, right.(*String))
+		}
+		if dict := left.(*Dictionary); isUrlDict(dict) {
+			return evalUrlStringInfixExpression(tok, operator, dict, right.(*String))
+		}
+		// Fall through to string concatenation if not path/url
+		if operator == "+" {
+			return evalStringConcatExpression(left, right)
+		}
+		return newErrorWithPos(tok, "unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	case operator == "+" && (left.Type() == STRING_OBJ || right.Type() == STRING_OBJ):
 		// String concatenation with automatic type conversion
 		return evalStringConcatExpression(left, right)
@@ -2674,6 +2691,14 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if isDurationDict(leftDict) && isDatetimeDict(rightDict) {
 			// duration + datetime not allowed, only datetime + duration
 			return newErrorWithPos(tok, "cannot add datetime to duration (use datetime + duration instead)")
+		}
+		// Path dictionary operations
+		if isPathDict(leftDict) && isPathDict(rightDict) {
+			return evalPathInfixExpression(tok, operator, leftDict, rightDict)
+		}
+		// URL dictionary operations
+		if isUrlDict(leftDict) && isUrlDict(rightDict) {
+			return evalUrlInfixExpression(tok, operator, leftDict, rightDict)
 		}
 		// Fall through to default comparison for non-datetime dicts
 		if operator == "==" {
@@ -3034,6 +3059,156 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 		return timeToDict(t, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for datetime and duration: %s", operator)
+	}
+}
+
+// evalPathInfixExpression handles operations between two path dictionaries
+func evalPathInfixExpression(tok lexer.Token, operator string, left, right *Dictionary) Object {
+	switch operator {
+	case "==":
+		// Compare paths by their string representation
+		leftStr := pathDictToString(left)
+		rightStr := pathDictToString(right)
+		return nativeBoolToParsBoolean(leftStr == rightStr)
+	case "!=":
+		leftStr := pathDictToString(left)
+		rightStr := pathDictToString(right)
+		return nativeBoolToParsBoolean(leftStr != rightStr)
+	default:
+		return newErrorWithPos(tok, "unknown operator for path: %s (supported: ==, !=)", operator)
+	}
+}
+
+// evalPathStringInfixExpression handles path + string or path / string
+func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dictionary, str *String) Object {
+	env := path.Env
+	if env == nil {
+		env = NewEnvironment()
+	}
+
+	switch operator {
+	case "+", "/":
+		// Join path with string segment
+		// Get current components
+		componentsExpr, ok := path.Pairs["components"]
+		if !ok {
+			return newErrorWithPos(tok, "path dictionary missing components field")
+		}
+		componentsObj := Eval(componentsExpr, env)
+		if componentsObj.Type() != ARRAY_OBJ {
+			return newErrorWithPos(tok, "path components is not an array")
+		}
+		componentsArr := componentsObj.(*Array)
+		
+		// Get absolute flag
+		absoluteExpr, ok := path.Pairs["absolute"]
+		if !ok {
+			return newErrorWithPos(tok, "path dictionary missing absolute field")
+		}
+		absoluteObj := Eval(absoluteExpr, env)
+		if absoluteObj.Type() != BOOLEAN_OBJ {
+			return newErrorWithPos(tok, "path absolute is not a boolean")
+		}
+		isAbsolute := absoluteObj.(*Boolean).Value
+		
+		// Parse the string to add as new path segments
+		newSegments, _ := parsePathString(str.Value)
+		
+		// Combine components
+		var newComponents []string
+		for _, elem := range componentsArr.Elements {
+			if strObj, ok := elem.(*String); ok {
+				newComponents = append(newComponents, strObj.Value)
+			}
+		}
+		
+		// Append new segments (skip empty leading segment if present)
+		for _, seg := range newSegments {
+			if seg != "" || len(newComponents) == 0 {
+				newComponents = append(newComponents, seg)
+			}
+		}
+		
+		return pathToDict(newComponents, isAbsolute, env)
+	default:
+		return newErrorWithPos(tok, "unknown operator for path and string: %s (supported: +, /)", operator)
+	}
+}
+
+// evalUrlInfixExpression handles operations between two URL dictionaries
+func evalUrlInfixExpression(tok lexer.Token, operator string, left, right *Dictionary) Object {
+	switch operator {
+	case "==":
+		// Compare URLs by their string representation
+		leftStr := urlDictToString(left)
+		rightStr := urlDictToString(right)
+		return nativeBoolToParsBoolean(leftStr == rightStr)
+	case "!=":
+		leftStr := urlDictToString(left)
+		rightStr := urlDictToString(right)
+		return nativeBoolToParsBoolean(leftStr != rightStr)
+	default:
+		return newErrorWithPos(tok, "unknown operator for url: %s (supported: ==, !=)", operator)
+	}
+}
+
+// evalUrlStringInfixExpression handles url + string for path joining
+func evalUrlStringInfixExpression(tok lexer.Token, operator string, urlDict *Dictionary, str *String) Object {
+	env := urlDict.Env
+	if env == nil {
+		env = NewEnvironment()
+	}
+
+	switch operator {
+	case "+":
+		// Add string to URL path
+		// Get current path array
+		pathExpr, ok := urlDict.Pairs["path"]
+		if !ok {
+			return newErrorWithPos(tok, "url dictionary missing path field")
+		}
+		pathObj := Eval(pathExpr, env)
+		if pathObj.Type() != ARRAY_OBJ {
+			return newErrorWithPos(tok, "url path is not an array")
+		}
+		pathArr := pathObj.(*Array)
+		
+		// Parse the string as a path to add
+		newSegments, _ := parsePathString(str.Value)
+		
+		// Combine path segments
+		var newPath []string
+		for _, elem := range pathArr.Elements {
+			if strObj, ok := elem.(*String); ok {
+				newPath = append(newPath, strObj.Value)
+			}
+		}
+		
+		// Append new segments (skip empty leading segment)
+		for _, seg := range newSegments {
+			if seg != "" {
+				newPath = append(newPath, seg)
+			}
+		}
+		
+		// Create new URL dict with updated path
+		pairs := make(map[string]ast.Expression)
+		for k, v := range urlDict.Pairs {
+			if k == "path" {
+				// Create new path array
+				pathElements := make([]ast.Expression, len(newPath))
+				for i, seg := range newPath {
+					pathElements[i] = &ast.StringLiteral{Value: seg}
+				}
+				pairs[k] = &ast.ArrayLiteral{Elements: pathElements}
+			} else {
+				pairs[k] = v
+			}
+		}
+		
+		return &Dictionary{Pairs: pairs, Env: env}
+	default:
+		return newErrorWithPos(tok, "unknown operator for url and string: %s (supported: +)", operator)
 	}
 }
 

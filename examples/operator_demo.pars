@@ -1,0 +1,102 @@
+// Test path and URL operators
+
+// ========================================
+// PATH OPERATORS
+// ========================================
+
+logLine("=== Path Joining with + ===")
+let base = @/usr/local
+let extended = base + "bin"
+logLine("Base path:", toString(base))
+logLine("Extended path:", toString(extended))
+logLine("Extended basename:", extended.basename)
+logLine()
+
+logLine("=== Path Joining with / ===")
+let root = @/var
+let logs = root / "log"
+let syslog = logs / "system.log"
+logLine("Root:", toString(root))
+logLine("Logs:", toString(logs))
+logLine("Syslog:", toString(syslog))
+logLine()
+
+logLine("=== Path Comparison ===")
+let p1 = @/usr/local/bin
+let p2 = @/usr/local/bin
+let p3 = @/usr/bin
+logLine("p1:", toString(p1))
+logLine("p2:", toString(p2))
+logLine("p3:", toString(p3))
+logLine("p1 == p2:", p1 == p2)
+logLine("p1 == p3:", p1 == p3)
+logLine("p1 != p3:", p1 != p3)
+logLine()
+
+logLine("=== Path Joining Chains ===")
+let home = @~/Documents
+let project = home + "myproject"
+let src = project / "src"
+let main = src + "main.go"
+logLine("Home:", toString(home))
+logLine("Project:", toString(project))
+logLine("Source:", toString(src))
+logLine("Main file:", toString(main))
+logLine("Main extension:", main.extension)
+logLine()
+
+logLine("=== Relative Path Building ===")
+let config = @./config
+let appConfig = config + "app.json"
+logLine("Config dir:", toString(config))
+logLine("App config:", toString(appConfig))
+logLine("Stem:", appConfig.stem)
+logLine()
+
+// ========================================
+// URL OPERATORS
+// ========================================
+
+logLine("=== URL Comparison ===")
+let u1 = @https://example.com/api
+let u2 = @https://example.com/api
+let u3 = @https://example.com/docs
+logLine("u1:", toString(u1))
+logLine("u2:", toString(u2))
+logLine("u3:", toString(u3))
+logLine("u1 == u2:", u1 == u2)
+logLine("u1 == u3:", u1 == u3)
+logLine("u1 != u3:", u1 != u3)
+logLine()
+
+logLine("=== URL Path Extension ===")
+let api = @https://api.example.com
+let users = api + "users"
+let userDetail = users + "123"
+logLine("API base:", toString(api))
+logLine("Users endpoint:", toString(users))
+logLine("User detail:", toString(userDetail))
+logLine("Pathname:", userDetail.pathname)
+logLine()
+
+logLine("=== Building API URLs ===")
+let base_api = @https://api.github.com
+let repos = base_api + "repos"
+let owner = repos + "sambeau"
+let project_url = owner + "parsley"
+logLine("Base API:", toString(base_api))
+logLine("Repos:", toString(repos))
+logLine("Owner:", toString(owner))
+logLine("Project:", toString(project_url))
+logLine("Project host:", project_url.host)
+logLine("Project pathname:", project_url.pathname)
+logLine()
+
+logLine("=== Mixed Operations ===")
+// Combine literal creation with operators
+let docs_path = (@/usr/share/doc + "parsley") + "README.md"
+let api_url = (@https://example.com/api + "v1") + "users"
+logLine("Docs path:", toString(docs_path))
+logLine("Docs basename:", docs_path.basename)
+logLine("API URL:", toString(api_url))
+logLine("API pathname:", api_url.pathname)

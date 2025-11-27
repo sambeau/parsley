@@ -186,12 +186,152 @@ Demo script: `examples/literal_syntax_test.pars`
 
 All tests passing ✅
 
+## Phase 3: Operator Overloading ✅
+
+### Path Operators
+
+#### Joining with `+`
+
+```parsley
+let base = @/usr/local
+let bin = base + "bin"              // "/usr/local/bin"
+let tool = bin + "my-tool"          // "/usr/local/bin/my-tool"
+```
+
+#### Joining with `/` (Unix-style)
+
+```parsley
+let root = @/var
+let logs = root / "log"             // "/var/log"
+let syslog = logs / "system.log"    // "/var/log/system.log"
+```
+
+The `/` operator is equivalent to `+` but provides familiar Unix-style path syntax.
+
+#### Chaining Operations
+
+```parsley
+let project = @~/Documents + "myproject"
+let src = project / "src"
+let main = src + "main.go"          // "~/Documents/myproject/src/main.go"
+```
+
+#### Comparison Operators
+
+```parsley
+let p1 = @/usr/local/bin
+let p2 = @/usr/local/bin
+let p3 = @/usr/bin
+
+p1 == p2        // true (same path)
+p1 != p3        // true (different paths)
+p1 == p3        // false
+```
+
+Paths are compared by their string representation.
+
+### URL Operators
+
+#### Path Extension with `+`
+
+```parsley
+let api = @https://api.example.com
+let users = api + "users"                // "https://api.example.com/users"
+let user = users + "123"                 // "https://api.example.com/users/123"
+```
+
+#### Building API URLs
+
+```parsley
+let github = @https://api.github.com
+let repos = github + "repos"
+let project = repos + "sambeau" + "parsley"
+// Result: "https://api.github.com/repos/sambeau/parsley"
+```
+
+#### Comparison Operators
+
+```parsley
+let u1 = @https://example.com/api
+let u2 = @https://example.com/api
+let u3 = @https://example.com/docs
+
+u1 == u2        // true (same URL)
+u1 != u3        // true (different URLs)
+```
+
+URLs are compared by their string representation.
+
+### Operator Precedence
+
+Path and URL operators take precedence over string concatenation:
+
+```parsley
+// This joins path segments (path operator)
+let p = @/usr + "local"         // "/usr/local"
+
+// Not string concatenation:
+// (which would give "{__type: path...}local")
+```
+
+### Working with Properties
+
+Operators work seamlessly with computed properties:
+
+```parsley
+let config = @./config + "app.json"
+config.basename     // "app.json"
+config.extension    // "json"
+
+let api = @https://example.com + "v1" + "users"
+api.pathname        // "v1/users"
+api.origin          // "https://example.com"
+```
+
+### Implementation Notes
+
+**Evaluator (pkg/evaluator/evaluator.go):**
+- `evalPathInfixExpression()` - Handles path == path, path != path
+- `evalPathStringInfixExpression()` - Handles path + string, path / string
+- `evalUrlInfixExpression()` - Handles url == url, url != url
+- `evalUrlStringInfixExpression()` - Handles url + string
+- Operator precedence: dict+string cases come **before** general string concatenation
+- Fixed `urlDictToString()` to prevent double slashes in URL paths
+
+**Supported Operators:**
+
+| Type | Operators | Description |
+|------|-----------|-------------|
+| Path + String | `+`, `/` | Append path segments |
+| Path == Path | `==`, `!=` | Compare paths by string |
+| URL + String | `+` | Extend URL path |
+| URL == URL | `==`, `!=` | Compare URLs by string |
+
+### Examples
+
+See `examples/operator_demo.pars` for comprehensive examples.
+
+### Testing
+
+Comprehensive tests in `operator_test.go`:
+- `TestPathPlusOperator` - Path joining with +
+- `TestPathSlashOperator` - Path joining with /
+- `TestPathComparisonOperators` - Path == and !=
+- `TestPathOperatorWithProperties` - Operators + computed properties
+- `TestUrlPlusOperator` - URL path extension
+- `TestUrlComparisonOperators` - URL == and !=
+- `TestUrlOperatorWithProperties` - URL operators + properties
+- `TestMixedOperations` - Complex operator combinations
+- `TestOperatorPrecedence` - Chaining and precedence
+
+All tests passing ✅
+
 ## Future Enhancements
 
 Potential additions:
-1. Path joining: `p.join("subdir", "file.txt")`
-2. URL query manipulation: `u.addQuery("key", "value")`
-3. Path normalization: `p.normalize()`
-4. Relative path resolution: `p.resolve(base)`
-5. File extension change: `p.withExtension("md")`
-6. URL fragment handling improvements
+1. Path normalization: `p.normalize()` for `..` and `.` handling
+2. URL query manipulation: `u + {query: {key: "value"}}`
+3. Relative path resolution: `p.resolve(base)`
+4. File extension change: `p.withExtension("md")`
+5. Custom comparison operators: `<`, `>` for path depth
+6. Path joining with arrays: `p + ["dir1", "dir2"]`
