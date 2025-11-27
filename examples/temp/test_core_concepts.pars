@@ -1,0 +1,16 @@
+// Test: Core Concepts
+let x = if (true) 42 else 0
+log("if expression:", x)
+
+let add = fn(a, b) { a + b }
+let operations = [add, fn(a, b) { a - b }]
+log("operations:", operations)
+
+let {name, age} = {name: "Sam", age: 57}
+log("destructured:", name, age)
+
+let first, rest = [1, 2, 3, 4]
+log("array destructure:", first, rest)
+
+let greeting = "Hello, {name}!"
+log("template:", greeting)

@@ -1,0 +1,21 @@
+// Test: Strings
+let name = "Parsley"
+let greeting = "Hello, ${name}!"
+log(greeting)
+
+let multiline = `
+    This is a
+    multi-line string
+`
+log(multiline)
+
+let combined = "Hello" + " " + "World"
+log(combined)
+
+let text = "Hello World"
+log("length:", len(text))
+log("toUpper:", toUpper(text))
+log("toLower:", toLower(text))
+log("slice:", text[0:5])
+log("split:", split(text, " "))
+log("replace:", replace(text, "World", "Parsley"))

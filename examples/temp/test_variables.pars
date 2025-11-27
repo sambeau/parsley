@@ -1,0 +1,17 @@
+// Test: Variables
+let x = 42
+let name = "Alice"
+
+count = 0
+
+let a, b, c = 1, 2, 3
+log("a, b, c:", a, b, c)
+
+let {x, y} = {x: 10, y: 20}
+log("point:", x, y)
+
+let {x, y} = {x: 100, y: 200}
+log("x, y:", x, y)
+
+let _, value = [99, 100]
+log("value only:", value)

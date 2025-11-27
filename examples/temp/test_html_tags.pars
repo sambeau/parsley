@@ -1,0 +1,47 @@
+// Test: HTML/XML Tags
+
+// Basic tag
+let greeting = <div>"Hello, World!"</div>
+log(greeting)
+
+// Tag with attributes
+let link = <a href="https://example.com" class="button">"Click me"</a>
+log(link)
+
+// Nested tags
+let card = <div class="card">
+    <h2>"Title"</h2>
+    <p>"This is a paragraph."</p>
+</div>
+log(card)
+
+// Dynamic content
+let name = "Alice"
+let user_greeting = <div>"Hello, ${name}!"</div>
+log(user_greeting)
+
+// Arrays in tags
+let items = ["apple", "banana", "orange"]
+let list = <ul>{
+    for (item in items) {
+        <li>{item}</li>
+    }
+}</ul>
+log(list)
+
+// Conditionals in tags
+let show_warning = true
+let message = <div>{
+    if (show_warning) {
+        <p class="warning">"Warning!"</p>
+    } else {
+        <p>"All good"</p>
+    }
+}</div>
+log(message)
+
+// Self-closing tags
+let line_break = <br/>
+let image = <img src="photo.jpg" alt="A photo"/>
+log(line_break)
+log(image)

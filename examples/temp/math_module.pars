@@ -1,0 +1,8 @@
+// Module helper for testing
+let PI = 3.14159
+
+let square = fn(x) { x * x }
+
+let circle_area = fn(r) {
+    PI * square(r)
+}

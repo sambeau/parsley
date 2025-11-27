@@ -1,0 +1,23 @@
+// Test: Functions
+let square = fn(x) { x * x }
+log("square(5):", square(5))
+
+let add = fn(a, b) { a + b }
+log("add(2, 3):", add(2, 3))
+
+let double = fn(x) { x * 2 }
+log("double(21):", double(21))
+
+let makeCounter = fn() {
+    count = 0
+    fn() { count = count + 1; count }
+}
+let counter = makeCounter()
+log("counter():", counter())
+log("counter():", counter())
+
+let getX = fn({x, y}) { x }
+log("getX({x:10, y:20}):", getX({x: 10, y: 20}))
+
+let sum = fn(arr) { arr[0] + arr[1] }
+log("sum([5, 7]):", sum([5, 7]))

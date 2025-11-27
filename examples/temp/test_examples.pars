@@ -1,0 +1,86 @@
+// Test: Examples from README
+
+log("=== Web Page Generator Example ===")
+let page = fn(title, content) {
+    <html>
+        <head><title>{title}</title></head>
+        <body>{content}</body>
+    </html>
+}
+
+let homepage = page("My Site", <div>
+    <h1>"Welcome"</h1>
+    <p>"This is my website"</p>
+</div>)
+
+log(homepage)
+
+log("\n=== Data Processing Example ===")
+let users = [
+    {name: "Alice", age: 30, active: true},
+    {name: "Bob", age: 25, active: false},
+    {name: "Carol", age: 35, active: true}
+]
+
+// Filter pattern with for loop
+let active_users = for (u in users) {
+    if (u.active) { u }
+}
+log("Active users:", active_users)
+
+// Map pattern
+let names = for (u in active_users) { u.name }
+log("Names:", names)
+
+// Reduce pattern
+let total_age = 0
+for (u in active_users) {
+    total_age = total_age + u.age
+}
+log("Total age:", total_age)
+
+log("\n=== Validators Example ===")
+let validators = {
+    required: fn(value) {
+        if (len(value) == 0) {
+            "This field is required"
+        } else {
+            false
+        }
+    },
+    
+    min_length: fn(min) {
+        fn(value) {
+            if (len(value) < min) {
+                "Must be at least ${min} characters"
+            } else {
+                false
+            }
+        }
+    },
+    
+    email: fn(value) {
+        let pattern = /^[\w.-]+@[\w.-]+\.\w+$/
+        if (value !~ pattern) {
+            "Invalid email address"
+        } else {
+            false
+        }
+    }
+}
+
+let validate = fn(value, validator_list) {
+    for (validator in validator_list) {
+        let error = validator(value)
+        if (error) {
+            return error
+        }
+    }
+    false
+}
+
+log("Test empty:", validate("", [validators.required]))
+log("Test short:", validate("ab", [validators.min_length(3)]))
+log("Test valid:", validate("abc", [validators.required, validators.min_length(3)]))
+log("Test email valid:", validate("user@example.com", [validators.email]))
+log("Test email invalid:", validate("invalid", [validators.email]))

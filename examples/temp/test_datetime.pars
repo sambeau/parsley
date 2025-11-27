@@ -1,0 +1,23 @@
+// Test: Dates and Times
+
+// now() function
+let current = now()
+log("Current time:", current)
+
+// time() function
+let specific = time("2024-01-15T10:30:00")
+log("Specific date:", specific)
+
+// Date properties
+log("Year:", current.year)
+log("Month:", current.month)
+log("Day:", current.day)
+log("Hour:", current.hour)
+log("Minute:", current.minute)
+log("Second:", current.second)
+log("Weekday:", current.weekday)
+
+// Date comparison
+let date1 = time("2024-01-01")
+let date2 = time("2024-06-01")
+log("date1 < date2:", date1.unix < date2.unix)

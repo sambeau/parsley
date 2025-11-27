@@ -1,0 +1,32 @@
+// Test: Paths and URLs
+
+// Path literals
+let config_path = @./config.json
+let home_path = @~/documents/file.txt
+let abs_path = @/etc/hosts
+
+log("config_path:", config_path)
+log("home_path:", home_path)
+log("abs_path:", abs_path)
+
+// Path operations (properties not functions)
+log("basename:", config_path.basename)
+log("dirname:", config_path.dirname)
+log("ext:", config_path.ext)
+
+// URL literals
+let api_url = @https://api.example.com/data
+let local_url = @http://localhost:8080/api
+
+log("api_url:", api_url)
+log("local_url:", local_url)
+
+// URL parsing (properties not functions)
+log("scheme:", api_url.scheme)
+log("host:", api_url.host)
+log("path:", api_url.path)
+
+// URL construction
+let base = @https://example.com
+let full = base + "/users/123"
+log("full url:", full)

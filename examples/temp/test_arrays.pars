@@ -1,0 +1,21 @@
+// Test: Arrays
+let nums = [1, 2, 3]
+let mixed = [1, "two", true, [4, 5]]
+log("nums:", nums)
+log("mixed:", mixed)
+
+log("nums[0]:", nums[0])
+log("nums[-1]:", nums[-1])
+
+log("nums[0:2]:", nums[0:2])
+log("nums[1:3]:", nums[1:3])
+
+log("concat:", [1, 2] ++ [3, 4])
+
+let doubled = for (n in nums) { n * 2 }
+log("doubled:", doubled)
+
+log("len:", len([1, 2, 3]))
+log("sort:", sort([3, 1, 2]))
+log("reverse:", reverse([1, 2, 3]))
+log("map:", map(fn(x) { x * 2 }, nums))

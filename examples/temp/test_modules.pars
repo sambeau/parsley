@@ -1,0 +1,25 @@
+// Test: Module System
+
+log("=== Basic Import ===")
+let math = import("./math_module.pars")
+log("PI:", math.PI)
+log("square(5):", math.square(5))
+log("circle_area(3):", math.circle_area(3))
+
+log("\n=== Destructuring Import ===")
+let {PI, square} = import("./math_module.pars")
+log("PI:", PI)
+log("square(4):", square(4))
+
+log("\n=== Counter Module (Closure) ===")
+let counter = import("./counter_module.pars")
+log("Initial count:", counter.getCount())
+log("After increment:", counter.increment())
+log("After increment:", counter.increment())
+log("Current count:", counter.getCount())
+counter.reset()
+log("After reset:", counter.getCount())
+
+log("\n=== Module Caching ===")
+let math2 = import("./math_module.pars")
+log("Same module?:", math == math2)

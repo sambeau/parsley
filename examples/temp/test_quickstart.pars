@@ -1,0 +1,15 @@
+// Test: Quick Start - Your First Program
+let name = "Alice"
+let greet = fn(who) { "Hello, " + who + "!" }
+log(greet(name))
+
+let numbers = [1, 2, 3, 4, 5]
+let doubled = for (n in numbers) { n * 2 }
+log(doubled)
+
+let page = <html>
+    <body>
+        <h1>Welcome to Parsley!</h1>
+    </body>
+</html>
+log(page)

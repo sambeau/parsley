@@ -1,0 +1,27 @@
+// Test: Dictionaries
+let person = {
+    name: "Sam",
+    age: 57,
+    greet: fn() { "Hello, " + this.name }
+}
+
+log("person.name:", person.name)
+log("person['age']:", person["age"])
+log("person.greet():", person.greet())
+
+let config = {
+    width: 100,
+    height: 200,
+    area: this.width * this.height
+}
+log("config.area:", config.area)
+
+for (key, value in person) {
+    log(key, ":", toDebug(value))
+}
+
+log("keys:", keys(person))
+log("values:", values(person))
+log("has name:", has(person, "name"))
+
+log("merge:", {a: 1} ++ {b: 2})

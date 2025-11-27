@@ -1,0 +1,35 @@
+// Test: Regular Expressions
+
+// Regex literals
+let email_pattern = /^[\w.-]+@[\w.-]+\.\w+$/
+let phone_pattern = /^\d{3}-\d{3}-\d{4}$/
+
+// Testing with ~ operator
+log("email test 1:", "user@example.com" ~ email_pattern)
+log("email test 2:", "invalid-email" ~ email_pattern)
+log("phone test 1:", "555-123-4567" ~ phone_pattern)
+log("phone test 2:", "invalid" ~ phone_pattern)
+
+// Negated test with !~ operator
+log("not email:", "invalid-email" !~ email_pattern)
+
+// regex() function
+let pattern = regex("\\d+")
+log("regex test:", "abc123" ~ pattern)
+
+// Testing with capture groups
+let text = "Email: user@example.com, Phone: 555-1234"
+let email_matches = text ~ /([\w.-]+)@([\w.-]+\.\w+)/
+if (email_matches) {
+    log("Full match:", email_matches[0])
+    log("Username:", email_matches[1])
+    log("Domain:", email_matches[2])
+}
+
+// replace() with regex
+let result = replace("abc123def456", /\d+/, "X")
+log("replace result:", result)
+
+// split() with regex
+let parts = split("one,two;three:four", /[,;:]/)
+log("split result:", parts)

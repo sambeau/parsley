@@ -1,0 +1,31 @@
+// Test: Control Flow
+
+// If/else statements
+let x = 10
+if (x > 5) {
+    log("x is greater than 5")
+} else {
+    log("x is 5 or less")
+}
+
+// If expressions
+let result = if (x > 5) { "big" } else { "small" }
+log("result:", result)
+
+// For loops
+log("For loop with array:")
+for (i in [0, 1, 2, 3, 4]) {
+    log(i)
+}
+
+log("For loop with array:")
+let fruits = ["apple", "banana", "orange"]
+for (fruit in fruits) {
+    log(fruit)
+}
+
+log("For loop with dictionary:")
+let scores = {alice: 95, bob: 87, carol: 92}
+for (name, score in scores) {
+    log(name, "scored", score)
+}

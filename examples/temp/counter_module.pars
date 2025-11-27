@@ -1,0 +1,15 @@
+// Module helper for testing
+let count = 0
+
+let increment = fn() {
+    count = count + 1
+    count
+}
+
+let reset = fn() {
+    count = 0
+}
+
+let getCount = fn() {
+    count
+}
