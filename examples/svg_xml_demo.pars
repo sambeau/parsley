@@ -1,0 +1,132 @@
+// Parsley 0.9.4 - SVG and XML Tag Improvements Demo
+
+// =========================================
+// 1. Web Components (Hyphenated Tag Names)
+// =========================================
+
+// Now you can use hyphenated tag names like custom web components
+<my-app>
+    <my-header>Welcome to My App</my-header>
+    <my-content>
+        <custom-element id="demo">
+            This is custom element content
+        </custom-element>
+    </my-content>
+    <my-footer>Footer content</my-footer>
+</my-app>
+
+// =========================================
+// 2. XML Comments
+// =========================================
+
+// XML comments are now skipped during parsing
+<div>
+    <!-- This comment will be removed -->
+    <p>Visible content</p>
+    <!-- Another comment -->
+</div>
+
+// =========================================
+// 3. CDATA Sections
+// =========================================
+
+// CDATA sections preserve content literally
+<script>
+<![CDATA[
+function example() {
+    if (x < 5 && y > 3) {
+        console.log("CDATA preserves < and > characters!");
+    }
+}
+]]>
+</script>
+
+// =========================================
+// 4. Raw Text Mode for Style/Script Tags
+// =========================================
+
+// In style/script tags, {} is literal for CSS/JS
+// Use @{} for interpolation
+primaryColor = "#3498db"
+fontSize = "16px"
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    font-size: @{fontSize};
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.highlight {
+    color: @{primaryColor};
+    font-weight: bold;
+}
+</style>
+
+// =========================================
+// 5. Programmatic Tag Creation
+// =========================================
+
+// Create tags programmatically with tag()
+simpleTag = tag("div")
+log("Simple tag:", simpleTag)
+
+// With attributes
+tagWithAttrs = tag("a", {href: "/home", class: "nav-link"})
+log("Tag with attrs:", tagWithAttrs)
+
+// With attributes and content
+fullTag = tag("button", {type: "submit", class: "btn btn-primary"}, "Click Me")
+log("Full tag:", fullTag)
+
+// =========================================
+// 6. Converting Tag Dictionaries to HTML
+// =========================================
+
+// Convert tag dictionary to HTML string
+myButton = tag("button", {class: "btn", id: "submit-btn"}, "Submit")
+html = toString(myButton)
+log("HTML output:", html)
+
+// Build complex structures programmatically
+items = ["Apple", "Banana", "Cherry"]
+listItems = for (item in items) {
+    tag("li", {}, item)
+}
+
+// Convert each to HTML
+log("List items as HTML:")
+for (item in listItems) {
+    log("  ", toString(item))
+}
+
+// =========================================
+// 7. Self-Closing Tags
+// =========================================
+
+br = tag("br")
+hr = tag("hr", {class: "divider"})
+img = tag("img", {src: "photo.jpg", alt: "A photo"})
+
+log("Self-closing tags:")
+log("  ", toString(br))
+log("  ", toString(hr))
+log("  ", toString(img))
+
+// =========================================
+// 8. Dynamic SVG Generation
+// =========================================
+
+// Create SVG elements programmatically
+circleAttrs = {cx: "50", cy: "50", r: "40", fill: "red"}
+circle = tag("circle", circleAttrs)
+
+svg = tag("svg", {width: "100", height: "100", xmlns: "http://www.w3.org/2000/svg"}, toString(circle))
+log("SVG output:")
+log(toString(svg))

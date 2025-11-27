@@ -245,6 +245,7 @@ type Lexer struct {
 	inTagContent  bool      // whether we're currently lexing tag content
 	tagDepth      int       // nesting depth of tags (for proper TAG_END matching)
 	lastTokenType TokenType // last token type for regex context detection
+	inRawTextTag  string    // non-empty when inside <style> or <script> - stores tag name (for @{} mode)
 }
 
 // New creates a new lexer instance
@@ -295,6 +296,15 @@ func (l *Lexer) peekChar() byte {
 		return 0
 	}
 	return l.input[l.readPosition]
+}
+
+// peekCharN returns the character n positions ahead without advancing position
+func (l *Lexer) peekCharN(n int) byte {
+	pos := l.readPosition + n - 1
+	if pos >= len(l.input) {
+		return 0
+	}
+	return l.input[pos]
 }
 
 // NextToken scans the input and returns the next token
@@ -367,6 +377,50 @@ func (l *Lexer) NextToken() Token {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: LTE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '?' {
+			// XML processing instruction <?xml ... ?> - pass through as string
+			line := l.line
+			column := l.column
+			content := l.readProcessingInstruction()
+			tok.Type = STRING
+			tok.Literal = content
+			tok.Line = line
+			tok.Column = column
+			l.lastTokenType = tok.Type
+			return tok
+		} else if l.peekChar() == '!' {
+			// Could be XML comment <!-- -->, CDATA <![CDATA[]]>, or DOCTYPE <!DOCTYPE>
+			if l.peekCharN(2) == '-' && l.peekCharN(3) == '-' {
+				// XML comment - skip it and get next token
+				l.skipXMLComment()
+				return l.NextToken()
+			} else if l.peekCharN(2) == '[' && l.peekCharN(3) == 'C' {
+				// CDATA section - return as string
+				line := l.line
+				column := l.column
+				content, ok := l.readCDATA()
+				if ok {
+					tok.Type = STRING
+					tok.Literal = content
+					tok.Line = line
+					tok.Column = column
+					l.lastTokenType = tok.Type
+					return tok
+				}
+			} else if l.peekCharN(2) == 'D' || l.peekCharN(2) == 'd' {
+				// DOCTYPE declaration - pass through as string
+				line := l.line
+				column := l.column
+				content := l.readDoctype()
+				tok.Type = STRING
+				tok.Literal = content
+				tok.Line = line
+				tok.Column = column
+				l.lastTokenType = tok.Type
+				return tok
+			}
+			// Not a comment, CDATA, or DOCTYPE - treat < as less-than
+			tok = newToken(LT, l.ch, l.line, l.column)
 		} else if l.peekChar() == '/' {
 			// This is a closing tag </tag>
 			line := l.line
@@ -389,6 +443,11 @@ func (l *Lexer) NextToken() Token {
 				// Enter tag content mode
 				l.inTagContent = true
 				l.tagDepth = 1
+				// Check if this is a raw text tag (style or script)
+				tagName := extractTagName(tagContent)
+				if tagName == "style" || tagName == "script" {
+					l.inRawTextTag = tagName
+				}
 			}
 			tok.Literal = tagContent
 			tok.Line = line
@@ -594,12 +653,6 @@ func (l *Lexer) readTemplate() string {
 			switch l.ch {
 			case '`':
 				result = append(result, '`')
-			case '{':
-				// Use a special marker that evaluator won't interpret
-				result = append(result, '\\', '0', '{') // \0{ as escape marker
-			case '}':
-				// Use a special marker that evaluator won't interpret
-				result = append(result, '\\', '0', '}') // \0} as escape marker
 			default:
 				// Unknown escape, keep as-is
 				result = append(result, '\\')
@@ -705,14 +758,133 @@ func (l *Lexer) readTag() string {
 	return string(result)
 }
 
-// readTagEnd reads a closing tag like </div>
+// skipXMLComment skips an XML comment <!-- ... -->
+// Returns true if a comment was successfully skipped
+func (l *Lexer) skipXMLComment() bool {
+	// We're at '<', peek for '!--'
+	if l.peekChar() != '!' || l.peekCharN(2) != '-' || l.peekCharN(3) != '-' {
+		return false
+	}
+
+	// Skip the <!--
+	l.readChar() // skip <
+	l.readChar() // skip !
+	l.readChar() // skip -
+	l.readChar() // skip -
+
+	// Read until we find -->
+	for {
+		if l.ch == 0 {
+			// Unexpected EOF
+			break
+		}
+		if l.ch == '-' && l.peekChar() == '-' && l.peekCharN(2) == '>' {
+			l.readChar() // skip -
+			l.readChar() // skip -
+			l.readChar() // skip >
+			break
+		}
+		l.readChar()
+	}
+
+	return true
+}
+
+// readCDATA reads a CDATA section <![CDATA[ ... ]]> and returns its content
+func (l *Lexer) readCDATA() (string, bool) {
+	// We're at '<', check for '![CDATA['
+	if l.peekChar() != '!' || l.peekCharN(2) != '[' || l.peekCharN(3) != 'C' ||
+		l.peekCharN(4) != 'D' || l.peekCharN(5) != 'A' || l.peekCharN(6) != 'T' ||
+		l.peekCharN(7) != 'A' || l.peekCharN(8) != '[' {
+		return "", false
+	}
+
+	// Skip the <![CDATA[
+	for i := 0; i < 9; i++ {
+		l.readChar()
+	}
+
+	var content []byte
+	// Read until we find ]]>
+	for {
+		if l.ch == 0 {
+			// Unexpected EOF
+			break
+		}
+		if l.ch == ']' && l.peekChar() == ']' && l.peekCharN(2) == '>' {
+			l.readChar() // skip ]
+			l.readChar() // skip ]
+			l.readChar() // skip >
+			break
+		}
+		content = append(content, l.ch)
+		l.readChar()
+	}
+
+	return string(content), true
+}
+
+// readProcessingInstruction reads a processing instruction <?...?>
+// Returns the full content including delimiters
+func (l *Lexer) readProcessingInstruction() string {
+	var result []byte
+	result = append(result, '<', '?')
+	l.readChar() // skip <
+	l.readChar() // skip ?
+
+	// Read until we find ?>
+	for {
+		if l.ch == 0 {
+			// Unexpected EOF
+			break
+		}
+		if l.ch == '?' && l.peekChar() == '>' {
+			result = append(result, '?', '>')
+			l.readChar() // skip ?
+			l.readChar() // skip >
+			break
+		}
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	return string(result)
+}
+
+// readDoctype reads a DOCTYPE declaration <!DOCTYPE...>
+// Returns the full content including delimiters
+func (l *Lexer) readDoctype() string {
+	var result []byte
+	result = append(result, '<', '!')
+	l.readChar() // skip <
+	l.readChar() // skip !
+
+	// Read until we find >
+	for {
+		if l.ch == 0 {
+			// Unexpected EOF
+			break
+		}
+		if l.ch == '>' {
+			result = append(result, '>')
+			l.readChar() // skip >
+			break
+		}
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	return string(result)
+}
+
+// readTagEnd reads a closing tag like </div> or </my-component>
 func (l *Lexer) readTagEnd() string {
 	var result []byte
 	l.readChar() // skip <
 	l.readChar() // skip /
 
-	// Read tag name
-	for isLetter(l.ch) || isDigit(l.ch) {
+	// Read tag name (allow hyphens for web components like my-component)
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '-' {
 		result = append(result, l.ch)
 		l.readChar()
 	}
@@ -842,19 +1014,28 @@ func (l *Lexer) readTagStartOrSingleton() (string, bool) {
 func (l *Lexer) nextTagContentToken() Token {
 	var tok Token
 
+	// In raw text mode (style/script), check for @{ which triggers interpolation
+	inRawMode := l.inRawTextTag != ""
+
 	// Consolidate multiple newlines into single spaces
 	if l.ch == '\n' || l.ch == '\r' {
 		for l.ch == '\n' || l.ch == '\r' || l.ch == ' ' || l.ch == '\t' {
 			l.readChar()
 		}
 		// Don't return whitespace token, just continue to next content
-		if l.ch == 0 || l.ch == '<' || l.ch == '{' {
+		// In raw text mode, check for @{ instead of just {
+		if l.ch == 0 || l.ch == '<' || (!inRawMode && l.ch == '{') || (inRawMode && l.ch == '@' && l.peekChar() == '{') {
 			// Fall through to handle these special cases
 		} else {
 			// Start with a space before the next text
 			line := l.line
 			column := l.column
-			text := l.readTagText()
+			var text string
+			if inRawMode {
+				text = l.readRawTagText()
+			} else {
+				text = l.readTagText()
+			}
 			tok = Token{Type: TAG_TEXT, Literal: " " + text, Line: line, Column: column}
 			return tok
 		}
@@ -872,13 +1053,42 @@ func (l *Lexer) nextTagContentToken() Token {
 		if l.peekChar() == '/' {
 			// Closing tag
 			tok.Type = TAG_END
-			tok.Literal = l.readTagEnd()
+			closingTagName := l.readTagEnd()
+			tok.Literal = closingTagName
 			tok.Line = line
 			tok.Column = column
 			l.tagDepth--
 			if l.tagDepth == 0 {
 				l.inTagContent = false
 			}
+			// If we're closing a raw text tag, exit raw text mode
+			if l.inRawTextTag != "" && closingTagName == l.inRawTextTag {
+				l.inRawTextTag = ""
+			}
+			return tok
+		} else if l.peekChar() == '!' {
+			// Could be XML comment <!-- --> or CDATA <![CDATA[]]>
+			if l.peekCharN(2) == '-' && l.peekCharN(3) == '-' {
+				// XML comment - skip it and get next token
+				l.skipXMLComment()
+				return l.nextTagContentToken()
+			} else if l.peekCharN(2) == '[' && l.peekCharN(3) == 'C' {
+				// CDATA section - return as TAG_TEXT
+				content, ok := l.readCDATA()
+				if ok {
+					tok.Type = TAG_TEXT
+					tok.Literal = content
+					tok.Line = line
+					tok.Column = column
+					return tok
+				}
+			}
+			// Not a comment or CDATA, treat as literal text
+			tok.Type = TAG_TEXT
+			tok.Literal = string(l.ch)
+			tok.Line = line
+			tok.Column = column
+			l.readChar()
 			return tok
 		} else if l.peekChar() == '>' {
 			// Empty grouping tag start
@@ -910,8 +1120,36 @@ func (l *Lexer) nextTagContentToken() Token {
 			return tok
 		}
 
+	case '@':
+		// In raw text mode, @{ triggers interpolation
+		if inRawMode && l.peekChar() == '{' {
+			l.readChar() // skip @
+			tok = newToken(LBRACE, l.ch, l.line, l.column)
+			l.readChar() // skip {
+			l.inTagContent = false
+			return tok
+		}
+		// Not @{, treat @ as regular text
+		tok.Type = TAG_TEXT
+		if inRawMode {
+			tok.Literal = l.readRawTagText()
+		} else {
+			tok.Literal = l.readTagText()
+		}
+		tok.Line = line
+		tok.Column = column
+		return tok
+
 	case '{':
-		// Interpolation - temporarily exit tag content mode
+		if inRawMode {
+			// In raw text mode, { is literal - read as text
+			tok.Type = TAG_TEXT
+			tok.Literal = l.readRawTagText()
+			tok.Line = line
+			tok.Column = column
+			return tok
+		}
+		// Normal mode: interpolation - temporarily exit tag content mode
 		tok = newToken(LBRACE, l.ch, l.line, l.column)
 		l.readChar()
 		l.inTagContent = false
@@ -920,7 +1158,11 @@ func (l *Lexer) nextTagContentToken() Token {
 	default:
 		// Regular text content
 		tok.Type = TAG_TEXT
-		tok.Literal = l.readTagText()
+		if inRawMode {
+			tok.Literal = l.readRawTagText()
+		} else {
+			tok.Literal = l.readTagText()
+		}
 		tok.Line = line
 		tok.Column = column
 	}
@@ -938,6 +1180,37 @@ func (l *Lexer) readTagText() string {
 	}
 
 	return string(result)
+}
+
+// readRawTagText reads text content in raw text mode (style/script)
+// In raw text mode, {} is literal and @{} is used for interpolation
+// Stops at <, @{, or EOF
+func (l *Lexer) readRawTagText() string {
+	var result []byte
+
+	for l.ch != 0 && l.ch != '<' {
+		// Check for @{ which starts interpolation in raw text mode
+		if l.ch == '@' && l.peekChar() == '{' {
+			break
+		}
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	return string(result)
+}
+
+// extractTagName extracts the tag name from tag content (e.g., "div class=\"foo\"" -> "div")
+func extractTagName(tagContent string) string {
+	var name []byte
+	for i := 0; i < len(tagContent); i++ {
+		ch := tagContent[i]
+		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+			break
+		}
+		name = append(name, ch)
+	}
+	return string(name)
 }
 
 // EnterTagContentMode sets the lexer into tag content mode

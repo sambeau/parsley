@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.1
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.4
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -538,6 +538,104 @@ let Card = fn({title, body}) {
 </>
 ```
 
+#### Web Components (Hyphenated Tags)
+
+```parsley
+<my-component>content</my-component>
+<custom-element id="test">text</custom-element>
+<my-icon name="star" />
+```
+
+#### XML Comments
+
+XML comments are skipped during parsing:
+
+```parsley
+<div>hello<!-- this is a comment -->world</div>
+// Output: <div>helloworld</div>
+```
+
+#### CDATA Sections
+
+CDATA sections preserve literal content:
+
+```parsley
+<div><![CDATA[literal <b>text</b>]]></div>
+// Output: <div>literal <b>text</b></div>
+```
+
+#### XML Processing Instructions
+
+XML processing instructions (`<?...?>`) are passed through as strings:
+
+```parsley
+<?xml version="1.0" encoding="UTF-8"?>
+// Output: <?xml version="1.0" encoding="UTF-8"?>
+
+// Concatenate with HTML:
+<?xml version="1.0"?> + <html><body>content</body></html>
+// Output: <?xml version="1.0"?><html><body>content</body></html>
+```
+
+#### DOCTYPE Declarations
+
+DOCTYPE declarations are passed through as strings:
+
+```parsley
+<!DOCTYPE html>
+// Output: <!DOCTYPE html>
+
+// Full HTML5 document:
+<!DOCTYPE html> + <html><head></head><body></body></html>
+```
+
+#### Raw Text Mode (Style/Script Tags)
+
+Inside `<style>` and `<script>` tags, braces `{}` are treated as literal characters (for CSS rules and JavaScript code). Use `@{}` for interpolation:
+
+```parsley
+<style>body { color: red; }</style>
+// Output: <style>body { color: red; }</style>
+
+// Interpolation with @{}:
+color = "blue"
+<style>.class { color: @{color}; }</style>
+// Output: <style>.class { color: blue; }</style>
+
+// JavaScript example:
+value = 42
+<script>var x = @{value};</script>
+// Output: <script>var x = 42;</script>
+```
+
+Outside of style/script tags, `{}` works as normal interpolation.
+
+#### Programmatic Tag Creation
+
+The `tag()` function creates tag dictionaries for programmatic manipulation:
+
+```parsley
+// Create a tag programmatically
+tag("div")
+// Returns: {__type: tag, name: div, attrs: {}, contents: null}
+
+// With attributes
+tag("a", {href: "/home"})
+// Returns: {__type: tag, name: a, attrs: {href: /home}, contents: null}
+
+// With content
+tag("p", {class: "intro"}, "Hello world")
+// Returns: {__type: tag, name: p, attrs: {class: intro}, contents: Hello world}
+
+// Convert back to HTML string
+toString(tag("div", {class: "container"}, "Hello"))
+// Output: <div class="container">Hello</div>
+
+// Self-closing tags
+toString(tag("br"))
+// Output: <br />
+```
+
 ## Reference
 
 ### Data Types
@@ -624,6 +722,12 @@ Note: `filter()` and `reduce()` can be implemented using for loops
 - `has(dict, key)` - Check key exists
 - `toArray(dict)` - Convert to `[key, value]` pairs
 - `toDict(array)` - Convert pairs to dictionary
+
+#### Tag Operations
+- `tag(name)` - Create tag dictionary
+- `tag(name, attrs)` - Create tag with attributes dictionary
+- `tag(name, attrs, contents)` - Create tag with attributes and content
+- Note: `toString()` converts tag dictionaries back to HTML strings
 
 #### Mathematical
 - `sqrt(x)`, `round(x)`, `pow(base, exp)`

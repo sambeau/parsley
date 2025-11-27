@@ -1,0 +1,68 @@
+// SVG Compatibility Test for Parsley
+
+log("=== Test 1: Basic SVG ===")
+let svg1 = <svg width="100" height="100">
+    <circle cx="50" cy="50" r="40" />
+</svg>
+log(svg1)
+
+log("\n=== Test 2: CamelCase tag name ===")
+let svg2 = <linearGradient id="grad1" />
+log(svg2)
+
+log("\n=== Test 3: Hyphenated attribute ===")
+let svg3 = <path stroke-width="2" fill="none" />
+log(svg3)
+
+log("\n=== Test 4: Multiple hyphenated attributes ===")
+let svg4 = <text font-family="Arial" font-size="12" text-anchor="middle" />
+log(svg4)
+
+log("\n=== Test 5: viewBox attribute ===")
+let svg5 = <svg viewBox="0 0 100 100" />
+log(svg5)
+
+log("\n=== Test 6: Path d attribute ===")
+let svg6 = <path d="M 10 10 L 90 90 Q 50 10 90 10" />
+log(svg6)
+
+log("\n=== Test 7: Nested SVG elements ===")
+let svg7 = <svg width="200" height="200">
+    <defs>
+        <linearGradient id="myGrad">
+            <stop offset="0%" stop-color="red" />
+            <stop offset="100%" stop-color="blue" />
+        </linearGradient>
+    </defs>
+    <rect x="10" y="10" width="180" height="180" fill="url(#myGrad)" />
+</svg>
+log(svg7)
+
+log("\n=== Test 8: Namespaced attribute (xlink:href) ===")
+// This might fail
+let svg8 = <use xlink:href="#icon" />
+log(svg8)
+
+log("\n=== Test 9: xmlns attribute ===")
+let svg9 = <svg xmlns="http://www.w3.org/2000/svg" />
+log(svg9)
+
+log("\n=== Test 10: Dynamic SVG generation ===")
+let data = [30, 50, 80, 40, 60]
+let bars = for (i, val in data) {
+    <rect x="{i * 25}" y="{100 - val}" width="20" height="{val}" fill="steelblue" />
+}
+let chart = <svg width="150" height="100">
+    {bars}
+</svg>
+log(chart)
+
+log("\n=== Test 11: transform attribute ===")
+let svg11 = <g transform="translate(50, 50) rotate(45)" />
+log(svg11)
+
+log("\n=== Test 12: style attribute with SVG properties ===")
+let svg12 = <rect style="fill: blue; stroke: red; stroke-width: 2" />
+log(svg12)
+
+log("\n=== All tests complete ===")

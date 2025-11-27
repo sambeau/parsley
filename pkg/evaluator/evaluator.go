@@ -854,6 +854,93 @@ func isUrlDict(dict *Dictionary) bool {
 	return false
 }
 
+// isTagDict checks if a dictionary is a tag by looking for __type field
+func isTagDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "tag"
+		}
+	}
+	return false
+}
+
+// tagDictToString converts a tag dictionary back to an HTML string
+func tagDictToString(dict *Dictionary) string {
+	var result strings.Builder
+
+	// Get tag name
+	nameExpr, ok := dict.Pairs["name"]
+	if !ok {
+		return dict.Inspect() // Fallback if not a proper tag dict
+	}
+	nameObj := Eval(nameExpr, dict.Env)
+	nameStr, ok := nameObj.(*String)
+	if !ok {
+		return dict.Inspect()
+	}
+
+	// Get contents
+	contentsExpr, hasContents := dict.Pairs["contents"]
+	var contentsObj Object
+	if hasContents {
+		contentsObj = Eval(contentsExpr, dict.Env)
+	}
+
+	// Get attributes
+	attrsExpr, hasAttrs := dict.Pairs["attrs"]
+	var attrsDict *Dictionary
+	if hasAttrs {
+		attrsObj := Eval(attrsExpr, dict.Env)
+		if d, ok := attrsObj.(*Dictionary); ok {
+			attrsDict = d
+		}
+	}
+
+	// Check if self-closing (no contents)
+	isSelfClosing := contentsObj == nil || contentsObj == NULL
+
+	// Build the opening tag
+	result.WriteByte('<')
+	result.WriteString(nameStr.Value)
+
+	// Add attributes
+	if attrsDict != nil && len(attrsDict.Pairs) > 0 {
+		for key, expr := range attrsDict.Pairs {
+			result.WriteByte(' ')
+			result.WriteString(key)
+			result.WriteString(`="`)
+			val := Eval(expr, attrsDict.Env)
+			result.WriteString(objectToPrintString(val))
+			result.WriteByte('"')
+		}
+	}
+
+	if isSelfClosing {
+		result.WriteString(" />")
+	} else {
+		result.WriteByte('>')
+
+		// Add contents
+		switch c := contentsObj.(type) {
+		case *String:
+			result.WriteString(c.Value)
+		case *Array:
+			for _, elem := range c.Elements {
+				result.WriteString(objectToPrintString(elem))
+			}
+		default:
+			result.WriteString(objectToPrintString(contentsObj))
+		}
+
+		// Closing tag
+		result.WriteString("</")
+		result.WriteString(nameStr.Value)
+		result.WriteByte('>')
+	}
+
+	return result.String()
+}
+
 // compileRegex compiles a regex pattern with optional flags
 // Go's regexp doesn't support all Perl flags, so we map what we can
 func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
@@ -2075,6 +2162,64 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return &Array{Elements: elements}
+			},
+		},
+		"tag": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 3 {
+					return newError("wrong number of arguments to `tag`. got=%d, want=1 to 3", len(args))
+				}
+
+				// First arg: tag name (required)
+				nameStr, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to `tag` must be a string (tag name), got %s", args[0].Type())
+				}
+
+				// Create the tag dictionary
+				pairs := make(map[string]ast.Expression)
+				pairs["__type"] = createLiteralExpression(&String{Value: "tag"})
+				pairs["name"] = createLiteralExpression(nameStr)
+
+				// Second arg: attributes (optional dictionary)
+				if len(args) >= 2 && args[1] != nil && args[1] != NULL {
+					switch attrArg := args[1].(type) {
+					case *Dictionary:
+						// Copy attributes from the provided dictionary
+						attrs := make(map[string]ast.Expression)
+						for key, expr := range attrArg.Pairs {
+							attrs[key] = expr
+						}
+						// Store as nested dictionary for attributes
+						attrDict := &Dictionary{Pairs: attrs, Env: NewEnvironment()}
+						pairs["attrs"] = createLiteralExpression(attrDict)
+					case *Null:
+						// No attributes, use empty dict
+						pairs["attrs"] = createLiteralExpression(&Dictionary{Pairs: map[string]ast.Expression{}, Env: NewEnvironment()})
+					default:
+						return newError("second argument to `tag` must be a dictionary (attributes), got %s", args[1].Type())
+					}
+				} else {
+					pairs["attrs"] = createLiteralExpression(&Dictionary{Pairs: map[string]ast.Expression{}, Env: NewEnvironment()})
+				}
+
+				// Third arg: contents (optional string or array)
+				if len(args) >= 3 && args[2] != nil && args[2] != NULL {
+					switch contentArg := args[2].(type) {
+					case *String:
+						pairs["contents"] = createLiteralExpression(contentArg)
+					case *Array:
+						pairs["contents"] = createLiteralExpression(contentArg)
+					case *Null:
+						pairs["contents"] = createLiteralExpression(NULL)
+					default:
+						return newError("third argument to `tag` must be a string or array (contents), got %s", args[2].Type())
+					}
+				} else {
+					pairs["contents"] = createLiteralExpression(NULL)
+				}
+
+				return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
 			},
 		},
 		"len": {
@@ -3418,6 +3563,11 @@ func evalIdentifier(node *ast.Identifier, env *Environment) Object {
 		return NULL
 	}
 
+	// Special handling for '__null__' - internal null representation
+	if node.Value == "__null__" {
+		return NULL
+	}
+
 	val, ok := env.Get(node.Value)
 	if !ok {
 		if builtin, ok := getBuiltins()[node.Value]; ok {
@@ -4015,19 +4165,6 @@ func evalTemplateLiteral(node *ast.TemplateLiteral, env *Environment) Object {
 
 	i := 0
 	for i < len(template) {
-		// Check for escaped brace markers \0{ and \0}
-		if i < len(template)-2 && template[i] == '\\' && template[i+1] == '0' {
-			if template[i+2] == '{' {
-				result.WriteByte('{')
-				i += 3
-				continue
-			} else if template[i+2] == '}' {
-				result.WriteByte('}')
-				i += 3
-				continue
-			}
-		}
-
 		// Look for {
 		if template[i] == '{' {
 			// Find the closing }
@@ -4323,23 +4460,63 @@ func evalTagProps(propsStr string, env *Environment) Object {
 func createLiteralExpression(obj Object) ast.Expression {
 	switch obj := obj.(type) {
 	case *Integer:
-		return &ast.IntegerLiteral{Value: obj.Value}
+		return &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", obj.Value)},
+			Value: obj.Value,
+		}
 	case *Float:
-		return &ast.FloatLiteral{Value: obj.Value}
+		return &ast.FloatLiteral{
+			Token: lexer.Token{Type: lexer.FLOAT, Literal: fmt.Sprintf("%g", obj.Value)},
+			Value: obj.Value,
+		}
 	case *String:
-		return &ast.StringLiteral{Value: obj.Value}
+		return &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: obj.Value},
+			Value: obj.Value,
+		}
 	case *Boolean:
-		return &ast.Boolean{Value: obj.Value}
+		lit := "false"
+		if obj.Value {
+			lit = "true"
+		}
+		return &ast.Boolean{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: lit},
+			Value: obj.Value,
+		}
+	case *Null:
+		// Use an identifier that will evaluate to the NULL object
+		return &ast.Identifier{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: "__null__"},
+			Value: "__null__",
+		}
 	case *Array:
 		// For arrays, create array literal with elements
 		elements := make([]ast.Expression, len(obj.Elements))
 		for i, elem := range obj.Elements {
 			elements[i] = createLiteralExpression(elem)
 		}
-		return &ast.ArrayLiteral{Elements: elements}
+		return &ast.ArrayLiteral{
+			Token:    lexer.Token{Type: lexer.LBRACKET, Literal: "["},
+			Elements: elements,
+		}
+	case *Dictionary:
+		// For dictionaries, create dictionary literal with pairs
+		pairs := make(map[string]ast.Expression)
+		for key, expr := range obj.Pairs {
+			// Evaluate the expression to get the value
+			val := Eval(expr, obj.Env)
+			pairs[key] = createLiteralExpression(val)
+		}
+		return &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: pairs,
+		}
 	default:
 		// For other types, return a string literal
-		return &ast.StringLiteral{Value: obj.Inspect()}
+		return &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: obj.Inspect()},
+			Value: obj.Inspect(),
+		}
 	}
 }
 
@@ -4704,6 +4881,10 @@ func objectToPrintString(obj Object) string {
 		if isUrlDict(obj) {
 			// Convert URL dictionary back to string
 			return urlDictToString(obj)
+		}
+		if isTagDict(obj) {
+			// Convert tag dictionary to HTML string
+			return tagDictToString(obj)
 		}
 		return obj.Inspect()
 	case *Null:
