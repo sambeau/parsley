@@ -1,0 +1,2 @@
+let counter = import(@./counter.pars)
+log("Keys:", keys(counter))

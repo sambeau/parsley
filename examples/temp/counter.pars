@@ -3,3 +3,6 @@ let increment = fn() {
     count = count + 1
     count
 }
+let getCount = fn() {
+	count
+}

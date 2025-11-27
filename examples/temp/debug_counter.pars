@@ -1,0 +1,11 @@
+// Test to see if count is marked as a let binding
+count = 0
+let increment = fn() {
+    count = count + 1
+    count
+}
+let getCount = fn() {
+	count
+}
+
+// This should show that only increment and getCount are let bindings

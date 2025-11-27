@@ -178,16 +178,18 @@ func (d *Dictionary) Inspect() string {
 
 // Environment represents the environment for variable bindings
 type Environment struct {
-	store     map[string]Object
-	outer     *Environment
-	Filename  string
-	LastToken *lexer.Token
+	store       map[string]Object
+	outer       *Environment
+	Filename    string
+	LastToken   *lexer.Token
+	letBindings map[string]bool // tracks which variables were declared with 'let'
 }
 
 // NewEnvironment creates a new environment
 func NewEnvironment() *Environment {
 	s := make(map[string]Object)
-	return &Environment{store: s, outer: nil}
+	l := make(map[string]bool)
+	return &Environment{store: s, outer: nil, letBindings: l}
 }
 
 // NewEnclosedEnvironment creates a new environment with outer reference
@@ -215,6 +217,23 @@ func (e *Environment) Get(name string) (Object, bool) {
 func (e *Environment) Set(name string, val Object) Object {
 	e.store[name] = val
 	return val
+}
+
+// SetLet stores a value in the environment and marks it as a let binding
+func (e *Environment) SetLet(name string, val Object) Object {
+	e.store[name] = val
+	e.letBindings[name] = true
+	return val
+}
+
+// IsLetBinding checks if a variable was declared with let
+func (e *Environment) IsLetBinding(name string) bool {
+	// Check current environment
+	if e.letBindings[name] {
+		return true
+	}
+	// Don't check outer environments - each module has its own scope
+	return false
 }
 
 // Update stores a value in the environment where it's defined (current or outer)
@@ -2500,13 +2519,13 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle array destructuring assignment
 		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, val, env)
+			return evalDestructuringAssignment(node.Names, val, env, true)
 		}
 
 		// Single assignment
 		// Special handling for '_' - don't store it
 		if node.Name.Value != "_" {
-			env.Set(node.Name.Value, val)
+			env.SetLet(node.Name.Value, val)
 		}
 		return val
 
@@ -2523,7 +2542,7 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle array destructuring assignment
 		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, val, env)
+			return evalDestructuringAssignment(node.Names, val, env, false)
 		}
 
 		// Single assignment
@@ -3844,7 +3863,7 @@ func isError(obj Object) bool {
 }
 
 // evalDestructuringAssignment handles array destructuring assignment
-func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Environment) Object {
+func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Environment, isLet bool) Object {
 	// Convert value to array if it isn't already
 	var elements []Object
 
@@ -3861,12 +3880,20 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		if i < len(elements) {
 			// Direct assignment for elements within bounds
 			if name.Value != "_" {
-				env.Update(name.Value, elements[i])
+				if isLet {
+					env.SetLet(name.Value, elements[i])
+				} else {
+					env.Update(name.Value, elements[i])
+				}
 			}
 		} else {
 			// No more elements, assign null
 			if name.Value != "_" {
-				env.Update(name.Value, NULL)
+				if isLet {
+					env.SetLet(name.Value, NULL)
+				} else {
+					env.Update(name.Value, NULL)
+				}
 			}
 		}
 	}
@@ -3878,7 +3905,11 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		if lastName.Value != "_" {
 			// Replace the last assignment with an array of remaining elements
 			remaining := &Array{Elements: elements[lastIdx:]}
-			env.Update(lastName.Value, remaining)
+			if isLet {
+				env.SetLet(lastName.Value, remaining)
+			} else {
+				env.Update(lastName.Value, remaining)
+			}
 		}
 	}
 
@@ -3955,7 +3986,7 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 		restDict := &Dictionary{Pairs: restPairs, Env: dict.Env}
 		if pattern.Rest.Value != "_" {
 			if isLet {
-				env.Set(pattern.Rest.Value, restDict)
+				env.SetLet(pattern.Rest.Value, restDict)
 			} else {
 				env.Update(pattern.Rest.Value, restDict)
 			}
@@ -5034,13 +5065,16 @@ func evalDictionaryIndexExpression(dict, index Object) Object {
 }
 
 // environmentToDict converts an environment's store to a Dictionary object
+// Only includes variables that were declared with 'let'
 func environmentToDict(env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
 
-	// Iterate over the environment's store
+	// Only export variables that were declared with 'let'
 	for name, value := range env.store {
-		// Wrap the object as a literal expression
-		pairs[name] = objectToExpression(value)
+		if env.IsLetBinding(name) {
+			// Wrap the object as a literal expression
+			pairs[name] = objectToExpression(value)
+		}
 	}
 
 	// Create dictionary with the module's environment for evaluation
