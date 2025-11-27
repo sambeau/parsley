@@ -395,9 +395,265 @@ func TestFormatDurationErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`format("not a duration")`, "must be a duration"},
+		{`format("not a duration")`, "must be a duration or array"},
 		{`format({})`, "must be a duration"},
 		{`format(@1d, 123)`, "must be STRING"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			err, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected Error, got %T (%+v)", result, result)
+			}
+			if !strings.Contains(err.Message, tt.errContains) {
+				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// List Formatting Tests (Phase 4)
+// ============================================================================
+
+func TestFormatListEnglish(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// Empty and single-item lists
+		{`format([])`, ""},
+		{`format(["apple"])`, "apple"},
+
+		// Two-item lists
+		{`format(["apple", "banana"])`, "apple and banana"},
+		{`format(["apple", "banana"], "or")`, "apple or banana"},
+
+		// Three-item lists (with Oxford comma for en-US)
+		{`format(["apple", "banana", "cherry"])`, "apple, banana, and cherry"},
+		{`format(["apple", "banana", "cherry"], "or")`, "apple, banana, or cherry"},
+
+		// Four-item lists
+		{`format(["apple", "banana", "cherry", "date"])`, "apple, banana, cherry, and date"},
+
+		// Unit style (no conjunction)
+		{`format(["5 feet", "6 inches"], "unit")`, "5 feet, 6 inches"},
+		{`format(["1 hour", "30 minutes", "15 seconds"], "unit")`, "1 hour, 30 minutes, 15 seconds"},
+
+		// Non-string elements get converted
+		{`format([1, 2, 3])`, "1, 2, and 3"},
+		{`format([true, false])`, "true and false"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListEnglishGB(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// No Oxford comma for en-GB
+		{`format(["apple", "banana", "cherry"], "and", "en-GB")`, "apple, banana and cherry"},
+		{`format(["apple", "banana", "cherry"], "or", "en-GB")`, "apple, banana or cherry"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListGerman(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`format(["Apfel", "Banane"], "and", "de-DE")`, "Apfel und Banane"},
+		{`format(["Apfel", "Banane", "Kirsche"], "and", "de-DE")`, "Apfel, Banane und Kirsche"},
+		{`format(["Apfel", "Banane"], "or", "de-DE")`, "Apfel oder Banane"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListFrench(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`format(["pomme", "banane"], "and", "fr-FR")`, "pomme et banane"},
+		{`format(["pomme", "banane", "cerise"], "and", "fr-FR")`, "pomme, banane et cerise"},
+		{`format(["pomme", "banane"], "or", "fr-FR")`, "pomme ou banane"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListJapanese(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		// Japanese uses different separators
+		{`format(["りんご", "バナナ"], "and", "ja-JP")`, "りんごとバナナ"},
+		{`format(["りんご", "バナナ", "さくらんぼ"], "and", "ja-JP")`, "りんご、バナナ、さくらんぼ"},
+		{`format(["りんご", "バナナ"], "or", "ja-JP")`, "りんごまたはバナナ"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListChinese(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`format(["苹果", "香蕉"], "and", "zh-CN")`, "苹果和香蕉"},
+		{`format(["苹果", "香蕉", "樱桃"], "and", "zh-CN")`, "苹果、香蕉和樱桃"},
+		{`format(["苹果", "香蕉"], "or", "zh-CN")`, "苹果或香蕉"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListRussian(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`format(["яблоко", "банан"], "and", "ru-RU")`, "яблоко и банан"},
+		{`format(["яблоко", "банан", "вишня"], "and", "ru-RU")`, "яблоко, банан и вишня"},
+		{`format(["яблоко", "банан"], "or", "ru-RU")`, "яблоко или банан"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if str.Value != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatListErrors(t *testing.T) {
+	tests := []struct {
+		input       string
+		errContains string
+	}{
+		{`format(["a", "b"], 123)`, "must be STRING"},
+		{`format(["a", "b"], "invalid")`, "invalid style"},
+		{`format(["a", "b"], "and", 123)`, "must be STRING"},
 	}
 
 	for _, tt := range tests {

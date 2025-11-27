@@ -2550,14 +2550,56 @@ func getBuiltins() map[string]*Builtin {
 		},
 		"format": {
 			Fn: func(args ...Object) Object {
-				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+				if len(args) < 1 || len(args) > 3 {
+					return newError("wrong number of arguments. got=%d, want=1-3", len(args))
 				}
 
-				// Check if first argument is a duration dictionary
+				// Handle arrays (list formatting)
+				if arr, ok := args[0].(*Array); ok {
+					// Convert array elements to strings
+					items := make([]string, len(arr.Elements))
+					for i, elem := range arr.Elements {
+						// Use Inspect() for all types (String.Inspect() returns just the value)
+						items[i] = elem.Inspect()
+					}
+
+					// Get style (default to "and")
+					style := locale.ListStyleAnd
+					localeStr := "en-US"
+
+					if len(args) >= 2 {
+						styleStr, ok := args[1].(*String)
+						if !ok {
+							return newError("second argument to `format` for arrays must be STRING (style), got %s", args[1].Type())
+						}
+						switch styleStr.Value {
+						case "and":
+							style = locale.ListStyleAnd
+						case "or":
+							style = locale.ListStyleOr
+						case "unit":
+							style = locale.ListStyleUnit
+						default:
+							return newError("invalid style %q for `format`, use 'and', 'or', or 'unit'", styleStr.Value)
+						}
+					}
+
+					if len(args) == 3 {
+						locStr, ok := args[2].(*String)
+						if !ok {
+							return newError("third argument to `format` must be STRING (locale), got %s", args[2].Type())
+						}
+						localeStr = locStr.Value
+					}
+
+					result := locale.FormatList(items, style, localeStr)
+					return &String{Value: result}
+				}
+
+				// Handle duration dictionaries
 				dict, ok := args[0].(*Dictionary)
 				if !ok {
-					return newError("first argument to `format` must be a duration, got %s", args[0].Type())
+					return newError("first argument to `format` must be a duration or array, got %s", args[0].Type())
 				}
 
 				if !isDurationDict(dict) {

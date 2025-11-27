@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.7
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.8
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -759,6 +759,7 @@ Note: `filter()` and `reduce()` can be implemented using for loops
 - `formatPercent(num, locale?)` - Format percentage (e.g., `formatPercent(0.1234, "de-DE")` → "12,34 %")
 - `formatDate(datetime, style?, locale?)` - Format date (style: "short", "medium", "long", "full")
 - `format(duration, locale?)` - Format duration as relative time (e.g., `format(@-1d, "de-DE")` → "gestern")
+- `format(array, style?, locale?)` - Format list with locale (style: "and", "or", "unit")
 
 Example locale-aware formatting:
 ```parsley
@@ -787,6 +788,14 @@ format(@3h, "fr-FR")                  // "dans 3 heures"
 // Relative time with datetime arithmetic
 let christmas = @2025-12-25
 format(christmas - now())             // "in 4 weeks" (varies by current date)
+
+// List Formatting
+format(["apple", "banana", "cherry"]) // "apple, banana, and cherry"
+format(["a", "b", "c"], "or")         // "a, b, or c"
+format(["a", "b", "c"], "and", "en-GB") // "a, b and c" (no Oxford comma)
+format(["Apfel", "Banane"], "and", "de-DE") // "Apfel und Banane"
+format(["りんご", "バナナ"], "and", "ja-JP") // "りんごとバナナ"
+format(["5 feet", "6 inches"], "unit") // "5 feet, 6 inches"
 ```
 
 #### Regular Expressions

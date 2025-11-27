@@ -10,7 +10,7 @@
 | 2 | `formatDate()` | ✅ Complete | Using github.com/goodsign/monday |
 | 3 | `format()` (durations) | ✅ Complete | Custom CLDR implementation in pkg/locale |
 | 3 | Negative duration literals | ✅ Complete | `@-1d`, `@-2w`, etc. |
-| 4 | `formatList()` | ⏳ Planned | Requires custom CLDR implementation |
+| 4 | `format()` (arrays/lists) | ✅ Complete | Custom CLDR implementation in pkg/locale |
 
 ## Executive Summary
 
@@ -23,7 +23,7 @@ Parsley currently has:
 - Duration literals with `@` syntax: `@1d`, `@2h30m`, `@-1d` (negative durations)
 - `.format` computed property returning English-only "Month DD, YYYY" format
 - `.date` and `.time` computed properties returning ISO formats
-- Locale-aware formatting functions: `formatNumber()`, `formatCurrency()`, `formatPercent()`, `formatDate()`, `format()` (for durations)
+- Locale-aware formatting functions: `formatNumber()`, `formatCurrency()`, `formatPercent()`, `formatDate()`, `format()` (for durations and arrays)
 
 ## Goals
 
