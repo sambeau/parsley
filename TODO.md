@@ -10,16 +10,17 @@
 - URL type
 - File globbing to dictionary
 - For loop with indexing
-- Open-ended slicing
+- ~~Open-ended slicing~~ ✅ (v0.9.1)
 - ~~Regular expressions~~ ✅ (v0.6.0)
 - ~~Regular expression literals with /pattern/ syntax~~ ✅ (v0.6.0)
-- file methods: read, write, append, delete
-- read JSON / write JSON
-- execute
-- pipe to script
-- fetch from URL
-- simple HTTP server
+- File methods: read, write, append, delete
+- Read JSON / write JSON
+- Execute bash script
+- Pipe to bash script
+- Fetch from URL
+- Simple HTTP server
 	- routing
 	- cookies
 - css support
-- Pipes
+- Sort out what is and isn't a 'let'
+- Add 'const'?

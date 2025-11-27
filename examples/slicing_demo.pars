@@ -1,0 +1,35 @@
+// Examples of open-ended array slicing
+
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+log("Original array:", numbers)
+log("First 3 elements ([:3]):", numbers[:3])
+log("Last 3 elements ([-3:]):", numbers[-3:])
+log("From index 5 to end ([5:]):", numbers[5:])
+log("From start to index 7 ([:7]):", numbers[:7])
+log("Full copy ([:]:", numbers[:])
+
+// String slicing
+let text = "Hello, World!"
+log("\nOriginal string:", text)
+log("First 5 chars ([:5]):", text[:5])
+log("Last 6 chars ([7:]):", text[7:])
+log("Full copy ([:]:", text[:])
+
+// Practical use cases
+let data = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+// Skip first element
+let without_first = data[1:]
+log("\nWithout first:", without_first)
+
+// Get all except last
+let without_last = data[:-1]
+log("Without last:", without_last)
+
+// Pagination
+let page_size = 3
+let page = 2
+let start = (page - 1) * page_size
+let page_data = data[start:][:page_size]  // Get page 2
+log("\nPage", page, ":", page_data)

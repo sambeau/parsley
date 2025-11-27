@@ -4885,15 +4885,23 @@ func evalArraySliceExpression(array, start, end Object) Object {
 		return newError("slice end index must be an integer, got %s", end.Type())
 	}
 
-	// Validate indices
-	if startIdx < 0 || startIdx > max {
+	// Validate and clamp indices
+	if startIdx < 0 {
 		return newError("slice start index out of range: %d", startIdx)
 	}
-	if endIdx < 0 || endIdx > max {
+	if endIdx < 0 {
 		return newError("slice end index out of range: %d", endIdx)
 	}
 	if startIdx > endIdx {
 		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
+	}
+	
+	// Clamp to array bounds (allow slicing beyond length)
+	if startIdx > max {
+		startIdx = max
+	}
+	if endIdx > max {
+		endIdx = max
 	}
 
 	// Create the slice
@@ -4931,15 +4939,23 @@ func evalStringSliceExpression(str, start, end Object) Object {
 		return newError("slice end index must be an integer, got %s", end.Type())
 	}
 
-	// Validate indices
-	if startIdx < 0 || startIdx > max {
+	// Validate and clamp indices
+	if startIdx < 0 {
 		return newError("slice start index out of range: %d", startIdx)
 	}
-	if endIdx < 0 || endIdx > max {
+	if endIdx < 0 {
 		return newError("slice end index out of range: %d", endIdx)
 	}
 	if startIdx > endIdx {
 		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
+	}
+	
+	// Clamp to string bounds (allow slicing beyond length)
+	if startIdx > max {
+		startIdx = max
+	}
+	if endIdx > max {
+		endIdx = max
 	}
 
 	// Create the slice

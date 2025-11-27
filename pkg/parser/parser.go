@@ -1088,12 +1088,14 @@ func (p *Parser) parseSliceExpression(left ast.Expression, start ast.Expression)
 
 	// Check if there's an end expression
 	if !p.curTokenIs(lexer.RBRACKET) {
+		// Parse the end expression
 		exp.End = p.parseExpression(LOWEST)
+		// After parsing, expect the closing bracket
+		if !p.expectPeek(lexer.RBRACKET) {
+			return nil
+		}
 	}
-
-	if !p.expectPeek(lexer.RBRACKET) {
-		return nil
-	}
+	// If we're already at RBRACKET, this handles open-ended slices like arr[1:] or arr[:]
 
 	return exp
 }

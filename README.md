@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.1
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -166,9 +166,12 @@ let mixed = [1, "two", true, [4, 5]]
 nums[0]     // 1
 nums[-1]    // 3 (last element)
 
-// Slicing (both bounds required)
-nums[0:2]   // [1, 2]
-nums[1:3]   // [2, 3]
+// Slicing
+nums[0:2]   // [1, 2]  - elements 0 and 1
+nums[1:3]   // [2, 3]  - elements 1 and 2
+nums[2:]    // [3]     - from index 2 to end
+nums[:2]    // [1, 2]  - from start to index 2
+nums[:]     // [1, 2, 3] - full copy
 
 // Concatenation
 [1, 2] ++ [3, 4]  // [1, 2, 3, 4]
@@ -239,6 +242,8 @@ let poem = "
 "hello"[0]      // "h"
 "hello"[1:4]    // "ell"
 "hello"[-1]     // "o"
+"hello"[2:]     // "llo"
+"hello"[:3]     // "hel"
 
 // Concatenation
 "hello" + " " + "world"  // "hello world"
