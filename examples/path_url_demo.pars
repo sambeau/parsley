@@ -1,0 +1,157 @@
+// Path and URL Demo for Parsley
+
+// ========================================
+// FILE PATHS
+// ========================================
+
+logLine("=== File Paths ===")
+logLine()
+
+// Create path from string
+let p = path("/usr/local/bin/parsley")
+logLine("Path:", toString(p))
+logLine("Components:", p.components)
+logLine("Absolute?:", p.absolute)
+logLine()
+
+// Computed properties
+logLine("Basename:", p.basename)
+logLine("Directory:", toString(p.dirname))
+logLine("Extension:", p.extension)
+logLine("Stem:", p.stem)
+logLine()
+
+// Relative paths
+let relPath = path("./config/app.json")
+logLine("Relative path:", toString(relPath))
+logLine("Is absolute?:", relPath.absolute)
+logLine("Components:", relPath.components)
+logLine()
+
+// Path with extension
+let docPath = path("/documents/report.tar.gz")
+logLine("Document:", toString(docPath))
+logLine("Extension:", docPath.extension)  // Just "gz"
+logLine("Stem:", docPath.stem)             // "report.tar"
+logLine()
+
+// Manipulating path components with arrays
+let buildPath = path("/home/user/project/build")
+logLine("Original:", toString(buildPath))
+logLine("Components:", buildPath.components)
+
+// Get parent directory
+logLine("Parent:", toString(buildPath.dirname))
+
+// Manually build new path
+let srcPath = path("/home/user/project/src")
+logLine("New path:", toString(srcPath))
+logLine()
+
+// ========================================
+// URLs
+// ========================================
+
+logLine("=== URLs ===")
+logLine()
+
+// Parse a URL
+let u = url("https://api.example.com:8443/v1/users?limit=10&offset=0#results")
+logLine("Full URL:", toString(u))
+logLine()
+
+// Access components
+logLine("Scheme:", u.scheme)
+logLine("Host:", u.host)
+logLine("Port:", u.port)
+logLine("Path:", u.path)
+logLine("Query params:", u.query)
+logLine("Fragment:", u.fragment)
+logLine()
+
+// Computed properties
+logLine("Origin:", u.origin)
+logLine("Pathname:", u.pathname)
+logLine()
+
+// Query parameter access
+logLine("Limit param:", u.query.limit)
+logLine("Offset param:", u.query.offset)
+logLine()
+
+// URL with authentication
+let authUrl = url("https://user:password@database.example.com:5432/mydb")
+logLine("Auth URL:", toString(authUrl))
+logLine("Username:", authUrl.username)
+logLine("Password:", authUrl.password)
+logLine("Host:", authUrl.host)
+logLine("Port:", authUrl.port)
+logLine()
+
+// File URLs
+let fileUrl = url("file:///Users/sam/Documents/notes.txt")
+logLine("File URL:", toString(fileUrl))
+logLine("Path:", fileUrl.path)
+logLine("Pathname:", fileUrl.pathname)
+logLine()
+
+// Manipulating URL paths
+let apiUrl = url("https://api.example.com/v1/products")
+logLine("API URL:", toString(apiUrl))
+logLine("Path components:", apiUrl.path)
+
+// Add to path
+let specificItem = url(toString(apiUrl) + "/12345")
+logLine("Specific item:", toString(specificItem))
+logLine()
+
+// ========================================
+// PRACTICAL EXAMPLES
+// ========================================
+
+logLine("=== Practical Examples ===")
+logLine()
+
+// Example 1: Extract filename from URL path
+let downloadUrl = url("https://downloads.example.com/software/parsley-v1.0.tar.gz")
+let filename = downloadUrl.path[-1]  // Last component of path
+logLine("Download URL:", toString(downloadUrl))
+logLine("Filename:", filename)
+logLine()
+
+// Example 2: Build API endpoint from parts
+let baseUrl = url("https://api.github.com")
+let endpoint = "/repos/sambeau/parsley/issues"
+let fullApiUrl = url(baseUrl.origin + endpoint + "?state=open&per_page=100")
+logLine("API URL:", toString(fullApiUrl))
+logLine("Query state:", fullApiUrl.query.state)
+logLine("Query per_page:", fullApiUrl.query.per_page)
+logLine()
+
+// Example 3: Path manipulation for build systems
+let projectPath = path("/home/dev/myproject")
+let srcDir = path(toString(projectPath) + "/src")
+let mainFile = path(toString(srcDir) + "/main.go")
+
+logLine("Project:", toString(projectPath))
+logLine("Source:", toString(srcDir))
+logLine("Main file:", toString(mainFile))
+logLine("Main extension:", mainFile.extension)
+logLine()
+
+// Example 4: URL validation (checking scheme)
+let urls = [
+    url("https://secure.example.com"),
+    url("http://insecure.example.com"),
+    url("ftp://files.example.com")
+]
+
+logLine("Secure URLs:")
+for (u in urls) {
+    if (u.scheme == "https") {
+        logLine("  ✓", toString(u))
+    }
+}
+logLine()
+
+logLine("=== Demo Complete ===")

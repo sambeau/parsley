@@ -782,6 +782,26 @@ func isRegexDict(dict *Dictionary) bool {
 	return false
 }
 
+// isPathDict checks if a dictionary is a path by looking for __type field
+func isPathDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "path"
+		}
+	}
+	return false
+}
+
+// isUrlDict checks if a dictionary is a URL by looking for __type field
+func isUrlDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "url"
+		}
+	}
+	return false
+}
+
 // compileRegex compiles a regex pattern with optional flags
 // Go's regexp doesn't support all Perl flags, so we map what we can
 func compileRegex(pattern, flags string) (*regexp.Regexp, error) {
@@ -846,6 +866,546 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 	}
 
 	return &Array{Elements: elements}
+}
+
+// parsePathString parses a file path string into components
+// Returns components array and whether path is absolute
+func parsePathString(pathStr string) ([]string, bool) {
+	if pathStr == "" {
+		return []string{}, false
+	}
+
+	// Detect absolute vs relative
+	isAbsolute := false
+	if pathStr[0] == '/' {
+		isAbsolute = true
+	} else if len(pathStr) >= 2 && pathStr[1] == ':' {
+		// Windows drive letter (C:, D:, etc.)
+		isAbsolute = true
+	}
+
+	// Split on forward slashes (handle both Unix and Windows)
+	pathStr = strings.ReplaceAll(pathStr, "\\", "/")
+	parts := strings.Split(pathStr, "/")
+
+	// Filter empty strings except for leading slash
+	components := []string{}
+	for i, part := range parts {
+		if part == "" && i == 0 && isAbsolute {
+			// Keep leading empty string to indicate absolute path
+			components = append(components, "")
+		} else if part != "" {
+			components = append(components, part)
+		}
+	}
+
+	return components, isAbsolute
+}
+
+// pathToDict creates a path dictionary from components
+func pathToDict(components []string, isAbsolute bool, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Add __type field
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "path"},
+		Value: "path",
+	}
+
+	// Add components as array literal
+	componentExprs := make([]ast.Expression, len(components))
+	for i, comp := range components {
+		componentExprs[i] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: comp},
+			Value: comp,
+		}
+	}
+	pairs["components"] = &ast.ArrayLiteral{
+		Token:    lexer.Token{Type: lexer.LBRACKET, Literal: "["},
+		Elements: componentExprs,
+	}
+
+	// Add absolute flag
+	tokenType := lexer.FALSE
+	tokenLiteral := "false"
+	if isAbsolute {
+		tokenType = lexer.TRUE
+		tokenLiteral = "true"
+	}
+	pairs["absolute"] = &ast.Boolean{
+		Token: lexer.Token{Type: tokenType, Literal: tokenLiteral},
+		Value: isAbsolute,
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// parseUrlString parses a URL string into components
+// Supports: scheme://[user:pass@]host[:port]/path?query#fragment
+func parseUrlString(urlStr string, env *Environment) (*Dictionary, error) {
+	// Simple URL parsing (not using net/url to keep it simple)
+	pairs := make(map[string]ast.Expression)
+
+	// Add __type field
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "url"},
+		Value: "url",
+	}
+
+	// Parse scheme
+	schemeEnd := strings.Index(urlStr, "://")
+	if schemeEnd == -1 {
+		return nil, fmt.Errorf("invalid URL: missing scheme (expected scheme://...)")
+	}
+	scheme := urlStr[:schemeEnd]
+	rest := urlStr[schemeEnd+3:]
+
+	pairs["scheme"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: scheme},
+		Value: scheme,
+	}
+
+	// Parse fragment (if present)
+	var fragment string
+	if fragIdx := strings.Index(rest, "#"); fragIdx != -1 {
+		fragment = rest[fragIdx+1:]
+		rest = rest[:fragIdx]
+	}
+
+	// Parse query (if present)
+	queryPairs := make(map[string]ast.Expression)
+	if queryIdx := strings.Index(rest, "?"); queryIdx != -1 {
+		queryStr := rest[queryIdx+1:]
+		rest = rest[:queryIdx]
+
+		// Parse query parameters
+		for _, param := range strings.Split(queryStr, "&") {
+			if param == "" {
+				continue
+			}
+			parts := strings.SplitN(param, "=", 2)
+			key := parts[0]
+			value := ""
+			if len(parts) > 1 {
+				value = parts[1]
+			}
+			queryPairs[key] = &ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: value},
+				Value: value,
+			}
+		}
+	}
+	pairs["query"] = &ast.DictionaryLiteral{
+		Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+		Pairs: queryPairs,
+	}
+
+	// Parse path (if present)
+	pathComponents := []string{}
+	var pathStr string
+	if pathIdx := strings.Index(rest, "/"); pathIdx != -1 {
+		pathStr = rest[pathIdx:]
+		rest = rest[:pathIdx]
+		pathComponents, _ = parsePathString(pathStr)
+	}
+
+	pathExprs := make([]ast.Expression, len(pathComponents))
+	for i, comp := range pathComponents {
+		pathExprs[i] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: comp},
+			Value: comp,
+		}
+	}
+	pairs["path"] = &ast.ArrayLiteral{
+		Token:    lexer.Token{Type: lexer.LBRACKET, Literal: "["},
+		Elements: pathExprs,
+	}
+
+	// Parse authority (user:pass@host:port)
+	var username, password, host string
+	var port int64 = 0
+
+	// Check for userinfo (user:pass@)
+	if atIdx := strings.Index(rest, "@"); atIdx != -1 {
+		userinfo := rest[:atIdx]
+		rest = rest[atIdx+1:]
+
+		if colonIdx := strings.Index(userinfo, ":"); colonIdx != -1 {
+			username = userinfo[:colonIdx]
+			password = userinfo[colonIdx+1:]
+		} else {
+			username = userinfo
+		}
+	}
+
+	// Parse host:port
+	if colonIdx := strings.Index(rest, ":"); colonIdx != -1 {
+		host = rest[:colonIdx]
+		portStr := rest[colonIdx+1:]
+		if p, err := strconv.ParseInt(portStr, 10, 64); err == nil {
+			port = p
+		}
+	} else {
+		host = rest
+	}
+
+	pairs["host"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: host},
+		Value: host,
+	}
+
+	pairs["port"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", port)},
+		Value: port,
+	}
+
+	if username != "" {
+		pairs["username"] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: username},
+			Value: username,
+		}
+	} else {
+		pairs["username"] = &ast.Identifier{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: "null"},
+			Value: "null",
+		}
+	}
+
+	if password != "" {
+		pairs["password"] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: password},
+			Value: password,
+		}
+	} else {
+		pairs["password"] = &ast.Identifier{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: "null"},
+			Value: "null",
+		}
+	}
+
+	if fragment != "" {
+		pairs["fragment"] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: fragment},
+			Value: fragment,
+		}
+	} else {
+		pairs["fragment"] = &ast.Identifier{
+			Token: lexer.Token{Type: lexer.IDENT, Literal: "null"},
+			Value: "null",
+		}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}, nil
+}
+
+// evalPathComputedProperty returns computed properties for path dictionaries
+// Returns nil if the property doesn't exist
+func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	switch key {
+	case "basename":
+		// Get last component
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return NULL
+		}
+		componentsObj := Eval(componentsExpr, env)
+		arr, ok := componentsObj.(*Array)
+		if !ok || len(arr.Elements) == 0 {
+			return NULL
+		}
+		return arr.Elements[len(arr.Elements)-1]
+
+	case "dirname", "parent":
+		// Get all but last component, return as path dict
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return NULL
+		}
+		componentsObj := Eval(componentsExpr, env)
+		arr, ok := componentsObj.(*Array)
+		if !ok || len(arr.Elements) == 0 {
+			return NULL
+		}
+
+		// Get absolute flag
+		absoluteExpr, ok := dict.Pairs["absolute"]
+		isAbsolute := false
+		if ok {
+			absoluteObj := Eval(absoluteExpr, env)
+			if b, ok := absoluteObj.(*Boolean); ok {
+				isAbsolute = b.Value
+			}
+		}
+
+		// Create new components array (all but last)
+		parentComponents := []string{}
+		for i := 0; i < len(arr.Elements)-1; i++ {
+			if str, ok := arr.Elements[i].(*String); ok {
+				parentComponents = append(parentComponents, str.Value)
+			}
+		}
+
+		return pathToDict(parentComponents, isAbsolute, env)
+
+	case "extension", "ext":
+		// Get extension from basename
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return NULL
+		}
+		componentsObj := Eval(componentsExpr, env)
+		arr, ok := componentsObj.(*Array)
+		if !ok || len(arr.Elements) == 0 {
+			return NULL
+		}
+		basename, ok := arr.Elements[len(arr.Elements)-1].(*String)
+		if !ok {
+			return NULL
+		}
+
+		// Find last dot
+		lastDot := strings.LastIndex(basename.Value, ".")
+		if lastDot == -1 || lastDot == 0 {
+			return &String{Value: ""}
+		}
+		return &String{Value: basename.Value[lastDot+1:]}
+
+	case "stem":
+		// Get filename without extension
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return NULL
+		}
+		componentsObj := Eval(componentsExpr, env)
+		arr, ok := componentsObj.(*Array)
+		if !ok || len(arr.Elements) == 0 {
+			return NULL
+		}
+		basename, ok := arr.Elements[len(arr.Elements)-1].(*String)
+		if !ok {
+			return NULL
+		}
+
+		// Find last dot
+		lastDot := strings.LastIndex(basename.Value, ".")
+		if lastDot == -1 || lastDot == 0 {
+			return basename
+		}
+		return &String{Value: basename.Value[:lastDot]}
+	}
+
+	return nil // Property doesn't exist
+}
+
+// evalUrlComputedProperty returns computed properties for URL dictionaries
+// Returns nil if the property doesn't exist
+func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	switch key {
+	case "origin":
+		// scheme://host[:port]
+		var result strings.Builder
+
+		if schemeExpr, ok := dict.Pairs["scheme"]; ok {
+			schemeObj := Eval(schemeExpr, env)
+			if str, ok := schemeObj.(*String); ok {
+				result.WriteString(str.Value)
+				result.WriteString("://")
+			}
+		}
+
+		if hostExpr, ok := dict.Pairs["host"]; ok {
+			hostObj := Eval(hostExpr, env)
+			if str, ok := hostObj.(*String); ok {
+				result.WriteString(str.Value)
+			}
+		}
+
+		if portExpr, ok := dict.Pairs["port"]; ok {
+			portObj := Eval(portExpr, env)
+			if i, ok := portObj.(*Integer); ok && i.Value != 0 {
+				result.WriteString(":")
+				result.WriteString(strconv.FormatInt(i.Value, 10))
+			}
+		}
+
+		return &String{Value: result.String()}
+
+	case "pathname":
+		// Just the path part as a string
+		if pathExpr, ok := dict.Pairs["path"]; ok {
+			pathObj := Eval(pathExpr, env)
+			if arr, ok := pathObj.(*Array); ok {
+				var result strings.Builder
+				hasLeadingSlash := false
+				for i, elem := range arr.Elements {
+					if str, ok := elem.(*String); ok {
+						if i == 0 && str.Value == "" {
+							// Leading empty string means absolute path
+							result.WriteString("/")
+							hasLeadingSlash = true
+						} else if str.Value != "" {
+							// Add slash before element (but not if we just added leading slash)
+							if i > 0 && !(i == 1 && hasLeadingSlash) {
+								result.WriteString("/")
+							}
+							result.WriteString(str.Value)
+						}
+					}
+				}
+				return &String{Value: result.String()}
+			}
+		}
+		return &String{Value: ""}
+	}
+
+	return nil // Property doesn't exist
+}
+
+// pathDictToString converts a path dictionary back to a string
+func pathDictToString(dict *Dictionary) string {
+	// Get components array
+	componentsExpr, ok := dict.Pairs["components"]
+	if !ok {
+		return ""
+	}
+
+	// Evaluate the array expression
+	componentsObj := Eval(componentsExpr, dict.Env)
+	arr, ok := componentsObj.(*Array)
+	if !ok {
+		return ""
+	}
+
+	// Check if absolute
+	absoluteExpr, ok := dict.Pairs["absolute"]
+	isAbsolute := false
+	if ok {
+		absoluteObj := Eval(absoluteExpr, dict.Env)
+		if b, ok := absoluteObj.(*Boolean); ok {
+			isAbsolute = b.Value
+		}
+	}
+
+	// Build path string
+	var result strings.Builder
+	for i, elem := range arr.Elements {
+		if str, ok := elem.(*String); ok {
+			if str.Value == "" && i == 0 && isAbsolute {
+				// Leading empty string means absolute path
+				result.WriteString("/")
+			} else {
+				if i > 0 && (i > 1 || !isAbsolute) {
+					result.WriteString("/")
+				}
+				result.WriteString(str.Value)
+			}
+		}
+	}
+
+	return result.String()
+}
+
+// urlDictToString converts a URL dictionary back to a string
+func urlDictToString(dict *Dictionary) string {
+	var result strings.Builder
+
+	// Scheme
+	if schemeExpr, ok := dict.Pairs["scheme"]; ok {
+		schemeObj := Eval(schemeExpr, dict.Env)
+		if str, ok := schemeObj.(*String); ok {
+			result.WriteString(str.Value)
+			result.WriteString("://")
+		}
+	}
+
+	// Username and password
+	if usernameExpr, ok := dict.Pairs["username"]; ok {
+		usernameObj := Eval(usernameExpr, dict.Env)
+		if str, ok := usernameObj.(*String); ok && str.Value != "" {
+			result.WriteString(str.Value)
+
+			if passwordExpr, ok := dict.Pairs["password"]; ok {
+				passwordObj := Eval(passwordExpr, dict.Env)
+				if pstr, ok := passwordObj.(*String); ok && pstr.Value != "" {
+					result.WriteString(":")
+					result.WriteString(pstr.Value)
+				}
+			}
+			result.WriteString("@")
+		}
+	}
+
+	// Host
+	if hostExpr, ok := dict.Pairs["host"]; ok {
+		hostObj := Eval(hostExpr, dict.Env)
+		if str, ok := hostObj.(*String); ok {
+			result.WriteString(str.Value)
+		}
+	}
+
+	// Port (if non-zero)
+	if portExpr, ok := dict.Pairs["port"]; ok {
+		portObj := Eval(portExpr, dict.Env)
+		if i, ok := portObj.(*Integer); ok && i.Value != 0 {
+			result.WriteString(":")
+			result.WriteString(strconv.FormatInt(i.Value, 10))
+		}
+	}
+
+	// Path
+	if pathExpr, ok := dict.Pairs["path"]; ok {
+		pathObj := Eval(pathExpr, dict.Env)
+		if arr, ok := pathObj.(*Array); ok {
+			hasLeadingSlash := false
+			for i, elem := range arr.Elements {
+				if str, ok := elem.(*String); ok {
+					if i == 0 && str.Value == "" {
+						// Leading empty string means absolute path
+						result.WriteString("/")
+						hasLeadingSlash = true
+					} else if str.Value != "" {
+						// Add slash before element (but not if we just added leading slash)
+						if i > 0 && !(i == 1 && hasLeadingSlash) {
+							result.WriteString("/")
+						}
+						result.WriteString(str.Value)
+					}
+				}
+			}
+		}
+	}
+
+	// Query
+	if queryExpr, ok := dict.Pairs["query"]; ok {
+		queryObj := Eval(queryExpr, dict.Env)
+		if queryDict, ok := queryObj.(*Dictionary); ok && len(queryDict.Pairs) > 0 {
+			result.WriteString("?")
+			first := true
+			for key, expr := range queryDict.Pairs {
+				if !first {
+					result.WriteString("&")
+				}
+				first = false
+				result.WriteString(key)
+				result.WriteString("=")
+				valObj := Eval(expr, dict.Env)
+				if str, ok := valObj.(*String); ok {
+					result.WriteString(str.Value)
+				}
+			}
+		}
+	}
+
+	// Fragment
+	if fragmentExpr, ok := dict.Pairs["fragment"]; ok {
+		fragmentObj := Eval(fragmentExpr, dict.Env)
+		if str, ok := fragmentObj.(*String); ok && str.Value != "" {
+			result.WriteString("#")
+			result.WriteString(str.Value)
+		}
+	}
+
+	return result.String()
 }
 
 // getBuiltins returns the map of built-in functions
@@ -1084,6 +1644,42 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return timeToDict(t, env)
+			},
+		},
+		"path": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `path`. got=%d, want=1", len(args))
+				}
+
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `path` must be a string, got %s", args[0].Type())
+				}
+
+				components, isAbsolute := parsePathString(str.Value)
+				env := NewEnvironment()
+				return pathToDict(components, isAbsolute, env)
+			},
+		},
+		"url": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `url`. got=%d, want=1", len(args))
+				}
+
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("argument to `url` must be a string, got %s", args[0].Type())
+				}
+
+				env := NewEnvironment()
+				urlDict, err := parseUrlString(str.Value, env)
+				if err != nil {
+					return newError("invalid URL: %s", err.Error())
+				}
+
+				return urlDict
 			},
 		},
 		"map": {
@@ -3628,6 +4224,17 @@ func objectToPrintString(obj Object) string {
 			result.WriteString(objectToPrintString(elem))
 		}
 		return result.String()
+	case *Dictionary:
+		// Check for special dictionary types
+		if isPathDict(obj) {
+			// Convert path dictionary back to string
+			return pathDictToString(obj)
+		}
+		if isUrlDict(obj) {
+			// Convert URL dictionary back to string
+			return urlDictToString(obj)
+		}
+		return obj.Inspect()
 	case *Null:
 		return ""
 	default:
@@ -3898,6 +4505,18 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	dict, ok := left.(*Dictionary)
 	if !ok {
 		return newErrorWithPos(node.Token, "dot notation can only be used on dictionaries, got %s", left.Type())
+	}
+
+	// Check for computed properties on special dictionary types
+	if isPathDict(dict) {
+		if computed := evalPathComputedProperty(dict, node.Key, env); computed != nil {
+			return computed
+		}
+	}
+	if isUrlDict(dict) {
+		if computed := evalUrlComputedProperty(dict, node.Key, env); computed != nil {
+			return computed
+		}
 	}
 
 	// Get the expression from the dictionary
