@@ -11,6 +11,7 @@
 - ~~Open-ended slicing~~ ✅ (v0.9.1)
 - ~~Regular expressions~~ ✅ (v0.6.0)
 - ~~Regular expression literals with /pattern/ syntax~~ ✅ (v0.6.0)
+- ~~i8n/Localisation~~ ✅ (v0.9.7)
 - File methods: read, write, append, delete
 - Dictionaries to props in tags
 - File globbing to dictionary
@@ -26,4 +27,4 @@
 - Sort out what is and isn't a 'let'
 - Add 'const'?
 - $Decimal type for money?
-- i8n/Localisation
+- Optional Chaining (!.)

@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.8
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.9
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -796,6 +796,104 @@ format(["a", "b", "c"], "and", "en-GB") // "a, b and c" (no Oxford comma)
 format(["Apfel", "Banane"], "and", "de-DE") // "Apfel und Banane"
 format(["りんご", "バナナ"], "and", "ja-JP") // "りんごとバナナ"
 format(["5 feet", "6 inches"], "unit") // "5 feet, 6 inches"
+```
+
+### Method-Style API
+
+In addition to traditional function calls, Parsley supports method-style calls on primitive types. This provides a fluent, chainable interface.
+
+#### String Methods
+```parsley
+"hello".upper()           // "HELLO"
+"HELLO".lower()           // "hello"
+"  hello  ".trim()        // "hello"
+"a,b,c".split(",")        // ["a", "b", "c"]
+"hello".replace("l", "L") // "heLLo"
+"hello".length()          // 5
+```
+
+#### Array Methods
+```parsley
+[1, 2, 3].length()        // 3
+[3, 1, 2].sort()          // [1, 2, 3]
+[1, 2, 3].reverse()       // [3, 2, 1]
+[1, 2, 3].map(fn(x) { x * 2 })        // [2, 4, 6]
+[1, 2, 3, 4].filter(fn(x) { x > 2 })  // [3, 4]
+["a", "b", "c"].format()              // "a, b, and c"
+["a", "b"].format("or")               // "a or b"
+```
+
+#### Number Methods
+```parsley
+1234567.format()               // "1,234,567"
+1234.56.format("de-DE")        // "1.234,56"
+99.currency("USD")             // "$ 99.00"
+99.99.currency("EUR", "de-DE") // "99,99 €"
+0.125.percent()                // "13%"
+```
+
+#### Dictionary Methods
+```parsley
+let d = {a: 1, b: 2}
+d.keys()      // ["a", "b"]
+d.values()    // [1, 2]
+d.has("a")    // true
+d.has("c")    // false
+```
+
+#### Datetime Methods
+```parsley
+let dt = time({year: 2024, month: 12, day: 25})
+dt.format()                    // "12/25/2024"
+dt.format("long")              // "December 25, 2024"
+dt.format("long", "de-DE")     // "25. Dezember 2024"
+dt.dayOfYear                   // 360
+dt.week                        // 52
+dt.timestamp                   // Unix timestamp
+```
+
+#### Duration Methods
+```parsley
+@1d.format()                   // "tomorrow"
+@-1d.format()                  // "yesterday"
+@-1d.format("de-DE")           // "gestern"
+```
+
+#### Path Methods
+```parsley
+let p = path("/usr/local/bin")
+p.isAbsolute()                 // true
+p.isRelative()                 // false
+
+let p2 = path("relative/path")
+p2.isAbsolute()                // false
+p2.isRelative()                // true
+```
+
+#### URL Methods
+```parsley
+let u = url("https://example.com:8080/api/users?limit=10#section")
+u.origin()                     // "https://example.com:8080"
+u.pathname()                   // "/api/users"
+u.search()                     // "?limit=10"
+u.href()                       // full URL string
+```
+
+#### Method Chaining
+Methods return appropriate types enabling fluent chains:
+```parsley
+"  hello world  ".trim().upper().split(" ")  // ["HELLO", "WORLD"]
+[3, 1, 2].sort().reverse()                   // [3, 2, 1]
+[1, 2, 3].map(fn(x) { x * 2 }).reverse()     // [6, 4, 2]
+1234567.format().split(",").length()         // 3
+```
+
+#### Null Propagation
+Methods called on null values return null instead of erroring:
+```parsley
+let d = {a: 1}
+d.b.upper()           // null (d.b is null, .upper() propagates)
+d.b.split(",").reverse()  // null (entire chain returns null)
 ```
 
 #### Regular Expressions

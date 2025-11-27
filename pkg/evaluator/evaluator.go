@@ -3498,6 +3498,103 @@ func Eval(node ast.Node, env *Environment) Object {
 			return evalLogLine(args, env)
 		}
 
+		// Check if this is a method call (DotExpression as function)
+		if dotExpr, ok := node.Function.(*ast.DotExpression); ok {
+			left := Eval(dotExpr.Left, env)
+			if isError(left) {
+				return left
+			}
+
+			// Null propagation: method calls on null return null
+			if left == NULL || left == nil {
+				return NULL
+			}
+
+			// Evaluate arguments
+			args := evalExpressions(node.Arguments, env)
+			if len(args) == 1 && isError(args[0]) {
+				return args[0]
+			}
+
+			method := dotExpr.Key
+
+			// Dispatch based on receiver type
+			switch receiver := left.(type) {
+			case *String:
+				return evalStringMethod(receiver, method, args)
+			case *Array:
+				return evalArrayMethod(receiver, method, args, env)
+			case *Integer:
+				return evalIntegerMethod(receiver, method, args)
+			case *Float:
+				return evalFloatMethod(receiver, method, args)
+			case *Dictionary:
+				// Check for special dictionary types first
+				if isDatetimeDict(receiver) {
+					result := evalDatetimeMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// Fall through to check dictionary methods if datetime method failed
+					if result != nil && isError(result) {
+						// Check if it's "unknown method" error - try dictionary method
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							// Try dictionary methods
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				if isDurationDict(receiver) {
+					result := evalDurationMethod(receiver, method, args, env)
+					if result != nil {
+						return result
+					}
+				}
+				if isPathDict(receiver) {
+					result := evalPathMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// If unknown method, fall through to dictionary methods
+					if result != nil && isError(result) {
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				if isUrlDict(receiver) {
+					result := evalUrlMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// If unknown method, fall through to dictionary methods
+					if result != nil && isError(result) {
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				// Regular dictionary methods
+				result := evalDictionaryMethod(receiver, method, args, env)
+				if result != nil {
+					return result
+				}
+				// Fall through to normal property/function evaluation
+			}
+		}
+
 		function := Eval(node.Function, env)
 		if isError(function) {
 			return function
@@ -5870,6 +5967,12 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 		return left
 	}
 
+	// Null propagation: property access on null returns null
+	if left == NULL || left == nil {
+		return NULL
+	}
+
+	// Handle Dictionary (including special types like datetime, path, url)
 	dict, ok := left.(*Dictionary)
 	if !ok {
 		return newErrorWithPos(node.Token, "dot notation can only be used on dictionaries, got %s", left.Type())
@@ -6043,4 +6146,71 @@ func resolveModulePath(pathStr string, currentFile string) (string, error) {
 	absPath = filepath.Clean(absPath)
 
 	return absPath, nil
+}
+
+// ============================================================================
+// Helper functions for method implementations (used by methods.go)
+// ============================================================================
+
+// formatNumberWithLocale formats a number with the given locale
+func formatNumberWithLocale(value float64, localeStr string) Object {
+	tag, err := language.Parse(localeStr)
+	if err != nil {
+		return newError("invalid locale: %s", localeStr)
+	}
+	p := message.NewPrinter(tag)
+	return &String{Value: p.Sprintf("%v", number.Decimal(value))}
+}
+
+// formatCurrencyWithLocale formats a currency value with the given locale
+func formatCurrencyWithLocale(value float64, currencyCode string, localeStr string) Object {
+	cur, err := currency.ParseISO(currencyCode)
+	if err != nil {
+		return newError("invalid currency code: %s", currencyCode)
+	}
+
+	tag, err := language.Parse(localeStr)
+	if err != nil {
+		return newError("invalid locale: %s", localeStr)
+	}
+
+	p := message.NewPrinter(tag)
+	amount := cur.Amount(value)
+	return &String{Value: p.Sprintf("%v", currency.Symbol(amount))}
+}
+
+// formatPercentWithLocale formats a percentage with the given locale
+func formatPercentWithLocale(value float64, localeStr string) Object {
+	tag, err := language.Parse(localeStr)
+	if err != nil {
+		return newError("invalid locale: %s", localeStr)
+	}
+	p := message.NewPrinter(tag)
+	return &String{Value: p.Sprintf("%v", number.Percent(value))}
+}
+
+// formatDateWithStyleAndLocale formats a datetime dictionary with the given style and locale
+func formatDateWithStyleAndLocale(dict *Dictionary, style string, localeStr string, env *Environment) Object {
+	// Extract time from datetime dictionary
+	var t time.Time
+	if unixExpr, ok := dict.Pairs["unix"]; ok {
+		unixObj := Eval(unixExpr, NewEnvironment())
+		if unixInt, ok := unixObj.(*Integer); ok {
+			t = time.Unix(unixInt.Value, 0).UTC()
+		}
+	}
+
+	// Validate style
+	validStyles := map[string]bool{"short": true, "medium": true, "long": true, "full": true}
+	if !validStyles[style] {
+		return newError("style must be one of: short, medium, long, full, got %s", style)
+	}
+
+	// Map locale string to monday.Locale
+	mondayLocale := getMondayLocale(localeStr)
+
+	// Get format pattern for style
+	format := getDateFormatForStyle(style, mondayLocale)
+
+	return &String{Value: monday.Format(t, format, mondayLocale)}
 }
