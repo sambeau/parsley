@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.5
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.6
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -752,6 +752,31 @@ Note: `filter()` and `reduce()` can be implemented using for loops
 - `now()` - Current time
 - `time(input)` - Parse/create datetime
 - `time(input, delta)` - Apply time delta
+
+#### Localization
+- `formatNumber(num, locale?)` - Format number with locale (e.g., `formatNumber(1234.5, "de-DE")` → "1.234,5")
+- `formatCurrency(num, currencyCode, locale?)` - Format currency (e.g., `formatCurrency(99.99, "EUR", "de-DE")` → "99,99 €")
+- `formatPercent(num, locale?)` - Format percentage (e.g., `formatPercent(0.1234, "de-DE")` → "12,34 %")
+- `formatDate(datetime, style?, locale?)` - Format date (style: "short", "medium", "long", "full")
+
+Example locale-aware formatting:
+```parsley
+// Numbers
+formatNumber(1234567.89, "de-DE")     // "1.234.567,89"
+formatNumber(1234567.89, "fr-FR")     // "1 234 567,89"
+
+// Currency
+formatCurrency(99.99, "USD", "en-US") // "$ 99.99"
+formatCurrency(99.99, "EUR", "de-DE") // "99,99 €"
+
+// Dates
+let d = time({year: 2024, month: 12, day: 25})
+formatDate(d, "long", "en-US")        // "December 25, 2024"
+formatDate(d, "long", "de-DE")        // "25. Dezember 2024"
+formatDate(d, "long", "fr-FR")        // "25 décembre 2024"
+formatDate(d, "long", "ja-JP")        // "2024年12月25日"
+formatDate(d, "full", "es-ES")        // "miércoles, 25 de diciembre de 2024"
+```
 
 #### Regular Expressions
 - `regex(pattern, flags?)` - Create regex
