@@ -86,6 +86,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.REGEX, p.parseRegexLiteral)
 	p.registerPrefix(lexer.DATETIME_LITERAL, p.parseDatetimeLiteral)
 	p.registerPrefix(lexer.DURATION_LITERAL, p.parseDurationLiteral)
+	p.registerPrefix(lexer.PATH_LITERAL, p.parsePathLiteral)
+	p.registerPrefix(lexer.URL_LITERAL, p.parseUrlLiteral)
 	p.registerPrefix(lexer.TAG, p.parseTagLiteral)
 	p.registerPrefix(lexer.TAG_START, p.parseTagPair)
 	p.registerPrefix(lexer.BANG, p.parsePrefixExpression)
@@ -494,6 +496,22 @@ func (p *Parser) parseDatetimeLiteral() ast.Expression {
 func (p *Parser) parseDurationLiteral() ast.Expression {
 	// Token.Literal contains the duration string (without the @ prefix)
 	return &ast.DurationLiteral{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
+}
+
+func (p *Parser) parsePathLiteral() ast.Expression {
+	// Token.Literal contains the path string (without the @ prefix)
+	return &ast.PathLiteral{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
+}
+
+func (p *Parser) parseUrlLiteral() ast.Expression {
+	// Token.Literal contains the URL string (without the @ prefix)
+	return &ast.UrlLiteral{
 		Token: p.curToken,
 		Value: p.curToken.Literal,
 	}

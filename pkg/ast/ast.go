@@ -257,6 +257,26 @@ func (dr *DurationLiteral) expressionNode()      {}
 func (dr *DurationLiteral) TokenLiteral() string { return dr.Token.Literal }
 func (dr *DurationLiteral) String() string       { return "@" + dr.Value }
 
+// PathLiteral represents path literals like @/usr/local/bin or @./config.json
+type PathLiteral struct {
+	Token lexer.Token // the lexer.PATH_LITERAL token
+	Value string      // the path string
+}
+
+func (pl *PathLiteral) expressionNode()      {}
+func (pl *PathLiteral) TokenLiteral() string { return pl.Token.Literal }
+func (pl *PathLiteral) String() string       { return "@" + pl.Value }
+
+// UrlLiteral represents URL literals like @https://example.com/api
+type UrlLiteral struct {
+	Token lexer.Token // the lexer.URL_LITERAL token
+	Value string      // the URL string
+}
+
+func (ul *UrlLiteral) expressionNode()      {}
+func (ul *UrlLiteral) TokenLiteral() string { return ul.Token.Literal }
+func (ul *UrlLiteral) String() string       { return "@" + ul.Value }
+
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
 	Token lexer.Token // the lexer.TAG token

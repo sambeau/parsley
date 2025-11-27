@@ -23,6 +23,8 @@ const (
 	REGEX            // /pattern/flags
 	DATETIME_LITERAL // @2024-12-25T14:30:00Z
 	DURATION_LITERAL // @2h30m, @7d, @1y6mo
+	PATH_LITERAL     // @/usr/local, @./config
+	URL_LITERAL      // @https://example.com
 	TAG              // <tag prop="value" />
 	TAG_START        // <tag> or <tag attr="value">
 	TAG_END          // </tag>
@@ -454,13 +456,24 @@ func (l *Lexer) NextToken() Token {
 	case '@':
 		line := l.line
 		column := l.column
-		// Peek ahead to determine if it's a datetime or duration
-		if l.isDatetimeLiteral() {
+		// Peek ahead to determine the literal type
+		literalType := l.detectAtLiteralType()
+		switch literalType {
+		case DATETIME_LITERAL:
 			tok.Type = DATETIME_LITERAL
 			tok.Literal = l.readDatetimeLiteral()
-		} else {
+		case DURATION_LITERAL:
 			tok.Type = DURATION_LITERAL
 			tok.Literal = l.readDurationLiteral()
+		case PATH_LITERAL:
+			tok.Type = PATH_LITERAL
+			tok.Literal = l.readPathLiteral()
+		case URL_LITERAL:
+			tok.Type = URL_LITERAL
+			tok.Literal = l.readUrlLiteral()
+		default:
+			tok.Type = ILLEGAL
+			tok.Literal = string(l.ch)
 		}
 		tok.Line = line
 		tok.Column = column
@@ -1156,6 +1169,138 @@ func (l *Lexer) readDurationLiteral() string {
 	}
 
 	return string(duration)
+}
+
+// isWhitespace checks if the given byte is whitespace
+func isWhitespace(ch byte) bool {
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
+}
+
+// detectAtLiteralType determines what type of @ literal this is
+// Returns the appropriate TokenType for the literal
+func (l *Lexer) detectAtLiteralType() TokenType {
+	pos := l.readPosition
+
+	if pos >= len(l.input) {
+		return ILLEGAL
+	}
+
+	// Check for URL: @scheme://
+	// Look for characters followed by ://
+	colonPos := pos
+	for colonPos < len(l.input) && colonPos < pos+20 {
+		if l.input[colonPos] == ':' {
+			if colonPos+2 < len(l.input) && l.input[colonPos+1] == '/' && l.input[colonPos+2] == '/' {
+				return URL_LITERAL
+			}
+			break
+		}
+		if !isLetter(l.input[colonPos]) && l.input[colonPos] != '+' && l.input[colonPos] != '-' {
+			break
+		}
+		colonPos++
+	}
+
+	// Check for path: @/ or @./ or @~/ or @../
+	firstChar := l.input[pos]
+	if firstChar == '/' {
+		return PATH_LITERAL
+	}
+	if firstChar == '.' && pos+1 < len(l.input) && (l.input[pos+1] == '/' || l.input[pos+1] == '.') {
+		return PATH_LITERAL
+	}
+	if firstChar == '~' && pos+1 < len(l.input) && l.input[pos+1] == '/' {
+		return PATH_LITERAL
+	}
+
+	// Check for datetime: 4 digits followed by '-'
+	digitCount := 0
+	checkPos := pos
+	for checkPos < len(l.input) && isDigit(l.input[checkPos]) {
+		digitCount++
+		checkPos++
+	}
+
+	if digitCount == 4 && checkPos < len(l.input) && l.input[checkPos] == '-' {
+		return DATETIME_LITERAL
+	}
+
+	// Default to duration
+	return DURATION_LITERAL
+}
+
+// readPathLiteral reads a path literal after @
+// Supports: @/absolute/path, @./relative/path, @~/home/path
+func (l *Lexer) readPathLiteral() string {
+	l.readChar() // skip @
+
+	var path []byte
+	// Read until whitespace or delimiter
+	for l.ch != 0 && !isWhitespace(l.ch) {
+		// Stop at delimiters that can't be in a path literal
+		if l.ch == ')' || l.ch == ']' || l.ch == '}' || l.ch == ',' || l.ch == ';' {
+			break
+		}
+		// Stop at dot if it's NOT followed by / and the previous char WAS / (i.e., /file.ext stops at . before property name)
+		// This allows ./path and ../path and file.txt but stops at .basename
+		if l.ch == '.' && len(path) > 0 {
+			// If previous char is '/' and next char is a letter, this is .property access
+			if path[len(path)-1] == '/' && isLetter(l.peekChar()) {
+				break
+			}
+			// If next char is neither '/' nor '.', and we have text before, it might be property access
+			nextCh := l.peekChar()
+			if nextCh != '/' && nextCh != '.' && !isPathChar(nextCh) && isLetter(nextCh) {
+				break
+			}
+		}
+		path = append(path, l.ch)
+		l.readChar()
+	}
+
+	return string(path)
+}
+
+// isPathChar checks if a character is valid in a path (but not at the start of a property)
+func isPathChar(ch byte) bool {
+	return ch == '/' || ch == '-' || ch == '_' || ch == '~' || isLetter(ch) || isDigit(ch)
+}
+
+// readUrlLiteral reads a URL literal after @
+// Supports: @scheme://host/path?query#fragment
+func (l *Lexer) readUrlLiteral() string {
+	l.readChar() // skip @
+
+	var url []byte
+	hasScheme := false // Track if we've seen ://
+	
+	// Read until whitespace or delimiter
+	for l.ch != 0 && !isWhitespace(l.ch) {
+		// Track if we've seen the :// pattern
+		if !hasScheme && l.ch == ':' && len(url) > 0 {
+			if l.peekChar() == '/' {
+				hasScheme = true
+			}
+		}
+		
+		// Stop at delimiters that can't be in a URL literal
+		if l.ch == ')' || l.ch == ']' || l.ch == '}' || l.ch == ',' || l.ch == ';' {
+			break
+		}
+		
+		// For dots: if we've seen ://, ALL dots are part of the URL until we hit a delimiter or whitespace
+		// This handles .com, .org, file.html, etc.
+		// We only stop at . for property access if there's no scheme (edge case)
+		if l.ch == '.' && isLetter(l.peekChar()) && !hasScheme {
+			// No :// seen yet, so this might be property access
+			break
+		}
+		
+		url = append(url, l.ch)
+		l.readChar()
+	}
+
+	return string(url)
 }
 
 // shouldTreatAsRegex determines if / should be regex or division

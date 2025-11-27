@@ -671,6 +671,26 @@ func evalDurationLiteral(node *ast.DurationLiteral, env *Environment) Object {
 	return durationToDict(months, seconds, env)
 }
 
+// evalPathLiteral parses a path literal like @/usr/local/bin or @./config.json
+func evalPathLiteral(node *ast.PathLiteral, env *Environment) Object {
+	// Parse the path string into components
+	components, isAbsolute := parsePathString(node.Value)
+	
+	// Create path dictionary
+	return pathToDict(components, isAbsolute, env)
+}
+
+// evalUrlLiteral parses a URL literal like @https://example.com/api
+func evalUrlLiteral(node *ast.UrlLiteral, env *Environment) Object {
+	// Parse the URL string
+	urlDict, err := parseUrlString(node.Value, env)
+	if err != nil {
+		return newError("invalid URL literal: %s", err.Error())
+	}
+	
+	return urlDict
+}
+
 // parseDurationString parses a duration string like "2h30m" or "1y6mo" into months and seconds
 // Returns (months, seconds, error)
 func parseDurationString(s string) (int64, int64, error) {
@@ -2403,6 +2423,12 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.DurationLiteral:
 		return evalDurationLiteral(node, env)
+
+	case *ast.PathLiteral:
+		return evalPathLiteral(node, env)
+
+	case *ast.UrlLiteral:
+		return evalUrlLiteral(node, env)
 
 	case *ast.TagLiteral:
 		return evalTagLiteral(node, env)

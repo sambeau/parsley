@@ -1,0 +1,54 @@
+// Test path and URL literal syntax
+
+// Test path literals
+let p1 = @/usr/local/bin
+let p2 = @./config.json
+let p3 = @~/documents/notes.txt
+
+logLine("=== Path Literal Tests ===")
+logLine()
+logLine("p1 =", toString(p1))
+logLine("p1.basename =", p1.basename)
+logLine("p1.dirname =", toString(p1.dirname))
+logLine()
+logLine("p2 =", toString(p2))
+logLine("p2.extension =", p2.extension)
+logLine()
+logLine("p3 =", toString(p3))
+logLine("p3.stem =", p3.stem)
+logLine()
+
+// Test URL literals
+let u1 = @https://example.com/api/v1
+let u2 = @http://localhost:8080/test?q=hello&lang=en
+
+logLine("=== URL Literal Tests ===")
+logLine()
+logLine("u1 =", toString(u1))
+logLine("u1.scheme =", u1.scheme)
+logLine("u1.host =", u1.host)
+logLine("u1.pathname =", u1.pathname)
+logLine()
+logLine("u2 =", toString(u2))
+logLine("u2.port =", u2.port)
+logLine("u2.query.q =", u2.query.q)
+logLine("u2.query.lang =", u2.query.lang)
+logLine()
+
+// Compare literal vs constructor
+let p_literal = @/home/user/file.txt
+let p_constructor = path("/home/user/file.txt")
+logLine("=== Literal and Constructor Equivalence ===")
+logLine()
+logLine("Literal:    ", toString(p_literal))
+logLine("Constructor:", toString(p_constructor))
+let pMatch = (toString(p_literal) == toString(p_constructor))
+logLine("Same result:", pMatch)
+logLine()
+
+let u_literal = @https://api.github.com/repos
+let u_constructor = url("https://api.github.com/repos")
+logLine("Literal:    ", toString(u_literal))
+logLine("Constructor:", toString(u_constructor))
+let uMatch = (toString(u_literal) == toString(u_constructor))
+logLine("Same result:", uMatch)
