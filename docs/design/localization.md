@@ -8,7 +8,8 @@
 | 1 | `formatCurrency()` | ✅ Complete | Using golang.org/x/text/currency |
 | 1 | `formatPercent()` | ✅ Complete | Using golang.org/x/text/number |
 | 2 | `formatDate()` | ✅ Complete | Using github.com/goodsign/monday |
-| 3 | `formatRelativeTime()` | ⏳ Planned | Requires custom CLDR implementation |
+| 3 | `format()` (durations) | ✅ Complete | Custom CLDR implementation in pkg/locale |
+| 3 | Negative duration literals | ✅ Complete | `@-1d`, `@-2w`, etc. |
 | 4 | `formatList()` | ⏳ Planned | Requires custom CLDR implementation |
 
 ## Executive Summary
@@ -19,9 +20,10 @@ This document outlines a plan for adding localization (l10n) support to Parsley,
 
 Parsley currently has:
 - `now()` and `time()` functions for datetime objects
+- Duration literals with `@` syntax: `@1d`, `@2h30m`, `@-1d` (negative durations)
 - `.format` computed property returning English-only "Month DD, YYYY" format
 - `.date` and `.time` computed properties returning ISO formats
-- Locale-aware formatting functions: `formatNumber()`, `formatCurrency()`, `formatPercent()`, `formatDate()`
+- Locale-aware formatting functions: `formatNumber()`, `formatCurrency()`, `formatPercent()`, `formatDate()`, `format()` (for durations)
 
 ## Goals
 

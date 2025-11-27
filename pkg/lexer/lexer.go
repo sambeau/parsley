@@ -1421,11 +1421,17 @@ func (l *Lexer) isDatetimeLiteral() bool {
 }
 
 // readDurationLiteral reads a duration literal after @
-// Supports formats: @2h30m, @7d, @1y6mo, @30s
+// Supports formats: @2h30m, @7d, @1y6mo, @30s, @-1d, @-2w (negative durations)
 // Units: y (years), mo (months), w (weeks), d (days), h (hours), m (minutes), s (seconds)
 func (l *Lexer) readDurationLiteral() string {
 	var duration []byte
 	l.readChar() // skip @
+
+	// Check for negative duration
+	if l.ch == '-' {
+		duration = append(duration, l.ch)
+		l.readChar()
+	}
 
 	// Read pairs of number + unit
 	for {
@@ -1508,6 +1514,12 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 	}
 	if firstChar == '~' && pos+1 < len(l.input) && l.input[pos+1] == '/' {
 		return PATH_LITERAL
+	}
+
+	// Check for negative duration: @-1d, @-2w, etc.
+	// A minus followed by a digit indicates negative duration
+	if firstChar == '-' && pos+1 < len(l.input) && isDigit(l.input[pos+1]) {
+		return DURATION_LITERAL
 	}
 
 	// Check for datetime: 4 digits followed by '-'

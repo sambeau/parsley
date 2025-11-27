@@ -274,3 +274,147 @@ func TestFormatDateErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestNegativeDurationLiterals(t *testing.T) {
+	tests := []struct {
+		input           string
+		expectedSeconds int64
+	}{
+		{`@-1d`, -86400},
+		{`@-2d`, -172800},
+		{`@-1w`, -604800},
+		{`@-2w`, -1209600},
+		{`@-3h`, -10800},
+		{`@-30m`, -1800},
+		{`@-3h30m`, -12600},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			dict, ok := result.(*evaluator.Dictionary)
+			if !ok {
+				t.Fatalf("expected Dictionary, got %T (%+v)", result, result)
+			}
+
+			// Check __type
+			typeExpr, ok := dict.Pairs["__type"]
+			if !ok {
+				t.Fatal("expected __type field")
+			}
+			typeObj := evaluator.Eval(typeExpr, env)
+			typeStr, ok := typeObj.(*evaluator.String)
+			if !ok || typeStr.Value != "duration" {
+				t.Fatalf("expected __type='duration', got %v", typeObj)
+			}
+
+			// Check seconds
+			secondsExpr, ok := dict.Pairs["seconds"]
+			if !ok {
+				t.Fatal("expected seconds field")
+			}
+			secondsObj := evaluator.Eval(secondsExpr, env)
+			secondsInt, ok := secondsObj.(*evaluator.Integer)
+			if !ok {
+				t.Fatalf("expected Integer for seconds, got %T", secondsObj)
+			}
+			if secondsInt.Value != tt.expectedSeconds {
+				t.Errorf("expected seconds=%d, got %d", tt.expectedSeconds, secondsInt.Value)
+			}
+		})
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		input    string
+		contains string
+	}{
+		// English (default)
+		{`format(@1d)`, "tomorrow"},
+		{`format(@-1d)`, "yesterday"},
+		{`format(@2d)`, "in 2 days"},
+		{`format(@-2d)`, "2 days ago"},
+		{`format(@1w)`, "next week"},
+		{`format(@-1w)`, "last week"},
+		{`format(@3h)`, "in 3 hours"},
+		{`format(@-3h)`, "3 hours ago"},
+
+		// German
+		{`format(@1d, "de-DE")`, "morgen"},
+		{`format(@-1d, "de-DE")`, "gestern"},
+		{`format(@-2d, "de-DE")`, "vorgestern"},
+		{`format(@2w, "de-DE")`, "in 2 Wochen"},
+
+		// French
+		{`format(@1d, "fr-FR")`, "demain"},
+		{`format(@-1d, "fr-FR")`, "hier"},
+		{`format(@-2d, "fr-FR")`, "avant-hier"},
+
+		// Spanish
+		{`format(@1d, "es-ES")`, "mañana"},
+		{`format(@-1d, "es-ES")`, "ayer"},
+		{`format(@-2d, "es-ES")`, "anteayer"},
+
+		// Japanese
+		{`format(@1d, "ja-JP")`, "明日"},
+		{`format(@-1d, "ja-JP")`, "昨日"},
+		{`format(@-2d, "ja-JP")`, "一昨日"},
+
+		// Russian
+		{`format(@1d, "ru-RU")`, "завтра"},
+		{`format(@-1d, "ru-RU")`, "вчера"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input+"_contains_"+tt.contains, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			str, ok := result.(*evaluator.String)
+			if !ok {
+				t.Fatalf("expected String, got %T (%+v)", result, result)
+			}
+			if !strings.Contains(str.Value, tt.contains) {
+				t.Errorf("expected to contain '%s', got '%s'", tt.contains, str.Value)
+			}
+		})
+	}
+}
+
+func TestFormatDurationErrors(t *testing.T) {
+	tests := []struct {
+		input       string
+		errContains string
+	}{
+		{`format("not a duration")`, "must be a duration"},
+		{`format({})`, "must be a duration"},
+		{`format(@1d, 123)`, "must be STRING"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := parser.New(l)
+			program := p.ParseProgram()
+			env := evaluator.NewEnvironment()
+			result := evaluator.Eval(program, env)
+
+			err, ok := result.(*evaluator.Error)
+			if !ok {
+				t.Fatalf("expected Error, got %T (%+v)", result, result)
+			}
+			if !strings.Contains(err.Message, tt.errContains) {
+				t.Errorf("expected error to contain '%s', got '%s'", tt.errContains, err.Message)
+			}
+		})
+	}
+}

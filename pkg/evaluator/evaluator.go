@@ -15,6 +15,7 @@ import (
 	"github.com/goodsign/monday"
 	"github.com/sambeau/parsley/pkg/ast"
 	"github.com/sambeau/parsley/pkg/lexer"
+	"github.com/sambeau/parsley/pkg/locale"
 	"github.com/sambeau/parsley/pkg/parser"
 
 	"golang.org/x/text/currency"
@@ -1006,13 +1007,22 @@ func evalUrlLiteral(node *ast.UrlLiteral, env *Environment) Object {
 	return urlDict
 }
 
-// parseDurationString parses a duration string like "2h30m" or "1y6mo" into months and seconds
+// parseDurationString parses a duration string like "2h30m" or "1y6mo" or "-1d" into months and seconds
 // Returns (months, seconds, error)
+// Negative durations (e.g., "-1d") return negative values
 func parseDurationString(s string) (int64, int64, error) {
 	var months int64
 	var seconds int64
+	negative := false
 
 	i := 0
+
+	// Check for leading minus sign (negative duration)
+	if i < len(s) && s[i] == '-' {
+		negative = true
+		i++
+	}
+
 	for i < len(s) {
 		// Read number
 		if !isDigit(rune(s[i])) {
@@ -1064,6 +1074,12 @@ func parseDurationString(s string) (int64, int64, error) {
 		default:
 			return 0, 0, fmt.Errorf("unknown unit: %s", unit)
 		}
+	}
+
+	// Apply negative sign if present
+	if negative {
+		months = -months
+		seconds = -seconds
 	}
 
 	return months, seconds, nil
@@ -2530,6 +2546,43 @@ func getBuiltins() map[string]*Builtin {
 				format := getDateFormatForStyle(style, mondayLocale)
 
 				return &String{Value: monday.Format(t, format, mondayLocale)}
+			},
+		},
+		"format": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+				}
+
+				// Check if first argument is a duration dictionary
+				dict, ok := args[0].(*Dictionary)
+				if !ok {
+					return newError("first argument to `format` must be a duration, got %s", args[0].Type())
+				}
+
+				if !isDurationDict(dict) {
+					return newError("first argument to `format` must be a duration, got dictionary")
+				}
+
+				// Extract months and seconds from duration
+				months, seconds, err := getDurationComponents(dict, NewEnvironment())
+				if err != nil {
+					return newError("invalid duration: %s", err.Error())
+				}
+
+				// Get locale (default to en-US)
+				localeStr := "en-US"
+				if len(args) == 2 {
+					locStr, ok := args[1].(*String)
+					if !ok {
+						return newError("second argument to `format` must be STRING, got %s", args[1].Type())
+					}
+					localeStr = locStr.Value
+				}
+
+				// Format the duration as relative time
+				result := locale.DurationToRelativeTime(months, seconds, localeStr)
+				return &String{Value: result}
 			},
 		},
 		"map": {

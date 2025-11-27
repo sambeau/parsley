@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.6
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.7
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -758,6 +758,7 @@ Note: `filter()` and `reduce()` can be implemented using for loops
 - `formatCurrency(num, currencyCode, locale?)` - Format currency (e.g., `formatCurrency(99.99, "EUR", "de-DE")` → "99,99 €")
 - `formatPercent(num, locale?)` - Format percentage (e.g., `formatPercent(0.1234, "de-DE")` → "12,34 %")
 - `formatDate(datetime, style?, locale?)` - Format date (style: "short", "medium", "long", "full")
+- `format(duration, locale?)` - Format duration as relative time (e.g., `format(@-1d, "de-DE")` → "gestern")
 
 Example locale-aware formatting:
 ```parsley
@@ -776,6 +777,16 @@ formatDate(d, "long", "de-DE")        // "25. Dezember 2024"
 formatDate(d, "long", "fr-FR")        // "25 décembre 2024"
 formatDate(d, "long", "ja-JP")        // "2024年12月25日"
 formatDate(d, "full", "es-ES")        // "miércoles, 25 de diciembre de 2024"
+
+// Relative Time (durations)
+format(@1d)                           // "tomorrow"
+format(@-1d)                          // "yesterday"
+format(@-2d, "de-DE")                 // "vorgestern"
+format(@3h, "fr-FR")                  // "dans 3 heures"
+
+// Relative time with datetime arithmetic
+let christmas = @2025-12-25
+format(christmas - now())             // "in 4 weeks" (varies by current date)
 ```
 
 #### Regular Expressions
