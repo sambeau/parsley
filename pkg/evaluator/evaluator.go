@@ -1386,7 +1386,7 @@ func urlDictToString(dict *Dictionary) string {
 				// No leading empty, but we have segments, so add /
 				result.WriteString("/")
 			}
-			
+
 			// Add remaining path segments
 			for i := startIdx; i < len(arr.Elements); i++ {
 				if str, ok := arr.Elements[i].(*String); ok && str.Value != "" {
@@ -3099,7 +3099,7 @@ func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dicti
 			return newErrorWithPos(tok, "path components is not an array")
 		}
 		componentsArr := componentsObj.(*Array)
-		
+
 		// Get absolute flag
 		absoluteExpr, ok := path.Pairs["absolute"]
 		if !ok {
@@ -3110,10 +3110,10 @@ func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dicti
 			return newErrorWithPos(tok, "path absolute is not a boolean")
 		}
 		isAbsolute := absoluteObj.(*Boolean).Value
-		
+
 		// Parse the string to add as new path segments
 		newSegments, _ := parsePathString(str.Value)
-		
+
 		// Combine components
 		var newComponents []string
 		for _, elem := range componentsArr.Elements {
@@ -3121,14 +3121,14 @@ func evalPathStringInfixExpression(tok lexer.Token, operator string, path *Dicti
 				newComponents = append(newComponents, strObj.Value)
 			}
 		}
-		
+
 		// Append new segments (skip empty leading segment if present)
 		for _, seg := range newSegments {
 			if seg != "" || len(newComponents) == 0 {
 				newComponents = append(newComponents, seg)
 			}
 		}
-		
+
 		return pathToDict(newComponents, isAbsolute, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for path and string: %s (supported: +, /)", operator)
@@ -3172,10 +3172,10 @@ func evalUrlStringInfixExpression(tok lexer.Token, operator string, urlDict *Dic
 			return newErrorWithPos(tok, "url path is not an array")
 		}
 		pathArr := pathObj.(*Array)
-		
+
 		// Parse the string as a path to add
 		newSegments, _ := parsePathString(str.Value)
-		
+
 		// Combine path segments
 		var newPath []string
 		for _, elem := range pathArr.Elements {
@@ -3183,14 +3183,14 @@ func evalUrlStringInfixExpression(tok lexer.Token, operator string, urlDict *Dic
 				newPath = append(newPath, strObj.Value)
 			}
 		}
-		
+
 		// Append new segments (skip empty leading segment)
 		for _, seg := range newSegments {
 			if seg != "" {
 				newPath = append(newPath, seg)
 			}
 		}
-		
+
 		// Create new URL dict with updated path
 		pairs := make(map[string]ast.Expression)
 		for k, v := range urlDict.Pairs {
@@ -3205,7 +3205,7 @@ func evalUrlStringInfixExpression(tok lexer.Token, operator string, urlDict *Dic
 				pairs[k] = v
 			}
 		}
-		
+
 		return &Dictionary{Pairs: pairs, Env: env}
 	default:
 		return newErrorWithPos(tok, "unknown operator for url and string: %s (supported: +)", operator)
