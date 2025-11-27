@@ -9,7 +9,7 @@
 - ~~Duration literals with @ syntax~~ ✅ (v0.7.0)
 - URL type
 - File globbing to dictionary
-- For loop with indexing
+- ~~For loop with indexing~~ ✅ (v0.9.2)
 - ~~Open-ended slicing~~ ✅ (v0.9.1)
 - ~~Regular expressions~~ ✅ (v0.6.0)
 - ~~Regular expression literals with /pattern/ syntax~~ ✅ (v0.6.0)

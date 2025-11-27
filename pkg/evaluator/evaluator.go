@@ -3532,7 +3532,7 @@ func evalImport(args []Object, env *Environment) Object {
 		for _, msg := range p.Errors() {
 			errMsg.WriteString(fmt.Sprintf("  %s\n", msg))
 		}
-		return newError(errMsg.String())
+		return newError("%s", errMsg.String())
 	}
 
 	// Create isolated environment for the module
@@ -3738,7 +3738,7 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 
 	// Map function over array elements
 	result := []Object{}
-	for _, elem := range elements {
+	for idx, elem := range elements {
 		var evaluated Object
 
 		switch f := fn.(type) {
@@ -3747,12 +3747,23 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 			evaluated = f.Fn(elem)
 		case *Function:
 			// Call user function
-			if f.ParamCount() != 1 {
-				return newError("function passed to for must take exactly 1 parameter, got %d", f.ParamCount())
+			paramCount := f.ParamCount()
+			if paramCount != 1 && paramCount != 2 {
+				return newError("function passed to for must take 1 or 2 parameters, got %d", paramCount)
 			}
 
-			// Create a new environment and bind the parameter
-			extendedEnv := extendFunctionEnv(f, []Object{elem})
+			// Prepare arguments based on parameter count
+			var args []Object
+			if paramCount == 2 {
+				// Two parameters: index and element
+				args = []Object{&Integer{Value: int64(idx)}, elem}
+			} else {
+				// One parameter: element only (backward compatible)
+				args = []Object{elem}
+			}
+
+			// Create a new environment and bind the parameters
+			extendedEnv := extendFunctionEnv(f, args)
 
 			// Evaluate all statements in the body
 			for _, stmt := range f.Body.Statements {
@@ -4895,7 +4906,7 @@ func evalArraySliceExpression(array, start, end Object) Object {
 	if startIdx > endIdx {
 		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
 	}
-	
+
 	// Clamp to array bounds (allow slicing beyond length)
 	if startIdx > max {
 		startIdx = max
@@ -4949,7 +4960,7 @@ func evalStringSliceExpression(str, start, end Object) Object {
 	if startIdx > endIdx {
 		return newError("slice start index %d is greater than end index %d", startIdx, endIdx)
 	}
-	
+
 	// Clamp to string bounds (allow slicing beyond length)
 	if startIdx > max {
 		startIdx = max

@@ -179,7 +179,7 @@ func TestSlicingEdgeCases(t *testing.T) {
 		// Valid edge cases
 		{"[][:]", false, ""},
 		{`""[:]`, false, ""},
-		{"[1][:100]", false, ""},  // end beyond length should work (clamped)
+		{"[1][:100]", false, ""}, // end beyond length should work (clamped)
 		{"[1][0:]", false, ""},
 		{"[1,2,3][10:20]", false, ""}, // both beyond length - returns empty (clamped)
 

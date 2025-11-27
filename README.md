@@ -281,9 +281,19 @@ let grade = if (score >= 90) "A"
 #### For Loops
 
 ```parsley
-// Array iteration
+// Array iteration (single parameter - element only)
 for (item in items) {
     log(item)
+}
+
+// Array iteration with index (two parameters - index and element)
+for (i, item in items) {
+    log(i, ":", item)  // 0 : first, 1 : second, etc.
+}
+
+// String iteration with index
+for (i, char in "hello") {
+    log(i, "=", char)  // 0 = h, 1 = e, 2 = l, etc.
 }
 
 // Dictionary iteration
@@ -294,9 +304,19 @@ for (key, value in dict) {
 // Map pattern (returns array)
 let doubled = for (n in [1, 2, 3]) { n * 2 }
 
+// Map with index - enumerate pattern
+let numbered = for (i, item in ["apple", "banana"]) {
+    (i + 1) + ". " + item  // ["1. apple", "2. banana"]
+}
+
 // Filter pattern (if returns null, item is excluded)
 let evens = for (n in numbers) {
     if (n % 2 == 0) { n }
+}
+
+// Filter with index - take first 3 items
+let firstThree = for (i, item in items) {
+    if (i < 3) { item }
 }
 
 // Reduce pattern (accumulate values)

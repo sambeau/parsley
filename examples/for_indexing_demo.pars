@@ -1,0 +1,60 @@
+// For Loop Indexing Demo - Parsley v0.9.2
+
+log("=== Basic Array Indexing ===")
+let fruits = ["apple", "banana", "cherry"]
+
+for (i, fruit in fruits) {
+    log(i, ":", fruit)
+}
+
+log("\n=== Enumerate Pattern ===")
+let items = ["laptop", "mouse", "keyboard"]
+let numbered = for (i, item in items) {
+    (i + 1) + ". " + item
+}
+log(numbered)
+
+log("\n=== String Character Indexing ===")
+for (i, char in "Hello") {
+    log("Position", i, "=", char)
+}
+
+log("\n=== Filter with Index ===")
+let numbers = [10, 20, 30, 40, 50]
+
+// Get only even indices (0, 2, 4, ...)
+let evenIndices = for (i, n in numbers) {
+    if (i % 2 == 0) { n }
+}
+log("Even indices:", evenIndices)
+
+// Get first 3 elements
+let firstThree = for (i, n in numbers) {
+    if (i < 3) { n }
+}
+log("First 3:", firstThree)
+
+log("\n=== Index in Calculations ===")
+let values = [100, 100, 100]
+let withIndex = for (i, val in values) {
+    val + i  // 100, 101, 102
+}
+log("Values with index added:", withIndex)
+
+log("\n=== Finding Index of Element ===")
+let colors = ["red", "green", "blue", "yellow"]
+let blueIndex = for (i, color in colors) {
+    if (color == "blue") { i }
+}
+log("Index of 'blue':", blueIndex)
+
+log("\n=== Backward Compatibility ===")
+// Single parameter still works
+let doubled = for (n in [1, 2, 3]) { n * 2 }
+log("Doubled:", doubled)
+
+// Dictionary iteration unchanged
+let person = {name: "Sam", age: 57}
+for (key, value in person) {
+    log(key, "=", value)
+}
