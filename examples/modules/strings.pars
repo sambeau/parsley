@@ -1,0 +1,28 @@
+// String utility functions
+let isEmpty = fn(s) { len(s) == 0 }
+
+let capitalize = fn(s) {
+    if (len(s) == 0) {
+        s
+    } else {
+        toUpper(s[0:1]) + s[1:len(s)]
+    }
+}
+
+let repeat = fn(s, n) {
+    if (n <= 0) {
+        ""
+    } else {
+        s + repeat(s, n - 1)
+    }
+}
+
+let trimLeft = fn(s) {
+    if (len(s) == 0) {
+        s
+    } else if (s[0] == " " | s[0] == "\t" | s[0] == "\n") {
+        trimLeft(s[1:len(s)])
+    } else {
+        s
+    }
+}

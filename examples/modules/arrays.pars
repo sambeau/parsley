@@ -1,0 +1,53 @@
+// Array utility functions
+let sum = fn(arr) {
+    let total = 0
+    for (item in arr) {
+        total = total + item
+    }
+    total
+}
+
+let average = fn(arr) {
+    if (len(arr) == 0) {
+        0
+    } else {
+        sum(arr) / len(arr)
+    }
+}
+
+let max = fn(arr) {
+    if (len(arr) == 0) {
+        null
+    } else {
+        let maximum = arr[0]
+        for (item in arr) {
+            if (item > maximum) {
+                maximum = item
+            }
+        }
+        maximum
+    }
+}
+
+let min = fn(arr) {
+    if (len(arr) == 0) {
+        null
+    } else {
+        let minimum = arr[0]
+        for (item in arr) {
+            if (item < minimum) {
+                minimum = item
+            }
+        }
+        minimum
+    }
+}
+
+let contains = fn(arr, value) {
+    for (item in arr) {
+        if (item == value) {
+            return true
+        }
+    }
+    false
+}

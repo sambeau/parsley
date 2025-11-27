@@ -1,0 +1,4 @@
+// Simple module for testing
+let value = 42
+let text = "hello"
+let double = fn(x) { x * 2 }

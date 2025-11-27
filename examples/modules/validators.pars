@@ -1,0 +1,20 @@
+// Validation functions  
+let isEmail = fn(str) {
+    str ~ /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+}
+
+let isStrongPassword = fn(pwd) {
+    len(pwd) >= 8 & 
+    (pwd ~ /[A-Z]/) & 
+    (pwd ~ /[a-z]/) & 
+    (pwd ~ /[0-9]/)
+}
+
+let isURL = fn(str) {
+    str ~ /^https?:\/\/.+/
+}
+
+let isPhone = fn(str) {
+    // Matches formats: 123-456-7890, (123) 456-7890, 123.456.7890
+    str ~ /^[\d\(\)\-\.\s]+$/
+}

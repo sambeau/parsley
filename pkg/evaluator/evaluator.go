@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -243,6 +244,18 @@ var (
 	TRUE  = &Boolean{Value: true}
 	FALSE = &Boolean{Value: false}
 )
+
+// ModuleCache caches imported modules
+type ModuleCache struct {
+	modules map[string]*Dictionary // absolute path -> module dictionary
+	loading map[string]bool         // tracks currently loading modules for cycle detection
+}
+
+// Global module cache
+var moduleCache = &ModuleCache{
+	modules: make(map[string]*Dictionary),
+	loading: make(map[string]bool),
+}
 
 // naturalCompare compares two objects using natural sort order
 // Returns true if a < b in natural sort order
@@ -1549,6 +1562,13 @@ func urlDictToString(dict *Dictionary) string {
 // getBuiltins returns the map of built-in functions
 func getBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
+		"import": {
+			Fn: func(args ...Object) Object {
+				// This is a placeholder - actual implementation happens in CallExpression
+				// where we have access to the environment for path resolution
+				return newError("import() requires environment context")
+			},
+		},
 		"sin": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -2560,6 +2580,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.Boolean:
 		return nativeBoolToParsBoolean(node.Value)
 
+	case *ast.ObjectLiteralExpression:
+		return node.Obj.(Object)
+
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, env)
 		if isError(right) {
@@ -2611,6 +2634,15 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.CallExpression:
 		// Store current token in environment for logLine
 		env.LastToken = &node.Token
+
+		// Check if this is a call to import
+		if ident, ok := node.Function.(*ast.Identifier); ok && ident.Value == "import" {
+			args := evalExpressions(node.Arguments, env)
+			if len(args) == 1 && isError(args[0]) {
+				return args[0]
+			}
+			return evalImport(args, env)
+		}
 
 		// Check if this is a call to logLine
 		if ident, ok := node.Function.(*ast.Identifier); ok && ident.Value == "logLine" {
@@ -3416,6 +3448,88 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 	default:
 		return newError("not a function: %T", fn)
 	}
+}
+
+// evalImport implements the import(path) builtin
+func evalImport(args []Object, env *Environment) Object {
+	if len(args) != 1 {
+		return newError("wrong number of arguments to `import`. got=%d, want=1", len(args))
+	}
+
+	// Extract path string from argument (handle both path dictionaries and strings)
+	var pathStr string
+	switch arg := args[0].(type) {
+	case *Dictionary:
+		// Handle path literal (@/path/to/file.pars)
+		if typeExpr, ok := arg.Pairs["__type"]; ok {
+			typeVal := Eval(typeExpr, arg.Env)
+			if typeStr, ok := typeVal.(*String); ok && typeStr.Value == "path" {
+				pathStr = pathDictToString(arg)
+			} else {
+				return newError("argument to `import` must be a path or string, got dictionary")
+			}
+		} else {
+			return newError("argument to `import` must be a path or string, got dictionary")
+		}
+	case *String:
+		pathStr = arg.Value
+	default:
+		return newError("argument to `import` must be a path or string, got %s", arg.Type())
+	}
+
+	// Resolve path relative to current file
+	absPath, err := resolveModulePath(pathStr, env.Filename)
+	if err != nil {
+		return newError("failed to resolve module path: %s", err.Error())
+	}
+
+	// Check if module is currently being loaded (circular dependency)
+	if moduleCache.loading[absPath] {
+		return newError("circular dependency detected when importing: %s", absPath)
+	}
+
+	// Check cache first
+	if cached, ok := moduleCache.modules[absPath]; ok {
+		return cached
+	}
+
+	// Mark as loading
+	moduleCache.loading[absPath] = true
+	defer delete(moduleCache.loading, absPath)
+
+	// Read the file
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		return newError("failed to read module file %s: %s", absPath, err.Error())
+	}
+
+	// Parse the module
+	l := lexer.New(string(content))
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		var errMsg strings.Builder
+		errMsg.WriteString(fmt.Sprintf("parse errors in module %s:\n", absPath))
+		for _, msg := range p.Errors() {
+			errMsg.WriteString(fmt.Sprintf("  %s\n", msg))
+		}
+		return newError(errMsg.String())
+	}
+
+	// Create isolated environment for the module
+	moduleEnv := NewEnvironment()
+	moduleEnv.Filename = absPath
+
+	// Evaluate the module
+	Eval(program, moduleEnv)
+
+	// Convert environment to dictionary
+	moduleDict := environmentToDict(moduleEnv)
+
+	// Cache the result
+	moduleCache.modules[absPath] = moduleDict
+
+	return moduleDict
 }
 
 // evalLogLine implements logLine with filename and line number
@@ -4917,4 +5031,69 @@ func evalDictionaryIndexExpression(dict, index Object) Object {
 
 	// Evaluate the expression in the dictionary's environment
 	return Eval(expr, dictEnv)
+}
+
+// environmentToDict converts an environment's store to a Dictionary object
+func environmentToDict(env *Environment) *Dictionary {
+pairs := make(map[string]ast.Expression)
+
+// Iterate over the environment's store
+	for name, value := range env.store {
+		// Wrap the object as a literal expression
+		pairs[name] = objectToExpression(value)
+	}
+	
+	// Create dictionary with the module's environment for evaluation
+return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// objectToExpression wraps an Object as an AST expression
+func objectToExpression(obj Object) ast.Expression {
+	switch v := obj.(type) {
+	case *Integer:
+		return &ast.IntegerLiteral{Value: v.Value}
+	case *Float:
+		return &ast.FloatLiteral{Value: v.Value}
+	case *String:
+		return &ast.StringLiteral{Value: v.Value}
+	case *Boolean:
+		return &ast.Boolean{Value: v.Value}
+	default:
+		// For complex types (functions, arrays, dictionaries, null), we create
+		// an expression that returns the object directly when evaluated
+		return &ast.ObjectLiteralExpression{Obj: obj}
+	}
+}
+
+// objectLiteralExpression removed - now using ast.ObjectLiteralExpression
+
+// resolveModulePath resolves a module path relative to the current file
+func resolveModulePath(pathStr string, currentFile string) (string, error) {
+	var absPath string
+
+	// If path is absolute, use it directly
+	if strings.HasPrefix(pathStr, "/") {
+		absPath = pathStr
+	} else {
+		// Resolve relative to the current file's directory
+		var baseDir string
+		if currentFile != "" {
+			baseDir = filepath.Dir(currentFile)
+		} else {
+			// If no current file, use current working directory
+			cwd, err := os.Getwd()
+			if err != nil {
+				return "", err
+			}
+			baseDir = cwd
+		}
+		
+		// Join and clean the path
+		absPath = filepath.Join(baseDir, pathStr)
+	}
+	
+	// Clean the path (resolve . and ..)
+	absPath = filepath.Clean(absPath)
+	
+	return absPath, nil
 }

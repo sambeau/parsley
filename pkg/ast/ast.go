@@ -718,3 +718,13 @@ func (ddk *DictDestructuringKey) String() string {
 
 	return out.String()
 }
+
+// ObjectLiteralExpression wraps an evaluator Object as an AST expression
+// This is used internally by the module system to convert environment values to expressions
+type ObjectLiteralExpression struct {
+	Obj interface{} // stores evaluator.Object, but we use interface{} to avoid circular import
+}
+
+func (ole *ObjectLiteralExpression) expressionNode()      {}
+func (ole *ObjectLiteralExpression) TokenLiteral() string { return "" }
+func (ole *ObjectLiteralExpression) String() string       { return "<object literal>" }

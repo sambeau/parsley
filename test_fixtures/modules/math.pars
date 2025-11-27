@@ -1,0 +1,5 @@
+// Math utilities module
+let add = fn(a, b) { a + b }
+let multiply = fn(a, b) { a * b }
+let PI = 3.141592653589793
+let square = fn(x) { x * x }

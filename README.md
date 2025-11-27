@@ -33,6 +33,8 @@ A concatenative programming language interpreter.
 - Dictionary concatenation and merging with `++`
 - Dictionary iteration with `for(key, value in dict)`
 - Dictionary manipulation: `keys()`, `values()`, `has()`, `toArray()`, `toDict()`, `delete`
+- Module system with `import()` for code reuse across files
+- Module caching and circular dependency detection
 - String indexing and slicing
 - String concatenation with `+`
 - String escape sequences (`\n`, `\t`, etc.)
@@ -118,6 +120,9 @@ A concatenative programming language interpreter.
   - `regex(pattern, flags?)` - Create regex from string pattern (flags optional)
   - `replace(text, pattern, replacement)` - Replace matches (pattern can be string or regex)
   - `split(text, delimiter)` - Split string by delimiter (can be string or regex)
+
+- **Module Functions:**
+  - `import(path)` - Import a Parsley module and return its exported scope as a dictionary
 
 
 ## Getting Started
@@ -1661,6 +1666,151 @@ Year: "2024", "Month:", "11", "Day:", "26"
 >> log("Count:", len(fruits), "Items:", fruits)
 Count: 3, "Items:", ["apple", "banana", "cherry"]
 ```
+
+### Module System
+
+Parsley supports a minimalist module system that enables code reuse across files. Modules are just normal Parsley scripts—no special syntax required. All `let` bindings in a module are automatically exported.
+
+#### Basic Module Import
+
+**math.pars:**
+```parsley
+let PI = 3.14159
+let add = fn(a, b) { a + b }
+let square = fn(x) { x * x }
+```
+
+**Using the module:**
+```parsley
+let math = import(@./math.pars)
+log(math.PI)           // 3.14159
+log(math.add(2, 3))    // 5
+log(math.square(4))    // 16
+```
+
+The `import()` function:
+- Takes a path as a string or path literal (`@./file.pars`)
+- Returns a dictionary containing all `let` bindings from the module
+- Paths are resolved relative to the importing file
+- Modules are cached (loaded once, even if imported multiple times)
+
+#### Dictionary Destructuring
+
+Import specific functions or values using destructuring:
+
+```parsley
+let {add, square} = import(@./math.pars)
+log(add(10, 5))      // 15
+log(square(7))       // 49
+```
+
+#### Aliasing with `as`
+
+Rename imported items to avoid naming conflicts:
+
+```parsley
+let {square as sq, add as plus} = import(@./math.pars)
+log(sq(5))           // 25
+log(plus(1, 2))      // 3
+```
+
+#### Module Caching
+
+Modules are loaded once and cached. Multiple imports return the same module dictionary:
+
+```parsley
+let mod1 = import(@./math.pars)
+let mod2 = import(@./math.pars)
+log(mod1 == mod2)    // true
+```
+
+This ensures:
+- Efficient loading (files read once)
+- Consistent state across imports
+- Fast subsequent imports
+
+#### Circular Dependency Detection
+
+Parsley detects circular dependencies and reports errors:
+
+**a.pars:**
+```parsley
+let b = import(@./b.pars)
+let valueA = 1
+```
+
+**b.pars:**
+```parsley
+let a = import(@./a.pars)  // Error: circular dependency
+let valueB = 2
+```
+
+#### Module Scope Isolation
+
+Each module executes in its own isolated environment. Only `let` bindings are exported:
+
+**counter.pars:**
+```parsley
+let count = 0
+let increment = fn() {
+    count = count + 1
+    count
+}
+```
+
+**Using the module:**
+```parsley
+let counter = import(@./counter.pars)
+log(counter.increment())  // 1
+log(counter.increment())  // 2
+log(counter.count)        // 0 (original value, not modified)
+```
+
+Note: The function sees the module's internal `count`, but external code sees the exported snapshot.
+
+#### Practical Examples
+
+**String utilities (strings.pars):**
+```parsley
+let isEmpty = fn(str) { len(str) == 0 }
+let capitalize = fn(str) { toUpper(str[0]) + str[1:] }
+let repeat = fn(str, n) {
+    if (n <= 0) "" else str + repeat(str, n - 1)
+}
+```
+
+**Email validator (validators.pars):**
+```parsley
+let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
+let isEmail = fn(str) { str ~ emailRegex }
+let isStrongPassword = fn(str) {
+    len(str) >= 8 && str ~ /[A-Z]/ && str ~ /[0-9]/
+}
+```
+
+**Using multiple modules:**
+```parsley
+let {isEmpty, capitalize} = import(@./strings.pars)
+let {isEmail} = import(@./validators.pars)
+
+let processEmail = fn(email) {
+    if (isEmpty(email)) "Empty email"
+    else if (!isEmail(email)) "Invalid email"
+    else capitalize(email)
+}
+
+log(processEmail("alice@example.com"))  // "Alice@example.com"
+```
+
+#### Best Practices
+
+1. **One module per file**: Keep modules focused and single-purpose
+2. **Use descriptive names**: Module filenames should indicate their purpose
+3. **Destructure imports**: Import only what you need for clarity
+4. **Relative paths**: Use `@./` for files in the same directory
+5. **Module documentation**: Add comments explaining exported functions
+
+For more detailed examples, see [MODULE_EXAMPLES.md](examples/MODULE_EXAMPLES.md).
 
 ### Singleton Tags
 

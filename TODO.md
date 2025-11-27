@@ -1,7 +1,7 @@
 # TODO List
 
 - File type
-- Modules, import and export
+- ~~Modules, import and export~~ ✅ (v0.9.0)
 - Dictionaries to props in tags
 - ~~Datetime~~ ✅ (v0.6.0)
 - ~~Datetime literals with @ syntax~~ ✅ (v0.7.0)

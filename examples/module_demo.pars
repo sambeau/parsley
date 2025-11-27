@@ -1,0 +1,53 @@
+// Module System Demo
+
+log("=== Parsley Module System Demo ===\n")
+
+// Example 1: String utilities
+log("--- Example 1: String Utilities ---")
+let {capitalize, isEmpty, repeat} = import(@./modules/strings.pars)
+
+let name = "alice"
+log("capitalize('alice'):", capitalize(name))
+log("isEmpty(''):", isEmpty(""))
+log("repeat('*', 5):", repeat("*", 5))
+log()
+
+// Example 2: Validators
+log("--- Example 2: Validators ---")
+let validate = import(@./modules/validators.pars)
+
+log("isEmail('test@example.com'):", validate.isEmail("test@example.com"))
+log("isEmail('not-an-email'):", validate.isEmail("not-an-email"))
+log("isStrongPassword('Weak1'):", validate.isStrongPassword("Weak1"))
+log("isStrongPassword('Strong1Pass'):", validate.isStrongPassword("Strong1Pass"))
+log()
+
+// Example 3: Array utilities
+log("--- Example 3: Array Utilities ---")
+let {sum, average, max, min} = import(@./modules/arrays.pars)
+
+let numbers = [10, 25, 5, 30, 15]
+log("numbers:", numbers)
+log("sum:", sum(numbers))
+log("average:", average(numbers))
+log("max:", max(numbers))
+log("min:", min(numbers))
+log()
+
+// Example 4: Module caching
+log("--- Example 4: Module Caching ---")
+let strings1 = import(@./modules/strings.pars)
+let strings2 = import(@./modules/strings.pars)
+log("Same module object?", strings1 == strings2)
+log()
+
+// Example 5: Composing modules
+log("--- Example 5: Using Multiple Modules Together ---")
+let emails = ["user@example.com", "invalid-email", "admin@test.org"]
+let validEmails = for(email in emails) {
+    if (validate.isEmail(email)) email
+}
+log("Valid emails:", validEmails)
+log("Count:", len(validEmails))
+
+log("\n=== Demo Complete ===")

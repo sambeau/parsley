@@ -1,0 +1,27 @@
+// Test module importing
+
+log("=== Test 1: Basic Import ===")
+let simple = import(@./test_fixtures/modules/simple.pars)
+log("simple.value:", simple.value)
+log("simple.text:", simple.text)
+log("simple.double(21):", simple.double(21))
+
+log("\n=== Test 2: Destructuring ===")
+let {add, multiply, PI} = import(@./test_fixtures/modules/math.pars)
+log("add(2, 3):", add(2, 3))
+log("multiply(4, 5):", multiply(4, 5))
+log("PI:", PI)
+
+log("\n=== Test 3: Aliasing ===")
+let {square as sq} = import(@./test_fixtures/modules/math.pars)
+log("sq(7):", sq(7))
+
+log("\n=== Test 4: Caching Test ===")
+let counter1 = import(@./test_fixtures/modules/counter.pars)
+log("First import count:", counter1.count)
+log("After increment:", counter1.increment())
+let counter2 = import(@./test_fixtures/modules/counter.pars)
+log("Second import count (should be 1):", counter2.count)
+log("Are they the same?", counter1 == counter2)
+
+log("\n=== Test Complete ===")

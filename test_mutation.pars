@@ -1,0 +1,12 @@
+// Test module mutation
+let counter1 = import(@./test_fixtures/modules/counter.pars)
+log("Initial count:", counter1.count)
+
+// Mutate the counter
+counter1.count = 99
+log("After mutation to 99:", counter1.count)
+
+// Import again
+let counter2 = import(@./test_fixtures/modules/counter.pars)
+log("Second import count:", counter2.count)
+log("Are they the same object?", counter1 == counter2)
