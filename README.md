@@ -606,11 +606,8 @@ let Card = fn({title, body}) {
 - `toLower(str)` - Convert to lowercase
 - `split(str, delim)` - Split by string or regex delimiter
 - `replace(str, pattern, replacement)` - Replace matches (string or regex)
-- `len(str)` - String length
-- `contains(str, substr)` - Check if contains substring
-- `starts_with(str, prefix)` - Check if starts with prefix
-- `ends_with(str, suffix)` - Check if ends with suffix
 - `trim(str)` - Remove leading/trailing whitespace
+- `len(str)` - String length
 
 #### Array Operations
 - `len(array)` - Array length
