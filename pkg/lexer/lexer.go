@@ -1017,25 +1017,19 @@ func (l *Lexer) nextTagContentToken() Token {
 	// In raw text mode (style/script), check for @{ which triggers interpolation
 	inRawMode := l.inRawTextTag != ""
 
-	// Consolidate multiple newlines into single spaces
-	if l.ch == '\n' || l.ch == '\r' {
+	// Consolidate multiple newlines into single spaces (but not in raw mode)
+	if !inRawMode && (l.ch == '\n' || l.ch == '\r') {
 		for l.ch == '\n' || l.ch == '\r' || l.ch == ' ' || l.ch == '\t' {
 			l.readChar()
 		}
 		// Don't return whitespace token, just continue to next content
-		// In raw text mode, check for @{ instead of just {
-		if l.ch == 0 || l.ch == '<' || (!inRawMode && l.ch == '{') || (inRawMode && l.ch == '@' && l.peekChar() == '{') {
+		if l.ch == 0 || l.ch == '<' || l.ch == '{' {
 			// Fall through to handle these special cases
 		} else {
 			// Start with a space before the next text
 			line := l.line
 			column := l.column
-			var text string
-			if inRawMode {
-				text = l.readRawTagText()
-			} else {
-				text = l.readTagText()
-			}
+			text := l.readTagText()
 			tok = Token{Type: TAG_TEXT, Literal: " " + text, Line: line, Column: column}
 			return tok
 		}
@@ -1105,6 +1099,11 @@ func (l *Lexer) nextTagContentToken() Token {
 			} else {
 				tok.Type = TAG_START
 				l.tagDepth++
+				// Check if this is a raw text tag (style or script)
+				tagName := extractTagName(tagContent)
+				if tagName == "style" || tagName == "script" {
+					l.inRawTextTag = tagName
+				}
 			}
 			tok.Literal = tagContent
 			tok.Line = line
@@ -1119,6 +1118,24 @@ func (l *Lexer) nextTagContentToken() Token {
 			l.readChar()
 			return tok
 		}
+
+	case '/':
+		// In normal mode, skip Parsley comments //
+		// In raw mode (style/script), keep // as literal text (valid JS comments)
+		if !inRawMode && l.peekChar() == '/' {
+			l.skipComment()
+			return l.nextTagContentToken()
+		}
+		// Not a comment (or in raw mode), treat as regular text
+		tok.Type = TAG_TEXT
+		if inRawMode {
+			tok.Literal = l.readRawTagText()
+		} else {
+			tok.Literal = l.readTagText()
+		}
+		tok.Line = line
+		tok.Column = column
+		return tok
 
 	case '@':
 		// In raw text mode, @{ triggers interpolation
@@ -1175,6 +1192,11 @@ func (l *Lexer) readTagText() string {
 	var result []byte
 
 	for l.ch != 0 && l.ch != '<' && l.ch != '{' {
+		// Skip Parsley comments (//)
+		if l.ch == '/' && l.peekChar() == '/' {
+			l.skipComment()
+			continue
+		}
 		result = append(result, l.ch)
 		l.readChar()
 	}
@@ -1184,12 +1206,14 @@ func (l *Lexer) readTagText() string {
 
 // readRawTagText reads text content in raw text mode (style/script)
 // In raw text mode, {} is literal and @{} is used for interpolation
+// // comments are preserved (valid in JavaScript, harmless in CSS)
 // Stops at <, @{, or EOF
 func (l *Lexer) readRawTagText() string {
 	var result []byte
 
 	for l.ch != 0 && l.ch != '<' {
 		// Check for @{ which starts interpolation in raw text mode
+		// This works even inside // comments, allowing datestamps etc.
 		if l.ch == '@' && l.peekChar() == '{' {
 			break
 		}
