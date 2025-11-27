@@ -248,7 +248,7 @@ var (
 // ModuleCache caches imported modules
 type ModuleCache struct {
 	modules map[string]*Dictionary // absolute path -> module dictionary
-	loading map[string]bool         // tracks currently loading modules for cycle detection
+	loading map[string]bool        // tracks currently loading modules for cycle detection
 }
 
 // Global module cache
@@ -5035,16 +5035,16 @@ func evalDictionaryIndexExpression(dict, index Object) Object {
 
 // environmentToDict converts an environment's store to a Dictionary object
 func environmentToDict(env *Environment) *Dictionary {
-pairs := make(map[string]ast.Expression)
+	pairs := make(map[string]ast.Expression)
 
-// Iterate over the environment's store
+	// Iterate over the environment's store
 	for name, value := range env.store {
 		// Wrap the object as a literal expression
 		pairs[name] = objectToExpression(value)
 	}
-	
+
 	// Create dictionary with the module's environment for evaluation
-return &Dictionary{Pairs: pairs, Env: env}
+	return &Dictionary{Pairs: pairs, Env: env}
 }
 
 // objectToExpression wraps an Object as an AST expression
@@ -5087,13 +5087,13 @@ func resolveModulePath(pathStr string, currentFile string) (string, error) {
 			}
 			baseDir = cwd
 		}
-		
+
 		// Join and clean the path
 		absPath = filepath.Join(baseDir, pathStr)
 	}
-	
+
 	// Clean the path (resolve . and ..)
 	absPath = filepath.Clean(absPath)
-	
+
 	return absPath, nil
 }
