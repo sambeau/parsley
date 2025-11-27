@@ -363,3 +363,148 @@ func TestBackwardCompatibility(t *testing.T) {
 		}
 	}
 }
+
+// Test datetime.date property
+func TestDatetimeDateProperty(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`let dt = time({year: 2024, month: 12, day: 25}); dt.date`, "2024-12-25"},
+		{`let dt = time({year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 45}); dt.date`, "2024-12-25"},
+		{`let dt = time({year: 2024, month: 1, day: 1}); dt.date`, "2024-01-01"},
+		{`let dt = time({year: 2024, month: 2, day: 29}); dt.date`, "2024-02-29"},
+	}
+
+	for _, tt := range tests {
+		result := testEvalComputedProp(tt.input)
+		str, ok := result.(*evaluator.String)
+		if !ok {
+			t.Errorf("For input '%s': expected String, got %T (%+v)", tt.input, result, result)
+			continue
+		}
+		if str.Value != tt.expected {
+			t.Errorf("For input '%s': expected '%s', got '%s'", tt.input, tt.expected, str.Value)
+		}
+	}
+}
+
+// Test datetime.time property
+func TestDatetimeTimeProperty(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`let dt = time({year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 45}); dt.time`, "14:30:45"},
+		{`let dt = time({year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 0}); dt.time`, "14:30"},
+		{`let dt = time({year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0}); dt.time`, "00:00"},
+		{`let dt = time({year: 2024, month: 12, day: 31, hour: 23, minute: 59, second: 59}); dt.time`, "23:59:59"},
+	}
+
+	for _, tt := range tests {
+		result := testEvalComputedProp(tt.input)
+		str, ok := result.(*evaluator.String)
+		if !ok {
+			t.Errorf("For input '%s': expected String, got %T (%+v)", tt.input, result, result)
+			continue
+		}
+		if str.Value != tt.expected {
+			t.Errorf("For input '%s': expected '%s', got '%s'", tt.input, tt.expected, str.Value)
+		}
+	}
+}
+
+// Test datetime.format property
+func TestDatetimeFormatProperty(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{`let dt = time({year: 2024, month: 12, day: 25}); dt.format`, "December 25, 2024"},
+		{`let dt = time({year: 2024, month: 12, day: 25, hour: 14, minute: 30}); dt.format`, "December 25, 2024 at 14:30"},
+		{`let dt = time({year: 2024, month: 1, day: 1}); dt.format`, "January 1, 2024"},
+		{`let dt = time({year: 2024, month: 7, day: 4, hour: 16, minute: 30}); dt.format`, "July 4, 2024 at 16:30"},
+	}
+
+	for _, tt := range tests {
+		result := testEvalComputedProp(tt.input)
+		str, ok := result.(*evaluator.String)
+		if !ok {
+			t.Errorf("For input '%s': expected String, got %T (%+v)", tt.input, result, result)
+			continue
+		}
+		if str.Value != tt.expected {
+			t.Errorf("For input '%s': expected '%s', got '%s'", tt.input, tt.expected, str.Value)
+		}
+	}
+}
+
+// Test datetime.timestamp property
+func TestDatetimeTimestampProperty(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{`let dt = time({year: 2024, month: 1, day: 1}); dt.timestamp`, 1704067200},
+		{`let dt = time({year: 1970, month: 1, day: 1}); dt.timestamp`, 0},
+	}
+
+	for _, tt := range tests {
+		result := testEvalComputedProp(tt.input)
+		num, ok := result.(*evaluator.Integer)
+		if !ok {
+			t.Errorf("For input '%s': expected Integer, got %T (%+v)", tt.input, result, result)
+			continue
+		}
+		if num.Value != tt.expected {
+			t.Errorf("For input '%s': expected %d, got %d", tt.input, tt.expected, num.Value)
+		}
+	}
+}
+
+// Test datetime.dayOfYear property
+func TestDatetimeDayOfYearProperty(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{`let dt = time({year: 2024, month: 1, day: 1}); dt.dayOfYear`, 1},
+		{`let dt = time({year: 2024, month: 12, day: 25}); dt.dayOfYear`, 360},
+		{`let dt = time({year: 2024, month: 12, day: 31}); dt.dayOfYear`, 366}, // 2024 is a leap year
+	}
+
+	for _, tt := range tests {
+		result := testEvalComputedProp(tt.input)
+		num, ok := result.(*evaluator.Integer)
+		if !ok {
+			t.Errorf("For input '%s': expected Integer, got %T (%+v)", tt.input, result, result)
+			continue
+		}
+		if num.Value != tt.expected {
+			t.Errorf("For input '%s': expected %d, got %d", tt.input, tt.expected, num.Value)
+		}
+	}
+}
+
+// Test datetime.week property
+func TestDatetimeWeekProperty(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{`let dt = time({year: 2024, month: 1, day: 8}); dt.week`, 2},
+		{`let dt = time({year: 2024, month: 12, day: 25}); dt.week`, 52},
+	}
+
+	for _, tt := range tests {
+		result := testEvalComputedProp(tt.input)
+		num, ok := result.(*evaluator.Integer)
+		if !ok {
+			t.Errorf("For input '%s': expected Integer, got %T (%+v)", tt.input, result, result)
+			continue
+		}
+		if num.Value != tt.expected {
+			t.Errorf("For input '%s': expected %d, got %d", tt.input, tt.expected, num.Value)
+		}
+	}
+}

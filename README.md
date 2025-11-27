@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.4
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.5
 ```
 
 A minimalist concatenative programming language interpreter.
@@ -384,6 +384,19 @@ current.second    // 0
 current.weekday   // "Thursday"
 current.iso       // "2025-11-27T14:30:00Z"
 current.unix      // Unix timestamp
+
+// Computed properties for easy formatting
+current.date      // "2025-11-27" (date only)
+current.time      // "14:30" or "14:30:45" (time only)
+current.format    // "November 27, 2025 at 14:30" (human-readable)
+current.timestamp // Same as .unix (more intuitive)
+current.dayOfYear // 331 (day number in year, 1-366)
+current.week      // 48 (ISO week number, 1-53)
+
+// Using in templates
+let event = time({year: 2024, month: 12, day: 25, hour: 18, minute: 0})
+log(<p>Event on {event.format}</p>)
+// Output: <p>Event on December 25, 2024 at 18:00</p>
 
 // Comparison
 let date1 = time("2024-01-01")

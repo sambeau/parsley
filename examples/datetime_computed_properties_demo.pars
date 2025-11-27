@@ -1,0 +1,56 @@
+// Datetime Computed Properties Demo
+// This demonstrates the new computed properties available on datetime objects
+
+log("=== Datetime Computed Properties ===\n")
+
+// Create a few test datetimes
+let christmas = time({year: 2024, month: 12, day: 25, hour: 9, minute: 30})
+let independence = time({year: 2024, month: 7, day: 4})
+let newYear = time({year: 2025, month: 1, day: 1, hour: 0, minute: 0})
+
+log("Christmas 2024:")
+log("  Full datetime: " + christmas)
+log("  .date        : " + christmas.date)
+log("  .time        : " + christmas.time)
+log("  .format      : " + christmas.format)
+log("  .dayOfYear   : " + christmas.dayOfYear)
+log("  .week        : " + christmas.week)
+log("  .timestamp   : " + christmas.timestamp)
+
+log("\nIndependence Day 2024:")
+log("  Full datetime: " + independence)
+log("  .date        : " + independence.date)
+log("  .time        : " + independence.time)
+log("  .format      : " + independence.format)
+log("  .dayOfYear   : " + independence.dayOfYear)
+log("  .week        : " + independence.week)
+
+log("\nNew Year 2025:")
+log("  Full datetime: " + newYear)
+log("  .date        : " + newYear.date)
+log("  .time        : " + newYear.time)
+log("  .format      : " + newYear.format)
+log("  .dayOfYear   : " + newYear.dayOfYear)
+log("  .week        : " + newYear.week)
+
+// Using in templates
+log("\n=== Using in HTML Templates ===")
+let event = time({year: 2024, month: 12, day: 31, hour: 23, minute: 59})
+log(<div class="event">
+  <h3>New Year's Eve Party</h3>
+  <p>Date: {event.date}</p>
+  <p>Time: {event.time}</p>
+  <p>Full: {event.format}</p>
+</div>)
+
+// Formatting dates nicely
+log("\n=== Date Formatting Examples ===")
+let dates = [
+  time({year: 2024, month: 1, day: 15}),
+  time({year: 2024, month: 6, day: 21, hour: 14, minute: 30}),
+  time({year: 2024, month: 12, day: 31, hour: 23, minute: 59, second: 59})
+]
+
+for(dates) fn(dt) {
+  log("Date: " + dt.date + " | Formatted: " + dt.format)
+}
