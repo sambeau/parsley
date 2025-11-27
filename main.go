@@ -13,7 +13,7 @@ import (
 )
 
 // Version is set at compile time via -ldflags
-var Version = "dev"
+var Version = "0.8.0"
 
 func main() {
 	// Parse command line arguments

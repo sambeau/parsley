@@ -1212,6 +1212,71 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 			return basename
 		}
 		return &String{Value: basename.Value[:lastDot]}
+
+	case "name":
+		// Alias for basename
+		return evalPathComputedProperty(dict, "basename", env)
+
+	case "suffix":
+		// Alias for extension
+		return evalPathComputedProperty(dict, "extension", env)
+
+	case "suffixes":
+		// Get all extensions as array (e.g., ["tar", "gz"] from file.tar.gz)
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return NULL
+		}
+		componentsObj := Eval(componentsExpr, env)
+		arr, ok := componentsObj.(*Array)
+		if !ok || len(arr.Elements) == 0 {
+			return &Array{Elements: []Object{}}
+		}
+		basename, ok := arr.Elements[len(arr.Elements)-1].(*String)
+		if !ok {
+			return &Array{Elements: []Object{}}
+		}
+
+		// Find all dots and extract suffixes
+		var suffixes []Object
+		parts := strings.Split(basename.Value, ".")
+		if len(parts) > 1 {
+			// Skip the first part (filename), collect rest as suffixes
+			for i := 1; i < len(parts); i++ {
+				if parts[i] != "" {
+					suffixes = append(suffixes, &String{Value: parts[i]})
+				}
+			}
+		}
+		return &Array{Elements: suffixes}
+
+	case "parts":
+		// Alias for components
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return NULL
+		}
+		return Eval(componentsExpr, env)
+
+	case "isAbsolute":
+		// Boolean indicating if path is absolute
+		absoluteExpr, ok := dict.Pairs["absolute"]
+		if !ok {
+			return FALSE
+		}
+		return Eval(absoluteExpr, env)
+
+	case "isRelative":
+		// Boolean indicating if path is relative (opposite of absolute)
+		absoluteExpr, ok := dict.Pairs["absolute"]
+		if !ok {
+			return TRUE
+		}
+		absoluteObj := Eval(absoluteExpr, env)
+		if b, ok := absoluteObj.(*Boolean); ok {
+			return nativeBoolToParsBoolean(!b.Value)
+		}
+		return TRUE
 	}
 
 	return nil // Property doesn't exist
@@ -1276,6 +1341,55 @@ func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 			}
 		}
 		return &String{Value: ""}
+
+	case "hostname":
+		// Alias for host
+		if hostExpr, ok := dict.Pairs["host"]; ok {
+			return Eval(hostExpr, env)
+		}
+		return &String{Value: ""}
+
+	case "protocol":
+		// Scheme with colon suffix (e.g., "https:")
+		if schemeExpr, ok := dict.Pairs["scheme"]; ok {
+			schemeObj := Eval(schemeExpr, env)
+			if str, ok := schemeObj.(*String); ok {
+				return &String{Value: str.Value + ":"}
+			}
+		}
+		return &String{Value: ""}
+
+	case "search":
+		// Query string with ? prefix (e.g., "?key=value&foo=bar")
+		if queryExpr, ok := dict.Pairs["query"]; ok {
+			queryObj := Eval(queryExpr, env)
+			if queryDict, ok := queryObj.(*Dictionary); ok {
+				if len(queryDict.Pairs) == 0 {
+					return &String{Value: ""}
+				}
+				var result strings.Builder
+				result.WriteString("?")
+				first := true
+				for key, expr := range queryDict.Pairs {
+					val := Eval(expr, env)
+					if str, ok := val.(*String); ok {
+						if !first {
+							result.WriteString("&")
+						}
+						result.WriteString(key)
+						result.WriteString("=")
+						result.WriteString(str.Value)
+						first = false
+					}
+				}
+				return &String{Value: result.String()}
+			}
+		}
+		return &String{Value: ""}
+
+	case "href":
+		// Full URL as string (alias for toString)
+		return &String{Value: urlDictToString(dict)}
 	}
 
 	return nil // Property doesn't exist

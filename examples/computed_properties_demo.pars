@@ -1,0 +1,193 @@
+// Phase 4: Computed Properties Demo
+// Demonstrates new path and URL computed properties
+
+logLine("==============================================")
+logLine("  Phase 4: Computed Properties Demo")
+logLine("==============================================")
+logLine()
+
+// ========================================
+// PATH COMPUTED PROPERTIES
+// ========================================
+
+logLine("=== Path Computed Properties ===")
+logLine()
+
+// path.name (alias for basename)
+let archivePath = @/backups/database.tar.gz
+logLine("Archive path:", toString(archivePath))
+logLine("  .name:", archivePath.name)
+logLine("  .basename:", archivePath.basename)
+logLine("  (same property, different name)")
+logLine()
+
+// path.suffix (alias for extension)
+logLine("Extension properties:")
+logLine("  .suffix:", archivePath.suffix)
+logLine("  .extension:", archivePath.extension)
+logLine("  (same property, different name)")
+logLine()
+
+// path.suffixes (array of all extensions)
+logLine("All suffixes:")
+logLine("  .suffixes:", archivePath.suffixes)
+logLine("  First suffix:", archivePath.suffixes[0])
+logLine("  Last suffix:", archivePath.suffixes[1])
+logLine("  Number of suffixes:", len(archivePath.suffixes))
+logLine()
+
+// Multi-extension file
+let multiExt = @/archive/backup.2024.tar.gz.enc
+logLine("Multi-extension file:", toString(multiExt))
+logLine("  All suffixes:", multiExt.suffixes)
+logLine("  Count:", len(multiExt.suffixes))
+logLine()
+
+// path.parts (alias for components)
+let srcPath = @/home/user/project/src/main.go
+logLine("Source file path:", toString(srcPath))
+logLine("  .parts:", srcPath.parts)
+logLine("  .components:", srcPath.components)
+logLine("  (same property, different name)")
+logLine("  Number of parts:", len(srcPath.parts))
+logLine()
+
+// path.isAbsolute and path.isRelative
+logLine("=== Path Type Detection ===")
+logLine()
+
+let absolutePath = @/usr/local/bin
+let relativePath = @./config.json
+let homePath = @~/documents
+
+logLine("Absolute path:", toString(absolutePath))
+logLine("  .isAbsolute:", absolutePath.isAbsolute)
+logLine("  .isRelative:", absolutePath.isRelative)
+logLine()
+
+logLine("Relative path:", toString(relativePath))
+logLine("  .isAbsolute:", relativePath.isAbsolute)
+logLine("  .isRelative:", relativePath.isRelative)
+logLine()
+
+logLine("Home path:", toString(homePath))
+logLine("  .isAbsolute:", homePath.isAbsolute)
+logLine("  .isRelative:", homePath.isRelative)
+logLine()
+
+// Practical use: conditional logic based on path type
+let configPath = @./app.config
+let message = if (configPath.isRelative) {
+    "Using relative config: " + configPath.name
+} else {
+    "Using absolute config: " + toString(configPath)
+}
+logLine("Conditional message:", message)
+logLine()
+
+// ========================================
+// URL COMPUTED PROPERTIES
+// ========================================
+
+logLine("=== URL Computed Properties ===")
+logLine()
+
+// url.hostname (alias for host)
+let apiUrl = @https://api.github.com:443/repos/sambeau/parsley
+logLine("API URL:", toString(apiUrl))
+logLine("  .hostname:", apiUrl.hostname)
+logLine("  .host:", apiUrl.host)
+logLine("  (same property, different name)")
+logLine()
+
+// url.protocol (scheme with colon)
+logLine("Protocol property:")
+logLine("  .protocol:", apiUrl.protocol)
+logLine("  .scheme:", apiUrl.scheme)
+logLine("  (protocol includes colon)")
+logLine()
+
+// url.search (query string with ?)
+let searchUrl = @https://example.com/search?q=hello&lang=en&limit=10
+logLine("Search URL:", toString(searchUrl))
+logLine("  .search:", searchUrl.search)
+logLine("  (query string with ? prefix)")
+logLine()
+
+// Individual query params
+logLine("  Individual params:")
+logLine("    q =", searchUrl.query.q)
+logLine("    lang =", searchUrl.query.lang)
+logLine("    limit =", searchUrl.query.limit)
+logLine()
+
+// url.href (full URL as string)
+let baseUrl = @https://example.com
+let extendedUrl = baseUrl + "api" + "v1" + "users"
+logLine("Building URL with operators:")
+logLine("  Base:", baseUrl.href)
+logLine("  Extended:", extendedUrl.href)
+logLine("  (href is full URL string)")
+logLine()
+
+// ========================================
+// PRACTICAL EXAMPLES
+// ========================================
+
+logLine("=== Practical Examples ===")
+logLine()
+
+// Example 1: File extension detection
+let file1 = @/documents/report.pdf
+let file2 = @/downloads/archive.tar.gz
+let file3 = @/config/settings
+
+logLine("File type detection:")
+logLine("  " + file1.name + ":", if (len(file1.suffixes) > 0) file1.suffixes[-1] else "no extension")
+logLine("  " + file2.name + ":", if (len(file2.suffixes) > 0) file2.suffixes[-1] else "no extension")
+logLine("  " + file3.name + ":", if (len(file3.suffixes) > 0) file3.suffixes[-1] else "no extension")
+logLine()
+
+// Example 2: Building URLs with protocol awareness
+let secureUrl = @https://secure.example.com/api
+let insecureUrl = @http://old.example.com/api
+
+logLine("Security check:")
+logLine("  " + secureUrl.hostname + ":", if (secureUrl.protocol == "https:") "✓ Secure" else "⚠ Insecure")
+logLine("  " + insecureUrl.hostname + ":", if (insecureUrl.protocol == "https:") "✓ Secure" else "⚠ Insecure")
+logLine()
+
+// Example 3: Path validation
+let validatePath = fn(p) {
+    let pathStr = toString(p)
+    let typeStr = if (p.isAbsolute) "absolute" else "relative"
+    let depthVal = len(p.parts)
+    let hasExt = len(p.suffixes) > 0
+    
+    "path: " + pathStr + ", type: " + typeStr + ", depth: " + toString(depthVal) + ", hasExtension: " + toString(hasExt)
+}
+
+let testPath1 = @/usr/local/bin/tool
+let testPath2 = @./config.yaml
+
+logLine("Path validation:")
+logLine("  Path 1:", validatePath(testPath1))
+logLine("  Path 2:", validatePath(testPath2))
+logLine()
+
+// Example 4: URL construction with all properties
+let constructUrl = fn(protocol, host, path) {
+    let base = url(protocol + "://" + host)
+    let full = base + path
+    
+    "url: " + full.href + ", protocol: " + full.protocol + ", hostname: " + full.hostname + ", pathname: " + full.pathname
+}
+
+let apiInfo = constructUrl("https", "api.example.com", "v1/users")
+logLine("Constructed API URL:")
+logLine("  ", apiInfo)
+logLine()
+
+logLine("==============================================")
+logLine("  All Phase 4 properties demonstrated!")
+logLine("==============================================")

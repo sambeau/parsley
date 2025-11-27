@@ -326,6 +326,136 @@ Comprehensive tests in `operator_test.go`:
 
 All tests passing ✅
 
+## Phase 4: Computed Properties ✅
+
+### New Path Properties
+
+Phase 4 adds convenient aliases and additional computed properties:
+
+**Aliases (backward compatible):**
+- `name` → alias for `basename`
+- `suffix` → alias for `extension`
+- `parts` → alias for `components`
+
+**New Properties:**
+- `suffixes` → Array of all file extensions (e.g., `["tar", "gz"]` from `file.tar.gz`)
+- `isAbsolute` → Boolean, true if path is absolute
+- `isRelative` → Boolean, true if path is relative (opposite of `isAbsolute`)
+
+```parsley
+let archive = @/backups/database.tar.gz
+archive.name         // "database.tar.gz" (same as basename)
+archive.suffix       // "gz" (same as extension)
+archive.suffixes     // ["tar", "gz"]
+archive.suffixes[0]  // "tar"
+len(archive.suffixes) // 2
+
+let config = @./app.config
+config.isAbsolute    // false
+config.isRelative    // true
+```
+
+### New URL Properties
+
+**Aliases (backward compatible):**
+- `hostname` → alias for `host`
+
+**New Properties:**
+- `protocol` → Scheme with `:` suffix (e.g., `"https:"` - matches Web API)
+- `search` → Query string with `?` prefix (e.g., `"?key=value&foo=bar"`)
+- `href` → Full URL as string (alias for `toString(url)`)
+
+```parsley
+let api = @https://example.com:8080/search?q=hello&lang=en
+api.hostname         // "example.com" (same as host)
+api.protocol         // "https:"
+api.search           // "?q=hello&lang=en"
+api.href             // "https://example.com:8080/search?q=hello&lang=en"
+
+// Check security
+if (api.protocol == "https:") {
+    logLine("✓ Secure connection")
+}
+```
+
+### Implementation
+
+**Evaluator (pkg/evaluator/evaluator.go):**
+
+Added to `evalPathComputedProperty()`:
+- `name` → calls `evalPathComputedProperty(dict, "basename", env)`
+- `suffix` → calls `evalPathComputedProperty(dict, "extension", env)`
+- `suffixes` → splits basename on `.` and returns array of extensions
+- `parts` → evaluates `components` expression
+- `isAbsolute` → evaluates `absolute` field
+- `isRelative` → returns `!absolute`
+
+Added to `evalUrlComputedProperty()`:
+- `hostname` → evaluates `host` field
+- `protocol` → evaluates `scheme` and appends `:`
+- `search` → builds query string from `query` dict with `?` prefix
+- `href` → calls `urlDictToString(dict)`
+
+### Testing
+
+Comprehensive tests in `computed_properties_test.go`:
+- `TestPathNameProperty` - name alias
+- `TestPathSuffixProperty` - suffix alias
+- `TestPathSuffixesProperty` - multiple extensions
+- `TestPathPartsProperty` - parts alias
+- `TestPathIsAbsoluteProperty` - absolute flag
+- `TestPathIsRelativeProperty` - relative flag
+- `TestUrlHostnameProperty` - hostname alias
+- `TestUrlProtocolProperty` - protocol with colon
+- `TestUrlSearchProperty` - query string
+- `TestUrlHrefProperty` - full URL string
+- `TestCombinedComputedProperties` - complex usage
+- `TestBackwardCompatibility` - old properties still work
+
+Demo script: `examples/computed_properties_demo.pars`
+
+All tests passing ✅
+
+## Complete Property Reference
+
+### Path Properties
+
+| Property | Type | Description | Example |
+|----------|------|-------------|---------|
+| `basename` | String | Last path component | `"file.txt"` |
+| `name` | String | Alias for basename | `"file.txt"` |
+| `dirname` | Path | Parent directory | `@/usr/local` |
+| `parent` | Path | Alias for dirname | `@/usr/local` |
+| `extension` | String | File extension | `"txt"` |
+| `ext` | String | Alias for extension | `"txt"` |
+| `suffix` | String | Alias for extension | `"txt"` |
+| `stem` | String | Filename without extension | `"file"` |
+| `suffixes` | Array | All extensions | `["tar", "gz"]` |
+| `components` | Array | Path segments | `["", "usr", "local", "bin"]` |
+| `parts` | Array | Alias for components | `["", "usr", "local", "bin"]` |
+| `absolute` | Boolean | Is absolute path? | `true` |
+| `isAbsolute` | Boolean | Alias for absolute | `true` |
+| `isRelative` | Boolean | Opposite of absolute | `false` |
+
+### URL Properties
+
+| Property | Type | Description | Example |
+|----------|------|-------------|---------|
+| `scheme` | String | Protocol | `"https"` |
+| `protocol` | String | Scheme with colon | `"https:"` |
+| `host` | String | Hostname | `"example.com"` |
+| `hostname` | String | Alias for host | `"example.com"` |
+| `port` | Integer | Port number | `8080` |
+| `path` | Array | Path segments | `["api", "v1"]` |
+| `pathname` | String | Path as string | `"/api/v1"` |
+| `query` | Dictionary | Query parameters | `{q: "hello"}` |
+| `search` | String | Query string with `?` | `"?q=hello"` |
+| `fragment` | String | URL fragment | `"section"` |
+| `username` | String | Auth username | `"user"` |
+| `password` | String | Auth password | `"pass"` |
+| `origin` | String | Scheme + host + port | `"https://example.com:8080"` |
+| `href` | String | Full URL | `"https://example.com/api"` |
+
 ## Future Enhancements
 
 Potential additions:
@@ -335,3 +465,4 @@ Potential additions:
 4. File extension change: `p.withExtension("md")`
 5. Custom comparison operators: `<`, `>` for path depth
 6. Path joining with arrays: `p + ["dir1", "dir2"]`
+

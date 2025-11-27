@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.7.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.8.0
 ```
 
 A concatenative programming language interpreter.
