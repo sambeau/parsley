@@ -820,39 +820,48 @@ go test -cover ./...
 ### Web Page Generator
 
 ```parsley
+let darkColor = "#333"
+let brightColor = "#007bff"
+let date = time(now().date).format
+let author = "Sam Phillips"
+
 let Page = fn({title, content}) {
-    <!DOCTYPE html> + <html>
-        <head>
-            <meta charset="utf-8" />
-            <title>{title}</title>
-            <style>
-                body {
-                    font-family: sans-serif;
-                    margin: 2em;
-                    line-height: 1.6;
-                }
-                h1 {
-                    color: @{"#333"};
-                    border-bottom: 2px solid @{"#007bff"};
-                    padding-bottom: 0.5em;
-                }
-                .container {
-                    max-width: 800px;
-                    margin: 0 auto;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>{title}</h1>
-                {content}
-            </div>
-        </body>
-    </html>
+	<!DOCTYPE html> + <html>
+		<head>
+			<meta charset="utf-8" />
+			<title>{title}</title>
+			// style tags can contain raw CSS without parsing
+			// only @{} sections are interpolated
+			<style>
+				/* updated: @{date} by: @{author} */
+				body {
+					font-family: sans-serif;
+					margin: 2em;
+					line-height: 1.6;
+				}
+				h1 {
+					color: @{darkColor};
+					border-bottom: 2px solid @{brightColor};
+					padding-bottom: 0.5em;
+				}
+				.container {
+					max-width: 800px;
+					margin: 0 auto;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<h1>{title}</h1>
+				{content}
+			</div>
+		</body>
+	</html>
 }
 
+// contents of Page component get passed as "content" prop
 <Page title="My Blog">
-    <p>Welcome to my blog!</p>
+    <h1>Welcome to my blog!</h1>
     <p>This is generated with Parsley.</p>
 </Page>
 ```
