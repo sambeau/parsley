@@ -1273,7 +1273,7 @@ func (l *Lexer) readUrlLiteral() string {
 
 	var url []byte
 	hasScheme := false // Track if we've seen ://
-	
+
 	// Read until whitespace or delimiter
 	for l.ch != 0 && !isWhitespace(l.ch) {
 		// Track if we've seen the :// pattern
@@ -1282,12 +1282,12 @@ func (l *Lexer) readUrlLiteral() string {
 				hasScheme = true
 			}
 		}
-		
+
 		// Stop at delimiters that can't be in a URL literal
 		if l.ch == ')' || l.ch == ']' || l.ch == '}' || l.ch == ',' || l.ch == ';' {
 			break
 		}
-		
+
 		// For dots: if we've seen ://, ALL dots are part of the URL until we hit a delimiter or whitespace
 		// This handles .com, .org, file.html, etc.
 		// We only stop at . for property access if there's no scheme (edge case)
@@ -1295,7 +1295,7 @@ func (l *Lexer) readUrlLiteral() string {
 			// No :// seen yet, so this might be property access
 			break
 		}
-		
+
 		url = append(url, l.ch)
 		l.readChar()
 	}

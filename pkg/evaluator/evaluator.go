@@ -675,7 +675,7 @@ func evalDurationLiteral(node *ast.DurationLiteral, env *Environment) Object {
 func evalPathLiteral(node *ast.PathLiteral, env *Environment) Object {
 	// Parse the path string into components
 	components, isAbsolute := parsePathString(node.Value)
-	
+
 	// Create path dictionary
 	return pathToDict(components, isAbsolute, env)
 }
@@ -687,7 +687,7 @@ func evalUrlLiteral(node *ast.UrlLiteral, env *Environment) Object {
 	if err != nil {
 		return newError("invalid URL literal: %s", err.Error())
 	}
-	
+
 	return urlDict
 }
 
