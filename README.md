@@ -808,28 +808,40 @@ go test -cover ./...
 
 ```parsley
 let Page = fn({title, content}) {
-    <html>
+    <!DOCTYPE html> + <html>
         <head>
+            <meta charset="utf-8" />
             <title>{title}</title>
-            <style>{"
-                body { font-family: sans-serif; margin: 2em; }
-                h1 { color: #333; }
-            "}</style>
+            <style>
+                body {
+                    font-family: sans-serif;
+                    margin: 2em;
+                    line-height: 1.6;
+                }
+                h1 {
+                    color: @{"#333"};
+                    border-bottom: 2px solid @{"#007bff"};
+                    padding-bottom: 0.5em;
+                }
+                .container {
+                    max-width: 800px;
+                    margin: 0 auto;
+                }
+            </style>
         </head>
         <body>
-            <h1>{title}</h1>
-            {content}
+            <div class="container">
+                <h1>{title}</h1>
+                {content}
+            </div>
         </body>
     </html>
 }
 
-<Page 
-    title="My Blog" 
-    content=<>
-        <p>Welcome to my blog!</p>
-        <p>This is generated with Parsley.</p>
-    </>
-/>
+<Page title="My Blog">
+    <p>Welcome to my blog!</p>
+    <p>This is generated with Parsley.</p>
+</Page>
 ```
 
 ### Data Processing
