@@ -5,6 +5,7 @@
 *.so
 *.dylib
 pars
+parsley
 
 # Test binary, built with `go test -c`
 *.test
@@ -37,4 +38,6 @@ go.work
 .Trashes
 ehthumbs.db
 Thumbs.db
-parsley
+
+# Archived documentation (searchable but not actively maintained)
+docs/archive/
