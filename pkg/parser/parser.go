@@ -691,6 +691,16 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	}
 
 	p.nextToken()
+	
+	// Check for assignment in condition
+	if p.curTokenIs(lexer.IDENT) && p.peekTokenIs(lexer.ASSIGN) {
+		varName := p.curToken.Literal
+		msg := fmt.Sprintf("assignment is not allowed inside if condition. Use a separate statement:\n  let %s = ...\n  if (%s) { ... }", 
+			varName, varName)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+	
 	expression.Condition = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(lexer.RPAREN) {

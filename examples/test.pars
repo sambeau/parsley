@@ -1,48 +1,7 @@
-// A simple table test
 
-Table = fn({rows}){
-	<table>{
-	for(cols in rows){
-		<tr>{
-		for (col in cols){
-			<td>{col}</td>
-		}}
-		</tr>
-	}}
-	</table>
+let match = "Order #12345" ~ /Order #(\d+)/
+if (match) {
+     logLine("Order number:", match[1])
 }
 
-Page = fn({title,contents}){
-	//<!DOCTYPE html>
-	<html lang="en">
-		<head>
-			<meta charset="UTF-8" />
-			<title>{title}</title>
-			<link rel="stylesheet" href="css/main.css" />
-			<style>{"
-				*, *:before, *:after { box-sizing: border-box; }
-				html,body { margin:0; padding:0; }
-			"}
-			</style>
-		</head>
-		<body>
-			{contents}
-			<script></script>
-		</body>
-	</html>
-}
-
-main = fn(){
-	title = "Table Test"
-	<Page title={title}>
-		<h1>{title}</h1>
-		<Table rows={[
-			[1,2,3],
-			[4,5,6],
-			[7,8,9]
-			]}
-		/>
-	</Page>
-}
-
-main()
+//Order number: "12345"
