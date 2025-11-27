@@ -62,8 +62,10 @@ A concatenative programming language interpreter.
 - **Dictionaries:** `{ name: "Sam", age: 57 }`, key-value pairs with lazy evaluation
 - **Functions:** `fn(x) { x * 2 }`, first-class functions with closures
 - **Regular Expressions:** `/pattern/flags` - regex literals with `~` match operator
+- **Paths:** `@/usr/local/bin`, `@./config.json` - file path literals with component access
+- **URLs:** `@https://example.com/api` - URL literals with parsed components
 
-**Note:** Tags (`<div>`, `<Component />`) are syntactic constructs that evaluate to strings, not a separate data type.
+**Note:** Tags (`<div>`, `<Component />`) are syntactic constructs that evaluate to strings, not a separate data type. Paths and URLs are dictionary-based types with special computed properties.
 
 ### Built-in Functions
 
@@ -123,6 +125,12 @@ A concatenative programming language interpreter.
 
 - **Module Functions:**
   - `import(path)` - Import a Parsley module and return its exported scope as a dictionary
+
+- **Path Functions:**
+  - `path(str)` - Parse a file path string into a path dictionary with components
+
+- **URL Functions:**
+  - `url(str)` - Parse a URL string into a URL dictionary with parsed components
 
 
 ## Getting Started
@@ -1811,6 +1819,266 @@ log(processEmail("alice@example.com"))  // "Alice@example.com"
 5. **Module documentation**: Add comments explaining exported functions
 
 For more detailed examples, see [MODULE_EXAMPLES.md](examples/MODULE_EXAMPLES.md).
+
+### Paths and URLs
+
+Parsley provides first-class support for file paths and URLs through literal syntax and parsing functions. Both are dictionary-based types with `__type` markers and computed properties.
+
+#### Path Literals
+
+Create file paths using the `@` prefix followed by a path string:
+
+```parsley
+>> @/usr/local/bin
+{__type: "path", components: ["", "usr", "local", "bin"], absolute: true}
+
+>> @./config.json
+{__type: "path", components: [".", "config.json"], absolute: false}
+
+>> @~/documents/file.txt
+{__type: "path", components: ["~", "documents", "file.txt"], absolute: false}
+```
+
+Path literals are equivalent to calling `path(string)`:
+
+```parsley
+>> @/usr/local/bin == path("/usr/local/bin")
+true
+```
+
+#### Path Properties
+
+Paths expose several properties for easy access:
+
+**Basic properties:**
+```parsley
+>> let p = @/usr/local/bin/tool.exe
+>> p.components
+["", "usr", "local", "bin", "tool.exe"]
+
+>> p.absolute
+true
+
+>> p.components[-1]  // last component
+"tool.exe"
+```
+
+**Computed properties:**
+```parsley
+>> let p = @/usr/local/bin/tool.exe
+
+>> p.basename  // last component
+"tool.exe"
+
+>> p.extension  // or p.ext
+"exe"
+
+>> p.stem  // filename without extension
+"tool"
+
+>> p.dirname  // or p.parent - returns path dict
+{__type: "path", components: ["", "usr", "local", "bin"], absolute: true}
+
+>> toString(p.dirname)
+"/usr/local/bin"
+```
+
+**Working with paths:**
+```parsley
+// Check file extension
+let p = @./data.json
+if (p.extension == "json") {
+    log("JSON file detected")
+}
+
+// Get parent directory
+let configPath = @./config/app.json
+let configDir = configPath.dirname
+log("Config dir:", toString(configDir))  // "./config"
+
+// Build new path from components
+let homeDir = @~/documents
+let filename = homeDir.basename
+log("Home basename:", filename)  // "documents"
+```
+
+#### URL Literals
+
+Create URLs using the `@` prefix followed by a URL string:
+
+```parsley
+>> @https://example.com/api
+{__type: "url", scheme: "https", host: "example.com", port: 0, path: ["", "api"], ...}
+
+>> @http://localhost:8080/test
+{__type: "url", scheme: "http", host: "localhost", port: 8080, path: ["", "test"], ...}
+```
+
+URL literals are equivalent to calling `url(string)`:
+
+```parsley
+>> @https://example.com == url("https://example.com")
+true
+```
+
+#### URL Properties
+
+URLs are parsed into their components:
+
+**Basic properties:**
+```parsley
+>> let u = @https://user:pass@example.com:8080/api/v1?limit=10#section
+
+>> u.scheme
+"https"
+
+>> u.host
+"example.com"
+
+>> u.port
+8080
+
+>> u.path  // array of path components
+["", "api", "v1"]
+
+>> u.username
+"user"
+
+>> u.password
+"pass"
+
+>> u.fragment
+"section"
+```
+
+**Query parameters:**
+```parsley
+>> let u = @https://api.example.com?limit=10&offset=20&sort=name
+
+>> u.query  // dictionary of query params
+{limit: "10", offset: "20", sort: "name"}
+
+>> u.query.limit
+"10"
+
+>> u.query.sort
+"name"
+```
+
+**Computed properties:**
+```parsley
+>> let u = @https://example.com:8080/api/v1
+
+>> u.origin  // scheme + host + port
+"https://example.com:8080"
+
+>> u.pathname  // path as string
+"/api/v1"
+
+>> u.href  // full URL as string (via toString)
+"https://example.com:8080/api/v1"
+```
+
+**Working with URLs:**
+```parsley
+// API endpoint builder
+let buildUrl = fn(base, params) {
+    let u = url(base)
+    // In practice, you'd build query string from params dict
+    u
+}
+
+let apiUrl = @https://api.example.com/users
+log("API host:", apiUrl.host)      // "api.example.com"
+log("API path:", apiUrl.pathname)  // "/users"
+
+// Extract query parameters
+let searchUrl = @https://search.example.com?q=parsley&page=2
+let query = searchUrl.query.q
+let page = toInt(searchUrl.query.page)
+log("Searching for:", query, "on page:", page)
+// Output: Searching for: "parsley" on page: 2
+
+// Check URL scheme
+let u = @https://secure.example.com
+if (u.scheme == "https") {
+    log("Secure connection")
+}
+```
+
+#### Path and URL Conversion
+
+Convert paths and URLs to strings using `toString()`:
+
+```parsley
+>> let p = @/usr/local/bin
+>> toString(p)
+"/usr/local/bin"
+
+>> let u = @https://example.com/api
+>> toString(u)
+"https://example.com/api"
+```
+
+Roundtrip conversion:
+```parsley
+>> let original = @/usr/local/bin
+>> let str = toString(original)
+>> let reconstructed = path(str)
+>> original == reconstructed
+true
+```
+
+#### Practical Examples
+
+**File path manipulation:**
+```parsley
+let processFile = fn(filepath) {
+    let p = path(filepath)
+    
+    if (p.extension == "json") {
+        log("Processing JSON:", p.stem)
+        // Process JSON file
+    } else if (p.extension == "txt") {
+        log("Processing text:", p.stem)
+        // Process text file
+    } else {
+        log("Unknown file type:", p.extension)
+    }
+}
+
+processFile("./data/config.json")  // "Processing JSON: config"
+processFile("./docs/readme.txt")   // "Processing text: readme"
+```
+
+**URL parsing for API calls:**
+```parsley
+let parseApiUrl = fn(urlStr) {
+    let u = url(urlStr)
+    {
+        endpoint: u.pathname,
+        params: u.query,
+        secure: u.scheme == "https"
+    }
+}
+
+let api = parseApiUrl("https://api.example.com/v1/users?limit=50")
+log("Endpoint:", api.endpoint)  // "/v1/users"
+log("Limit:", api.params.limit)  // "50"
+log("Secure:", api.secure)        // true
+```
+
+**Module imports with path literals:**
+```parsley
+// Path literals work great with import()
+let utils = import(@./lib/utils.pars)
+let config = import(@../config/settings.pars)
+
+// Computed paths
+let moduleName = "helpers"
+let modulePath = "./lib/" + moduleName + ".pars"
+let helpers = import(path(modulePath))
+```
 
 ### Singleton Tags
 
