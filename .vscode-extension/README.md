@@ -15,6 +15,7 @@ Syntax highlighting and language support for the Parsley programming language.
   - Duration literals (`@1d`, `@2h30m`, `@1y6mo`)
   - Paths (`@/usr/local/bin`, `@./file.pars`)
   - URLs (`@https://example.com/api`)
+  - Interpolated templates (`@(./path/{name})`, `@(https://api/{v})`, `@(2024-{month}-{day})`)
   - Numbers (integers and floats)
   - Boolean constants (`true`, `false`, `null`)
   - Special `_` variable (write-only)
@@ -37,12 +38,12 @@ Syntax highlighting and language support for the Parsley programming language.
 
    **macOS/Linux:**
    ```bash
-   cp -r .vscode-extension ~/.vscode/extensions/parsley-language-0.9.11
+   cp -r .vscode-extension ~/.vscode/extensions/parsley-language-0.9.13
    ```
 
    **Windows:**
    ```powershell
-   Copy-Item -Recurse .vscode-extension "$env:USERPROFILE\\.vscode\\extensions\\parsley-language-0.9.11"
+   Copy-Item -Recurse .vscode-extension "$env:USERPROFILE\\.vscode\\extensions\\parsley-language-0.9.13"
    ```
 
 2. Reload VS Code (`Cmd/Ctrl + Shift + P` → "Developer: Reload Window")
@@ -148,6 +149,13 @@ let christmas = @2024-12-25              // Date only
 let meeting = @2024-12-25T14:30:00       // Full datetime
 let lunchTime = @12:30                   // Time only
 let preciseTime = @12:30:45              // Time with seconds
+
+// Interpolated datetime templates
+let month = "06"
+let day = "15"
+let dateTemplate = @(2024-{month}-{day})         // Date with interpolation
+let hour = "14"
+let timeTemplate = @({hour}:30)                  // Time with interpolation
 
 // Duration literals
 let oneDay = @1d

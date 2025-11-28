@@ -287,6 +287,36 @@ func (ul *UrlLiteral) expressionNode()      {}
 func (ul *UrlLiteral) TokenLiteral() string { return ul.Token.Literal }
 func (ul *UrlLiteral) String() string       { return "@" + ul.Value }
 
+// PathTemplateLiteral represents interpolated path templates like @(./path/{expr}/file)
+type PathTemplateLiteral struct {
+	Token lexer.Token // the lexer.PATH_TEMPLATE token
+	Value string      // the template content (e.g., "./path/{name}/file")
+}
+
+func (pt *PathTemplateLiteral) expressionNode()      {}
+func (pt *PathTemplateLiteral) TokenLiteral() string { return pt.Token.Literal }
+func (pt *PathTemplateLiteral) String() string       { return "@(" + pt.Value + ")" }
+
+// UrlTemplateLiteral represents interpolated URL templates like @(https://api.com/{version}/users)
+type UrlTemplateLiteral struct {
+	Token lexer.Token // the lexer.URL_TEMPLATE token
+	Value string      // the template content (e.g., "https://api.com/{v}/users")
+}
+
+func (ut *UrlTemplateLiteral) expressionNode()      {}
+func (ut *UrlTemplateLiteral) TokenLiteral() string { return ut.Token.Literal }
+func (ut *UrlTemplateLiteral) String() string       { return "@(" + ut.Value + ")" }
+
+// DatetimeTemplateLiteral represents interpolated datetime templates like @(2024-{month}-{day})
+type DatetimeTemplateLiteral struct {
+	Token lexer.Token // the lexer.DATETIME_TEMPLATE token
+	Value string      // the template content (e.g., "2024-{month}-{day}")
+}
+
+func (dt *DatetimeTemplateLiteral) expressionNode()      {}
+func (dt *DatetimeTemplateLiteral) TokenLiteral() string { return dt.Token.Literal }
+func (dt *DatetimeTemplateLiteral) String() string       { return "@(" + dt.Value + ")" }
+
 // TagLiteral represents singleton tags like <input type="text" />
 type TagLiteral struct {
 	Token lexer.Token // the lexer.TAG token

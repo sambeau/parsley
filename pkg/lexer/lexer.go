@@ -15,20 +15,23 @@ const (
 	EOF
 
 	// Identifiers and literals
-	IDENT            // add, foobar, x, y, ...
-	INT              // 1343456
-	FLOAT            // 3.14159
-	STRING           // "foobar"
-	TEMPLATE         // `template ${expr}`
-	REGEX            // /pattern/flags
-	DATETIME_LITERAL // @2024-12-25T14:30:00Z
-	DURATION_LITERAL // @2h30m, @7d, @1y6mo
-	PATH_LITERAL     // @/usr/local, @./config
-	URL_LITERAL      // @https://example.com
-	TAG              // <tag prop="value" />
-	TAG_START        // <tag> or <tag attr="value">
-	TAG_END          // </tag>
-	TAG_TEXT         // raw text content within tags
+	IDENT             // add, foobar, x, y, ...
+	INT               // 1343456
+	FLOAT             // 3.14159
+	STRING            // "foobar"
+	TEMPLATE          // `template ${expr}`
+	REGEX             // /pattern/flags
+	DATETIME_LITERAL  // @2024-12-25T14:30:00Z
+	DURATION_LITERAL  // @2h30m, @7d, @1y6mo
+	PATH_LITERAL      // @/usr/local, @./config
+	URL_LITERAL       // @https://example.com
+	PATH_TEMPLATE     // @(./path/{expr}/file)
+	URL_TEMPLATE      // @(https://api.com/{expr}/path)
+	DATETIME_TEMPLATE // @(2024-{month}-{day}T{hour}:00:00)
+	TAG               // <tag prop="value" />
+	TAG_START         // <tag> or <tag attr="value">
+	TAG_END           // </tag>
+	TAG_TEXT          // raw text content within tags
 
 	// Operators
 	ASSIGN    // =
@@ -122,6 +125,16 @@ func (tt TokenType) String() string {
 		return "DATETIME_LITERAL"
 	case DURATION_LITERAL:
 		return "DURATION_LITERAL"
+	case PATH_LITERAL:
+		return "PATH_LITERAL"
+	case URL_LITERAL:
+		return "URL_LITERAL"
+	case PATH_TEMPLATE:
+		return "PATH_TEMPLATE"
+	case URL_TEMPLATE:
+		return "URL_TEMPLATE"
+	case DATETIME_TEMPLATE:
+		return "DATETIME_TEMPLATE"
 	case TAG:
 		return "TAG"
 	case TAG_START:
@@ -627,6 +640,15 @@ func (l *Lexer) NextToken() Token {
 		case URL_LITERAL:
 			tok.Type = URL_LITERAL
 			tok.Literal = l.readUrlLiteral()
+		case PATH_TEMPLATE:
+			tok.Type = PATH_TEMPLATE
+			tok.Literal = l.readPathTemplate()
+		case URL_TEMPLATE:
+			tok.Type = URL_TEMPLATE
+			tok.Literal = l.readUrlTemplate()
+		case DATETIME_TEMPLATE:
+			tok.Type = DATETIME_TEMPLATE
+			tok.Literal = l.readDatetimeTemplate()
 		default:
 			tok.Type = ILLEGAL
 			tok.Literal = string(l.ch)
@@ -1625,6 +1647,11 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		return ILLEGAL
 	}
 
+	// Check for @( which indicates a template path/URL
+	if l.input[pos] == '(' {
+		return l.detectTemplateAtLiteralType()
+	}
+
 	// Check for URL: @scheme://
 	// Look for characters followed by ://
 	colonPos := pos
@@ -1775,4 +1802,140 @@ func (l *Lexer) shouldTreatAsRegex(lastToken TokenType) bool {
 	default:
 		return false
 	}
+}
+
+// detectTemplateAtLiteralType determines if @(...) is a path, URL, or datetime template
+// Called when we've detected @( - peeks inside to determine type
+func (l *Lexer) detectTemplateAtLiteralType() TokenType {
+	pos := l.readPosition + 1 // skip past (
+
+	if pos >= len(l.input) {
+		return ILLEGAL
+	}
+
+	// Look for :// pattern within the first 20 chars (URL indicator)
+	// Also check for scheme pattern like http:// https:// ftp://
+	scanPos := pos
+	for scanPos < len(l.input) && scanPos < pos+20 {
+		if l.input[scanPos] == ':' {
+			if scanPos+2 < len(l.input) && l.input[scanPos+1] == '/' && l.input[scanPos+2] == '/' {
+				return URL_TEMPLATE
+			}
+			break
+		}
+		// Stop if we hit closing paren or non-scheme character early
+		if l.input[scanPos] == ')' || l.input[scanPos] == '{' {
+			break
+		}
+		if !isLetter(l.input[scanPos]) && l.input[scanPos] != '+' && l.input[scanPos] != '-' && l.input[scanPos] != '.' && l.input[scanPos] != '/' && l.input[scanPos] != '~' {
+			break
+		}
+		scanPos++
+	}
+
+	// Check for datetime template: starts with 4 digits followed by '-' or an interpolation
+	// e.g., @(2024-{month}-{day}) or @({year}-12-25)
+	digitCount := 0
+	checkPos := pos
+
+	// Count leading digits or check for { (interpolation start)
+	for checkPos < len(l.input) && isDigit(l.input[checkPos]) {
+		digitCount++
+		checkPos++
+	}
+
+	// 4 digits followed by '-' is a date pattern (datetime template)
+	if digitCount == 4 && checkPos < len(l.input) && l.input[checkPos] == '-' {
+		return DATETIME_TEMPLATE
+	}
+
+	// Check for time-only template: 1-2 digits followed by ':'
+	// e.g., @(12:{min}:00) or @({hour}:30:00)
+	if (digitCount == 1 || digitCount == 2) && checkPos < len(l.input) && l.input[checkPos] == ':' {
+		return DATETIME_TEMPLATE
+	}
+
+	// Check for interpolated datetime that starts with { followed by date/time pattern
+	// e.g., @({year}-12-25) or @({hour}:30)
+	if pos < len(l.input) && l.input[pos] == '{' {
+		// Find the closing brace and check what follows
+		bracePos := pos + 1
+		for bracePos < len(l.input) && l.input[bracePos] != '}' {
+			bracePos++
+		}
+		if bracePos+1 < len(l.input) {
+			nextChar := l.input[bracePos+1]
+			// If followed by '-' or ':', it's likely a datetime template
+			if nextChar == '-' || nextChar == ':' {
+				return DATETIME_TEMPLATE
+			}
+		}
+	}
+
+	// Default to path template
+	return PATH_TEMPLATE
+}
+
+// readPathTemplate reads a path template after @(
+// Returns the content between the parentheses
+func (l *Lexer) readPathTemplate() string {
+	l.readChar() // skip @
+	l.readChar() // skip (
+
+	var result []byte
+	parenCount := 1
+	braceCount := 0
+
+	for parenCount > 0 && l.ch != 0 {
+		if l.ch == '(' && braceCount == 0 {
+			parenCount++
+		} else if l.ch == ')' && braceCount == 0 {
+			parenCount--
+			if parenCount == 0 {
+				// Don't append the closing ), just consume it and break
+				l.readChar()
+				break
+			}
+		} else if l.ch == '{' {
+			braceCount++
+		} else if l.ch == '}' {
+			braceCount--
+		} else if l.ch == '"' {
+			// Handle string literals within expressions
+			result = append(result, l.ch)
+			l.readChar()
+			for l.ch != '"' && l.ch != 0 {
+				if l.ch == '\\' {
+					result = append(result, l.ch)
+					l.readChar()
+					if l.ch != 0 {
+						result = append(result, l.ch)
+						l.readChar()
+					}
+				} else {
+					result = append(result, l.ch)
+					l.readChar()
+				}
+			}
+		}
+		result = append(result, l.ch)
+		l.readChar()
+	}
+
+	return string(result)
+}
+
+// readUrlTemplate reads a URL template after @(
+// Returns the content between the parentheses
+func (l *Lexer) readUrlTemplate() string {
+	// Same logic as readPathTemplate - the content is identical
+	return l.readPathTemplate()
+}
+
+// readDatetimeTemplate reads a datetime template after @(
+// Returns the content between the parentheses
+// Examples: @(2024-{month}-{day}), @({hour}:30:00)
+func (l *Lexer) readDatetimeTemplate() string {
+	// Same logic as readPathTemplate - the content is identical
+	return l.readPathTemplate()
 }

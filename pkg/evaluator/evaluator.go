@@ -1386,6 +1386,177 @@ func evalUrlLiteral(node *ast.UrlLiteral, env *Environment) Object {
 	return urlDict
 }
 
+// evalPathTemplateLiteral evaluates an interpolated path template like @(./path/{name}/file)
+func evalPathTemplateLiteral(node *ast.PathTemplateLiteral, env *Environment) Object {
+	// First, interpolate the template
+	interpolated := interpolatePathUrlTemplate(node.Value, env)
+	if isError(interpolated) {
+		return interpolated
+	}
+
+	// Get the interpolated string
+	pathStr := interpolated.(*String).Value
+
+	// Parse the path string into components
+	components, isAbsolute := parsePathString(pathStr)
+
+	// Create path dictionary
+	return pathToDict(components, isAbsolute, env)
+}
+
+// evalUrlTemplateLiteral evaluates an interpolated URL template like @(https://api.com/{version}/users)
+func evalUrlTemplateLiteral(node *ast.UrlTemplateLiteral, env *Environment) Object {
+	// First, interpolate the template
+	interpolated := interpolatePathUrlTemplate(node.Value, env)
+	if isError(interpolated) {
+		return interpolated
+	}
+
+	// Get the interpolated string
+	urlStr := interpolated.(*String).Value
+
+	// Parse the URL string
+	urlDict, err := parseUrlString(urlStr, env)
+	if err != nil {
+		return newError("invalid URL in template: %s", err.Error())
+	}
+
+	return urlDict
+}
+
+// evalDatetimeTemplateLiteral evaluates an interpolated datetime template like @(2024-{month}-{day})
+func evalDatetimeTemplateLiteral(node *ast.DatetimeTemplateLiteral, env *Environment) Object {
+	// First, interpolate the template
+	interpolated := interpolatePathUrlTemplate(node.Value, env)
+	if isError(interpolated) {
+		return interpolated
+	}
+
+	// Get the interpolated string
+	datetimeStr := interpolated.(*String).Value
+
+	// Determine the kind and parse the datetime
+	var t time.Time
+	var err error
+	var kind string
+
+	// Check if it's a time-only pattern (starts with digit and contains :)
+	// Time patterns: HH:MM or HH:MM:SS
+	if len(datetimeStr) >= 4 && datetimeStr[2] == ':' {
+		// Looks like a time pattern (e.g., "12:30" or "12:30:45")
+		kind = "time"
+		now := time.Now().UTC()
+
+		// Try parsing with seconds first
+		t, err = time.Parse("15:04:05", datetimeStr)
+		if err != nil {
+			// Try without seconds
+			t, err = time.Parse("15:04", datetimeStr)
+			if err != nil {
+				return newError("invalid time in datetime template: %s", datetimeStr)
+			}
+		}
+
+		// Combine with current UTC date
+		t = time.Date(now.Year(), now.Month(), now.Day(),
+			t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
+	} else {
+		// Check for date-only (YYYY-MM-DD) vs full datetime (YYYY-MM-DDTHH:MM:SS)
+		if len(datetimeStr) == 10 && datetimeStr[4] == '-' && datetimeStr[7] == '-' {
+			kind = "date"
+		} else {
+			kind = "datetime"
+		}
+
+		// Try parsing as RFC3339 first (most complete format with timezone)
+		t, err = time.Parse(time.RFC3339, datetimeStr)
+		if err != nil {
+			// Try date-only format (2024-12-25) - interpret as UTC
+			t, err = time.ParseInLocation("2006-01-02", datetimeStr, time.UTC)
+			if err != nil {
+				// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
+				t, err = time.ParseInLocation("2006-01-02T15:04:05", datetimeStr, time.UTC)
+				if err != nil {
+					return newError("invalid datetime in template: %s", datetimeStr)
+				}
+			}
+		}
+	}
+
+	// Convert to dictionary using the function with kind
+	return timeToDictWithKind(t, kind, env)
+}
+
+// interpolatePathUrlTemplate processes {expr} interpolations in path/URL templates
+// This is similar to evalTemplateLiteral but returns a String object
+func interpolatePathUrlTemplate(template string, env *Environment) Object {
+	var result strings.Builder
+
+	i := 0
+	for i < len(template) {
+		// Look for {
+		if template[i] == '{' {
+			// Find the closing }
+			i++ // skip {
+			braceCount := 1
+			exprStart := i
+
+			for i < len(template) && braceCount > 0 {
+				if template[i] == '{' {
+					braceCount++
+				} else if template[i] == '}' {
+					braceCount--
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+
+			if braceCount != 0 {
+				return newError("unclosed { in path/URL template")
+			}
+
+			// Extract and evaluate the expression
+			exprStr := template[exprStart:i]
+			i++ // skip closing }
+
+			// Handle empty interpolation
+			if strings.TrimSpace(exprStr) == "" {
+				return newError("empty interpolation {} in path/URL template")
+			}
+
+			// Parse and evaluate the expression
+			l := lexer.New(exprStr)
+			p := parser.New(l)
+			program := p.ParseProgram()
+
+			if len(p.Errors()) > 0 {
+				return newError("error parsing template expression: %s", p.Errors()[0])
+			}
+
+			// Evaluate the expression
+			var evaluated Object
+			for _, stmt := range program.Statements {
+				evaluated = Eval(stmt, env)
+				if isError(evaluated) {
+					return evaluated
+				}
+			}
+
+			// Convert result to string
+			if evaluated != nil {
+				result.WriteString(objectToTemplateString(evaluated))
+			}
+		} else {
+			// Regular character
+			result.WriteByte(template[i])
+			i++
+		}
+	}
+
+	return &String{Value: result.String()}
+}
+
 // parseDurationString parses a duration string like "2h30m" or "1y6mo" or "-1d" into months and seconds
 // Returns (months, seconds, error)
 // Negative durations (e.g., "-1d") return negative values
@@ -2084,6 +2255,60 @@ func evalPathComputedProperty(dict *Dictionary, key string, env *Environment) Ob
 			return nativeBoolToParsBoolean(!b.Value)
 		}
 		return TRUE
+
+	case "string":
+		// Full path as string
+		return &String{Value: pathDictToString(dict)}
+
+	case "dir":
+		// Directory path as string (all but the last component)
+		componentsExpr, ok := dict.Pairs["components"]
+		if !ok {
+			return &String{Value: ""}
+		}
+		componentsObj := Eval(componentsExpr, env)
+		arr, ok := componentsObj.(*Array)
+		if !ok || len(arr.Elements) <= 1 {
+			// If only one component (or empty), dir is empty or root
+			absoluteExpr, ok := dict.Pairs["absolute"]
+			isAbsolute := false
+			if ok {
+				absoluteObj := Eval(absoluteExpr, env)
+				if b, ok := absoluteObj.(*Boolean); ok {
+					isAbsolute = b.Value
+				}
+			}
+			if isAbsolute {
+				return &String{Value: "/"}
+			}
+			return &String{Value: "."}
+		}
+
+		// Get absolute flag
+		absoluteExpr, ok := dict.Pairs["absolute"]
+		isAbsolute := false
+		if ok {
+			absoluteObj := Eval(absoluteExpr, env)
+			if b, ok := absoluteObj.(*Boolean); ok {
+				isAbsolute = b.Value
+			}
+		}
+
+		// Build directory path (all but last component)
+		var result strings.Builder
+		for i := 0; i < len(arr.Elements)-1; i++ {
+			if str, ok := arr.Elements[i].(*String); ok {
+				if str.Value == "" && i == 0 && isAbsolute {
+					result.WriteString("/")
+				} else {
+					if i > 0 && (i > 1 || !isAbsolute) {
+						result.WriteString("/")
+					}
+					result.WriteString(str.Value)
+				}
+			}
+		}
+		return &String{Value: result.String()}
 	}
 
 	return nil // Property doesn't exist
@@ -2196,6 +2421,10 @@ func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 
 	case "href":
 		// Full URL as string (alias for toString)
+		return &String{Value: urlDictToString(dict)}
+
+	case "string":
+		// Full URL as string (alias for href)
 		return &String{Value: urlDictToString(dict)}
 	}
 
@@ -4737,6 +4966,15 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.UrlLiteral:
 		return evalUrlLiteral(node, env)
+
+	case *ast.PathTemplateLiteral:
+		return evalPathTemplateLiteral(node, env)
+
+	case *ast.UrlTemplateLiteral:
+		return evalUrlTemplateLiteral(node, env)
+
+	case *ast.DatetimeTemplateLiteral:
+		return evalDatetimeTemplateLiteral(node, env)
 
 	case *ast.TagLiteral:
 		return evalTagLiteral(node, env)

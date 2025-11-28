@@ -1,0 +1,134 @@
+// Parsley Interpolated Path/URL Template Demo
+// Version 0.9.12
+
+// ============================================
+// INTERPOLATED PATH TEMPLATES
+// ============================================
+
+// Basic variable interpolation
+name = "config"
+p = @(./data/{name}.json)
+log("Basic path:", p.string)
+// Output: ./data/config.json
+
+// Multiple interpolations
+dir = "src"
+file = "main"
+p = @(./{dir}/{file}.go)
+log("Multiple:", p.string)
+// Output: ./src/main.go
+
+// Expression interpolation
+n = 1
+p = @(./file{n + 1}.txt)
+log("Expression:", p.string)
+// Output: ./file2.txt
+
+// Absolute paths
+user = "sam"
+p = @(/home/{user}/docs)
+log("Absolute:", p.string)
+// Output: /home/sam/docs
+
+// Home directory paths
+folder = "projects"
+p = @(~/{folder}/code)
+log("Home:", p.string)
+// Output: ~/projects/code
+
+// Nested property access
+config = {dir: "build"}
+p = @(./{config.dir}/output)
+log("Nested:", p.string)
+// Output: ./build/output
+
+// Array indexing
+dirs = ["src", "lib"]
+p = @(./{dirs[0]}/main.go)
+log("Array:", p.string)
+// Output: ./src/main.go
+
+// Function calls in interpolation
+p = @(./{"hello".upper()}.txt)
+log("Function:", p.string)
+// Output: ./HELLO.txt
+
+// Access path components
+ext = "json"
+p = @(./config.{ext})
+log("Basename:", p.basename)
+log("Extension:", p.ext)
+log("Stem:", p.stem)
+log("Is absolute:", p.isAbsolute)
+
+// ============================================
+// INTERPOLATED URL TEMPLATES
+// ============================================
+
+// Path segment interpolation
+version = "v2"
+u = @(https://api.example.com/{version}/users)
+log("URL path segment:", u.string)
+// Output: https://api.example.com/v2/users
+
+// Host interpolation
+host = "api.test.com"
+u = @(https://{host}/data)
+log("URL host:", u.string)
+// Output: https://api.test.com/data
+
+// Port interpolation
+port = 8080
+u = @(http://localhost:{port}/api)
+log("URL port:", u.port)
+// Output: 8080
+
+// Fragment interpolation
+section = "intro"
+u = @(https://docs.com/guide#{section})
+log("URL fragment:", u.fragment)
+// Output: intro
+
+// Expression in URL
+n = 1
+u = @(https://api.com/v{n + 1}/data)
+log("URL expression:", u.string)
+// Output: https://api.com/v2/data
+
+// Access URL components
+u = @(https://api.example.com/{version}/users)
+log("Scheme:", u.scheme)
+log("Host:", u.host)
+log("Full URL:", u.string)
+
+// ============================================
+// PRACTICAL EXAMPLES
+// ============================================
+
+// Build dynamic config paths
+env = "development"
+configPath = @(./config/{env}.yaml)
+log("Config path:", configPath.string)
+
+// API endpoint builder
+apiVersion = "v3"
+resource = "users"
+apiUrl = @(https://api.myservice.com/{apiVersion}/{resource})
+log("API URL:", apiUrl.string)
+
+// File organization
+projectName = "myapp"
+outputDir = @(./dist/{projectName}/bundle.js)
+log("Output:", outputDir.string)
+
+// Using in functions
+makeApiUrl = fn(version, endpoint) {
+    @(https://api.example.com/{version}/{endpoint})
+}
+
+usersUrl = makeApiUrl("v2", "users")
+postsUrl = makeApiUrl("v2", "posts")
+log("Users API:", usersUrl.string)
+log("Posts API:", postsUrl.string)
+
+"Demo complete!"

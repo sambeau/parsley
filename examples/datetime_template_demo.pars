@@ -1,0 +1,135 @@
+// Datetime Template Interpolation Demo
+// Demonstrates the @(...) syntax for building datetime values with expressions
+
+// =====================================================
+// Basic Date Interpolation
+// =====================================================
+
+// Variables for date components
+let year = "2024"
+let month = "06"
+let day = "15"
+
+// Build a date from variables
+let myDate = @(2024-{month}-{day})
+log("Date template result:")
+log(`  Year: {myDate.year}`)
+log(`  Month: {myDate.month}`)
+log(`  Day: {myDate.day}`)
+log(`  Kind: {myDate.kind}`)
+log(`  ISO: {myDate.iso}`)
+log("")
+
+// =====================================================
+// Full Datetime Interpolation
+// =====================================================
+
+let hour = "14"
+let minute = "30"
+let datetime = @(2024-12-25T{hour}:{minute}:00)
+log("Datetime template result:")
+log(`  Hour: {datetime.hour}`)
+log(`  Minute: {datetime.minute}`)
+log(`  Kind: {datetime.kind}`)
+log(`  ISO: {datetime.iso}`)
+log("")
+
+// =====================================================
+// Time-only Interpolation
+// =====================================================
+
+let h = "09"
+let m = "15"
+let meetingTime = @({h}:{m})
+log("Time template result:")
+log(`  Hour: {meetingTime.hour}`)
+log(`  Minute: {meetingTime.minute}`)
+log(`  Kind: {meetingTime.kind}`)
+log("")
+
+// =====================================================
+// Using Expressions in Interpolations
+// =====================================================
+
+let baseDay = 10
+let computedDate = @(2024-12-{baseDay + 5})
+log("Computed date (baseDay + 5):")
+log(`  Day: {computedDate.day}`)
+log("")
+
+// =====================================================
+// Dictionary-based Construction
+// =====================================================
+
+let dateInfo = {
+    year: "2025",
+    month: "07",
+    day: "04"
+}
+
+let independenceDay = @({dateInfo.year}-{dateInfo.month}-{dateInfo.day})
+log("Date from dictionary:")
+log(`  Year: {independenceDay.year}`)
+log(`  Month: {independenceDay.month}`)
+log(`  Day: {independenceDay.day}`)
+log("")
+
+// =====================================================
+// Array-based Construction
+// =====================================================
+
+let parts = ["2024", "08", "15"]
+let arrayDate = @({parts[0]}-{parts[1]}-{parts[2]})
+log("Date from array:")
+log(`  Year: {arrayDate.year}`)
+log(`  Month: {arrayDate.month}`)
+log(`  Day: {arrayDate.day}`)
+log("")
+
+// =====================================================
+// Dynamic Schedule Building
+// =====================================================
+
+log("Building schedule for conference:")
+let eventHours = [9, 10, 11, 14, 15, 16]
+let eventDate = "2024-09-20"
+let year2 = "2024"
+let month2 = "09"
+let day2 = "20"
+
+for (i, hour in eventHours) {
+    // Build padded hour string
+    let hourStr = if (hour < 10) { "0" + hour } else { "" + hour }
+    let eventTime = @({year2}-{month2}-{day2}T{hourStr}:00:00)
+    log(`  Session {i + 1}: {eventTime.hour}:00`)
+}
+log("")
+
+// =====================================================
+// Timezone Handling
+// =====================================================
+
+let utcDatetime = @(2024-12-25T14:30:00Z)
+log("UTC datetime:")
+log(`  ISO: {utcDatetime.iso}`)
+
+let tzOffset = "+05:00"
+let tzDatetime = @(2024-12-25T14:30:00{tzOffset})
+log("With timezone offset:")
+log(`  ISO: {tzDatetime.iso}`)
+log("")
+
+// =====================================================
+// Comparison with Regular Datetime Literals
+// =====================================================
+
+// Static (regular) datetime literals
+let staticDate = @2024-06-15
+
+// Dynamic (template) datetime literals
+let dynamicDate = @(2024-{month}-{day})
+
+log("Static vs Dynamic comparison:")
+log(`  Static:  {staticDate.iso}`)
+log(`  Dynamic: {dynamicDate.iso}`)
+log(`  Equal dates: {staticDate.day == dynamicDate.day}`)

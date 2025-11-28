@@ -1,3 +1,44 @@
+# VSCode Extension Updates - v0.9.13
+
+## Summary
+
+Updated the Parsley VSCode extension to match the current grammar (v0.9.13), including support for interpolated datetime templates.
+
+## Changes in v0.9.13
+
+### 1. Updated `package.json`
+- Bumped version from `0.9.12` to `0.9.13`
+
+### 2. Updated `syntaxes/parsley.tmLanguage.json`
+
+#### Added Interpolated Datetime Template Highlighting
+- **Date Templates**: `@(2024-{month}-{day})` - dates with embedded expressions
+- **Time Templates**: `@({hour}:30)` - times with embedded expressions
+- **Datetime Templates**: `@(2024-12-25T{hour}:30:00)` - full datetime with embedded expressions
+- Interpolation expressions `{expr}` are highlighted within the template
+
+---
+
+# VSCode Extension Updates - v0.9.12
+
+## Summary
+
+Updated the Parsley VSCode extension to match the current grammar (v0.9.12), including support for interpolated path and URL templates.
+
+## Changes in v0.9.12
+
+### 1. Updated `package.json`
+- Bumped version from `0.9.11` to `0.9.12`
+
+### 2. Updated `syntaxes/parsley.tmLanguage.json`
+
+#### Added Interpolated Path/URL Template Highlighting
+- **Path Templates**: `@(./path/{name}/file)` - paths with embedded expressions
+- **URL Templates**: `@(https://api.com/{version}/users)` - URLs with embedded expressions
+- Interpolation expressions `{expr}` are highlighted within the template
+
+---
+
 # VSCode Extension Updates - v0.9.11
 
 ## Summary

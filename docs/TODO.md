@@ -22,13 +22,14 @@
 - ~~File I/O error capture ({data, error} <== file)~~ ✅ (v0.9.9)
 - css support
 - ~~$Decimal type for money?~~ ❌ invalidated by (v0.9.7)
+- ~~Markdown support~~ ✅ 0.9.10
+- ~~Paths: path and name, display as name~~ ✅ (v0.9.9)
+- ~~Sort out what is and isn't a 'let'~~ 🤷‍♂️ turns out they all are so added export instead
 - File methods: delete
 - Dictionaries to props in tags
-- Sort out what is and isn't a 'let'
 - Execute bash script
 - Pipe to bash script
 - Fetch from URL
-- Markdown support
 - Simple HTTP server
 	- routing
 	- cookies
@@ -37,5 +38,4 @@
 - File I/O security sandbox (--allow-read, --allow-write flags)
 - 1 ++ [2,3,4,5] , [1,2,3,4] ++ 5
 - HTML()? or is that just text?
-- paths: path and name, display as name
 - SQL and databases {user} = [$GetUser userID={userId}] <=/=> SQL()

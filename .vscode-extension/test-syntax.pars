@@ -35,6 +35,19 @@ let apiUrl = @https://api.example.com/v1/users
 let localUrl = @http://localhost:8080/api
 let secureUrl = @https://user:pass@example.com:8080/path?q=test#section
 
+// Interpolated path templates
+let fileName = "config"
+let pathTemplate = @(./data/{fileName}.json)
+let dirPath = @(./src/{fileName}/main.go)
+let absPath = @(/home/{name}/docs)
+
+// Interpolated URL templates
+let version = "v2"
+let urlTemplate = @(https://api.example.com/{version}/users)
+let portNum = 8080
+let localApi = @(http://localhost:{portNum}/api)
+let dynamicHost = @(https://{name}.example.com/profile)
+
 // Datetime literals
 let christmas = @2024-12-25               // Date only
 let meeting = @2024-12-25T14:30:00        // Full datetime with time
@@ -44,6 +57,16 @@ let meetingTZ = @2024-12-25T14:30:00-05:00 // With timezone offset
 // Time-only literals
 let lunchTime = @12:30                    // HH:MM format
 let preciseTime = @12:30:45               // HH:MM:SS format
+
+// Interpolated datetime templates
+let month = "06"
+let day = "15"
+let dateTemplate = @(2024-{month}-{day})  // Date with interpolation
+let hour = "14"
+let datetimeTemplate = @(2024-12-25T{hour}:30:00)  // Datetime with interpolation
+let timeTemplate = @({hour}:30)           // Time with interpolation
+let yearVar = "2025"
+let fullTemplate = @({yearVar}-{month}-{day}T{hour}:30:00)  // Multiple interpolations
 
 // Duration literals
 let oneDay = @1d

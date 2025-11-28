@@ -300,6 +300,53 @@ The kind is preserved through arithmetic operations:
 (@12:30:45 + 60).kind             // "time_seconds"
 ```
 
+### Interpolated Datetime Templates
+Use `@(...)` syntax for datetime literals with embedded expressions:
+
+```parsley
+// Date interpolation
+month = "06"
+day = "15"
+dt = @(2024-{month}-{day})
+dt.year    // 2024
+dt.month   // 6
+dt.day     // 15
+dt.kind    // "date"
+
+// Full datetime interpolation
+year = "2025"
+hour = "14"
+dt2 = @({year}-12-25T{hour}:30:00)
+dt2.year   // 2025
+dt2.hour   // 14
+dt2.kind   // "datetime"
+
+// Time-only interpolation
+h = "09"
+m = "15"
+meeting = @({h}:{m})
+meeting.hour    // 9
+meeting.minute  // 15
+meeting.kind    // "time"
+
+// Expressions in interpolations
+baseDay = 10
+dt3 = @(2024-12-{baseDay + 5})
+dt3.day    // 15
+
+// Dictionary-based construction
+date = { year: "2024", month: "07", day: "04" }
+dt4 = @({date.year}-{date.month}-{date.day})
+dt4.month  // 7
+```
+
+The kind is automatically determined:
+- Date templates (YYYY-MM-DD) → `"date"`
+- Full datetime templates → `"datetime"`
+- Time templates (HH:MM) → `"time"`
+
+Static datetime literals (`@2024-12-25`) remain unchanged and don't require parentheses.
+
 ### Properties
 | Property | Description |
 |----------|-------------|
@@ -383,6 +430,26 @@ daysUntil.format()  // "in 4 weeks"
 path("some/path")    // Dynamic path
 ```
 
+### Interpolated Path Templates
+Use `@(...)` syntax for paths with embedded expressions:
+```parsley
+name = "config"
+p = @(./data/{name}.json)
+p.string  // "./data/config.json"
+
+dir = "src"
+file = "main"
+p = @(./{dir}/{file}.go)
+p.string  // "./src/main.go"
+
+// Expressions in interpolations
+n = 1
+p = @(./file{n + 1}.txt)
+p.string  // "./file2.txt"
+```
+
+Static path literals (`@./path`) remain unchanged and don't require parentheses.
+
 ### Properties
 | Property | Description | Example |
 |----------|-------------|---------|
@@ -390,6 +457,8 @@ path("some/path")    // Dynamic path
 | `.ext` | Extension | `"json"` |
 | `.stem` | Name without ext | `"config"` |
 | `.dirname` | Parent directory | Path object |
+| `.dir` | Parent directory as string | `"./data"` |
+| `.string` | Full path as string | `"./data/config.json"` |
 
 ### Methods
 | Method | Description |
@@ -416,6 +485,30 @@ log(p)             // ./src/main.go
 url("https://example.com:8080")   // Dynamic URL
 ```
 
+### Interpolated URL Templates
+Use `@(...)` syntax for URLs with embedded expressions:
+```parsley
+version = "v2"
+u = @(https://api.example.com/{version}/users)
+u.string  // "https://api.example.com/v2/users"
+
+host = "api.test.com"
+u = @(https://{host}/data)
+u.string  // "https://api.test.com/data"
+
+// Port interpolation
+port = 8080
+u = @(http://localhost:{port}/api)
+u.port    // "8080"
+
+// Fragment interpolation
+section = "intro"
+u = @(https://docs.com/guide#{section})
+u.fragment  // "intro"
+```
+
+Static URL literals (`@https://...`) remain unchanged and don't require parentheses.
+
 ### Properties
 | Property | Description |
 |----------|-------------|
@@ -424,6 +517,7 @@ url("https://example.com:8080")   // Dynamic URL
 | `.port` | Port number |
 | `.path` | Path component |
 | `.query` | Query parameters dict |
+| `.string` | Full URL as string |
 
 ### Methods
 | Method | Description |

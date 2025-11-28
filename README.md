@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.11
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.13
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -113,6 +113,9 @@ null                  // Null
 @1d2h30m              // Duration
 @./config.json        // Path
 @https://example.com  // URL
+@(./path/{name}.txt)  // Interpolated path
+@(https://api.com/{v}/users)  // Interpolated URL
+@(2024-{month}-{day}) // Interpolated datetime
 ```
 
 #### Strings
@@ -185,6 +188,18 @@ dt.format("long", "de-DE")    // "28. November 2024"
 @2024-12-25                   // Date
 @1d                           // Duration: 1 day
 @-1d.format()                 // "yesterday"
+
+// Interpolated datetime templates
+let month = "06"
+let day = "15"
+let dt2 = @(2024-{month}-{day})    // Builds date from variables
+dt2.month                          // 6
+dt2.day                            // 15
+
+// Time templates
+let hour = "14"
+let meeting = @({hour}:30)         // Creates time-only value
+meeting.hour                       // 14
 ```
 
 ### Control Flow
