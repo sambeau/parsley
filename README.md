@@ -5,7 +5,8 @@
 █▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.9
 ```
 
-A minimalist concatenative programming language interpreter.
+A minimalist language for generating HTML/XML with first-class file I/O.
+
 - Written in Go
 - If JSX and PHP had a cool baby
 - Based on Basil from 2001
@@ -13,26 +14,16 @@ A minimalist concatenative programming language interpreter.
 ## Table of Contents
 
 - [Quick Start](#quick-start)
-- [Language Overview](#language-overview)
 - [Language Guide](#language-guide)
   - [Variables and Functions](#variables-and-functions)
-  - [Arrays](#arrays)
-  - [Dictionaries](#dictionaries)
-  - [Strings](#strings)
-  - [Control Flow](#control-flow)
-  - [Regular Expressions](#regular-expressions)
-  - [Dates and Times](#dates-and-times)
-  - [Paths and URLs](#paths-and-urls)
-  - [File I/O](#file-io)
-  - [Module System](#module-system)
-  - [HTML/XML Tags](#htmlxml-tags)
-- [Reference](#reference)
   - [Data Types](#data-types)
-  - [Operators](#operators)
-  - [Built-in Functions](#built-in-functions)
-- [Development](#development)
+  - [Control Flow](#control-flow)
+  - [HTML/XML Tags](#htmlxml-tags)
+  - [File I/O](#file-io)
+  - [Modules](#modules)
 - [Examples](#examples)
-- [License](#license)
+- [Development](#development)
+- [Reference](#reference)
 
 ## Quick Start
 
@@ -47,108 +38,48 @@ go build -o pars .
 ### Hello World
 
 ```bash
-# Interactive REPL
-./pars
-
-# Run a file
-echo 'log("Hello, World!")' > hello.pars
-./pars hello.pars
+./pars                              # Interactive REPL
+./pars hello.pars                   # Run a file
+./pars --pretty page.pars           # Pretty-print HTML output
 ```
 
-### Your First Program
+### Your First Template
 
 ```parsley
-// Variables and functions
-let name = "Alice"
-let greet = fn(who) { "Hello, " + who + "!" }
-log(greet(name))  // "Hello, Alice!"
+let name = "World"
 
-// Arrays and iteration
-let numbers = [1, 2, 3, 4, 5]
-let doubled = for (n in numbers) { n * 2 }
-log(doubled)  // [2, 4, 6, 8, 10]
+let Page = fn({title, content}) {
+    <!DOCTYPE html> + <html>
+        <head><title>{title}</title></head>
+        <body>
+            <h1>{title}</h1>
+            {content}
+        </body>
+    </html>
+}
 
-// Generate HTML
-let page = <html>
-    <body>
-        <h1>Welcome to Parsley!</h1>
-    </body>
-</html>
-log(page)
-```
-
-## Language Overview
-
-Parsley is a concatenative language with:
-- **First-class functions** with closures
-- **Pattern matching** via destructuring
-- **Module system** for code reuse
-- **Native HTML/XML** tag syntax
-- **Regular expressions** as first-class values
-- **File I/O** with format-aware reading and writing
-- **Rich data types**: arrays, dictionaries, dates, paths, URLs, file handles
-
-### Core Concepts
-
-```parsley
-// Everything is an expression
-let x = if (true) 42 else 0
-
-// Functions are values
-let add = fn(a, b) { a + b }
-let operations = [add, fn(a, b) { a - b }]
-
-// Destructuring everywhere
-let {name, age} = {name: "Sam", age: 57}
-let first, rest = [1, 2, 3, 4]
-
-// Template interpolation
-let greeting = "Hello, {name}!"
-
-// Module imports
-let {add, multiply} = import(@./math.pars)
-
-// File I/O with error handling
-let config <== JSON(@./config.json) ?? {defaults: true}
-let {data, error} <== CSV(@./data.csv)
-
-// Nullish coalescing
-let name = user.name ?? "Anonymous"
+<Page title="Hello, {name}!">
+    <p>Welcome to Parsley.</p>
+    <p>Generated at {now().format("long")}</p>
+</Page>
 ```
 
 ## Language Guide
 
 ### Variables and Functions
 
-#### Variable Declaration
-
 ```parsley
-// Using 'let' (exported from modules)
-let x = 42
+// Variables
 let name = "Alice"
-
-// Direct assignment (private in modules)
-count = 0
+let count = 42
 
 // Destructuring
-let a, b, c = 1, 2, 3
 let {x, y} = {x: 10, y: 20}
+let a, b, c = 1, 2, 3
 
-// Special underscore (write-only)
-let _, value = [99, 100]  // Ignores 99
-```
-
-#### Functions
-
-```parsley
-// Basic function
-let square = fn(x) { x * x }
-
-// Multiple parameters
+// Functions
+let greet = fn(name) { "Hello, " + name + "!" }
 let add = fn(a, b) { a + b }
-
-// Implicit return (last expression)
-let double = fn(x) { x * 2 }
 
 // Closures
 let makeCounter = fn() {
@@ -158,1151 +89,735 @@ let makeCounter = fn() {
 let counter = makeCounter()
 counter()  // 1
 counter()  // 2
-
-// Destructuring parameters
-let getX = fn({x, y}) { x }
-let sum = fn(arr) { arr[0] + arr[1] }
 ```
 
-### Arrays
+### Data Types
 
 ```parsley
-// Creation
+// Primitives
+42                    // Integer
+3.14                  // Float
+"hello {name}"        // String with interpolation
+true, false           // Boolean
+null                  // Null
+
+// Collections
+[1, 2, 3]             // Array
+{name: "Sam", age: 57} // Dictionary
+
+// Special types
+/\w+@\w+\.\w+/        // Regex
+@2024-12-25           // DateTime literal
+@1d2h30m              // Duration literal
+@./config.json        // Path literal
+@https://example.com  // URL literal
+```
+
+#### Strings
+
+```parsley
+let name = "World"
+"Hello, {name}!"              // Interpolation
+
+"hello".upper()               // "HELLO"
+"a,b,c".split(",")            // ["a", "b", "c"]
+"hello"[1:4]                  // "ell" (slicing)
+```
+
+#### Arrays
+
+```parsley
 let nums = [1, 2, 3]
-let mixed = [1, "two", true, [4, 5]]
 
-// Indexing (0-based)
-nums[0]     // 1
-nums[-1]    // 3 (last element)
+nums[0]                       // 1
+nums[-1]                      // 3 (last)
+nums[1:]                      // [2, 3] (slice)
 
-// Slicing
-nums[0:2]   // [1, 2]  - elements 0 and 1
-nums[1:3]   // [2, 3]  - elements 1 and 2
-nums[2:]    // [3]     - from index 2 to end
-nums[:2]    // [1, 2]  - from start to index 2
-nums[:]     // [1, 2, 3] - full copy
+nums.length()                 // 3
+nums.sort()                   // [1, 2, 3]
+nums.map(fn(x) { x * 2 })     // [2, 4, 6]
+nums.filter(fn(x) { x > 1 })  // [2, 3]
 
-// Concatenation
-[1, 2] ++ [3, 4]  // [1, 2, 3, 4]
-
-// Iteration
-for (n in nums) { n * 2 }  // [2, 4, 6]
-
-// Common operations
-len([1, 2, 3])              // 3
-sort([3, 1, 2])             // [1, 2, 3]
-reverse([1, 2, 3])          // [3, 2, 1]
-map(fn(x) { x * 2 }, nums)  // [2, 4, 6]
+[1, 2] ++ [3, 4]              // [1, 2, 3, 4]
 ```
 
-### Dictionaries
+#### Dictionaries
 
 ```parsley
-// Creation
-let person = {
+let user = {
     name: "Sam",
     age: 57,
-    greet: fn() { "Hello, " + this.name }
+    greet: fn() { "Hi, " + this.name }
 }
 
-// Access
-person.name        // "Sam"
-person["age"]      // 57
-person.greet()     // "Hello, Sam" (this binding)
+user.name                     // "Sam"
+user["age"]                   // 57
+user.greet()                  // "Hi, Sam"
 
-// Lazy evaluation
-let config = {
-    width: 100,
-    height: 200,
-    area: this.width * this.height  // Computed on access
-}
+user.keys()                   // ["name", "age", "greet"]
+user.values()                 // ["Sam", 57, fn]
+user.has("name")              // true
 
-// Iteration
-for (key, value in person) {
-    log(key, ":", value)
-}
-
-// Operations
-keys(person)        // ["name", "age", "greet"]
-values(person)      // ["Sam", 57, fn]
-has(person, "name") // true
-
-// Merging
-{a: 1} ++ {b: 2}   // {a: 1, b: 2}
+{a: 1} ++ {b: 2}              // {a: 1, b: 2}
 ```
 
-### Strings
+#### Numbers
 
 ```parsley
-// Basic strings
-let text = "hello"
+1234567.format()              // "1,234,567"
+99.99.currency("USD")         // "$99.99"
+0.15.percent()                // "15%"
 
-// Template interpolation
-let name = "World"
-let greeting = "Hello, {name}!"  // "Hello, World!"
+sqrt(16)                      // 4
+round(3.7)                    // 4
+```
 
-// Multi-line
-let poem = "
-    Roses are red
-    Violets are blue
-"
+#### Dates and Durations
 
-// Indexing and slicing
-"hello"[0]      // "h"
-"hello"[1:4]    // "ell"
-"hello"[-1]     // "o"
-"hello"[2:]     // "llo"
-"hello"[:3]     // "hel"
+```parsley
+let dt = now()
+dt.year, dt.month, dt.day     // Components
+dt.format("long")             // "November 28, 2024"
+dt.format("long", "de-DE")    // "28. November 2024"
 
-// Concatenation
-"hello" + " " + "world"  // "hello world"
-
-// Operations
-len("hello")         // 5
-toUpper("hello")     // "HELLO"
-toLower("WORLD")     // "world"
-split("a,b,c", ",")  // ["a", "b", "c"]
-replace("hello", "h", "H")  // "Hello"
+@2024-12-25                   // Date literal
+@1d                           // Duration: 1 day
+@-1d.format()                 // "yesterday"
 ```
 
 ### Control Flow
 
-#### If-Else
-
 ```parsley
-// Expression form
-let result = if (x > 10) "big" else "small"
+// If expression
+let status = if (age >= 18) "adult" else "minor"
 
-// Block form
-if (user.age >= 18) {
-    log("Adult")
-} else {
-    log("Minor")
+// For loops with map/filter
+let doubled = for (n in [1, 2, 3]) { n * 2 }      // [2, 4, 6]
+
+let evens = for (n in [1, 2, 3, 4]) {
+    if (n % 2 == 0) { n }                          // [2, 4]
 }
 
-// Chaining
-let grade = if (score >= 90) "A"
-           else if (score >= 80) "B"
-           else if (score >= 70) "C"
-           else "F"
-```
-
-#### For Loops
-
-```parsley
-// Array iteration (single parameter - element only)
-for (item in items) {
-    log(item)
-}
-
-// Array iteration with index (two parameters - index and element)
+// With index
 for (i, item in items) {
-    log(i, ":", item)  // 0 : first, 1 : second, etc.
-}
-
-// String iteration with index
-for (i, char in "hello") {
-    log(i, "=", char)  // 0 = h, 1 = e, 2 = l, etc.
+    <li>{i + 1}. {item}</li>
 }
 
 // Dictionary iteration
 for (key, value in dict) {
-    log(key, "=", value)
-}
-
-// Map pattern (returns array)
-let doubled = for (n in [1, 2, 3]) { n * 2 }
-
-// Map with index - enumerate pattern
-let numbered = for (i, item in ["apple", "banana"]) {
-    (i + 1) + ". " + item  // ["1. apple", "2. banana"]
-}
-
-// Filter pattern (if returns null, item is excluded)
-let evens = for (n in numbers) {
-    if (n % 2 == 0) { n }
-}
-
-// Filter with index - take first 3 items
-let firstThree = for (i, item in items) {
-    if (i < 3) { item }
-}
-
-// Reduce pattern (accumulate values)
-let sum = 0
-for (n in numbers) {
-    sum = sum + n
+    <dt>{key}</dt><dd>{value}</dd>
 }
 ```
 
-### Regular Expressions
+### HTML/XML Tags
 
 ```parsley
-// Regex literals
-let emailPattern = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
-let phonePattern = /\((\d{3})\) (\d{3})-(\d{4})/
+// Basic tags
+<div class="container">
+    <h1>{title}</h1>
+    <p>{content}</p>
+</div>
 
-// Match operator (~ returns array or null)
-let result = "test@example.com" ~ emailPattern
-if (result) {
-    log("Valid email:", result[0])
+// Self-closing
+<img src="photo.jpg" alt="Photo" />
+<br/>
+
+// Components (uppercase)
+let Card = fn({title, children}) {
+    <article class="card">
+        <h2>{title}</h2>
+        <div class="body">{children}</div>
+    </article>
 }
 
-"invalid" ~ emailPattern  // null
+<Card title="Welcome">
+    <p>This is the card content.</p>
+</Card>
 
-// Not-match operator (!~)
-"hello" !~ /\d+/  // true
+// Fragments
+<>
+    <li>Item 1</li>
+    <li>Item 2</li>
+</>
 
-// Capture groups
-let text = "Phone: (555) 123-4567"
-let match = text ~ phonePattern
-if (match) {
-    log("Area:", match[1])   // "555"
-    log("Prefix:", match[2]) // "123"
-    log("Line:", match[3])   // "4567"
-}
-
-// Dynamic regex
-let pattern = regex("\\d+", "i")
-
-// Replace
-replace("hello world", /world/, "Parsley")  // "hello Parsley"
-
-// Split
-split("a1b2c3", /\d+/)  // ["a", "b", "c"]
-```
-
-### Dates and Times
-
-```parsley
-// Current time
-let current = now()
-
-// Parsing
-let date = time("2024-11-26")
-let withTime = time("2024-11-26T15:30:00")
-let timestamp = time(1732579200)  // Unix timestamp
-
-// Access components (dictionary properties)
-current.year      // 2025
-current.month     // 11
-current.day       // 27
-current.hour      // 14
-current.minute    // 30
-current.second    // 0
-current.weekday   // "Thursday"
-current.iso       // "2025-11-27T14:30:00Z"
-current.unix      // Unix timestamp
-
-// Computed properties for easy formatting
-current.date      // "2025-11-27" (date only)
-current.time      // "14:30" or "14:30:45" (time only)
-current.format    // "November 27, 2025 at 14:30" (human-readable)
-current.timestamp // Same as .unix (more intuitive)
-current.dayOfYear // 331 (day number in year, 1-366)
-current.week      // 48 (ISO week number, 1-53)
-
-// Using in templates
-let event = time({year: 2024, month: 12, day: 25, hour: 18, minute: 0})
-log(<p>Event on {event.format}</p>)
-// Output: <p>Event on December 25, 2024 at 18:00</p>
-
-// Comparison
-let date1 = time("2024-01-01")
-let date2 = time("2024-06-01")
-date1 < date2  // true
-```
-
-### Paths and URLs
-
-#### Paths
-
-```parsley
-// Path literals
-let config = @./config.json
-let binary = @/usr/local/bin/tool
-
-// Properties (not functions)
-config.basename    // "config.json"
-config.ext         // "json"
-config.stem        // "config"
-config.dirname     // Directory path
-
-// Dynamic paths
-let p = path("/usr/local/bin/tool")
-p.basename  // "tool"
-p.dirname   // "/usr/local/bin"
-p.ext       // ""
-```
-
-#### URLs
-
-```parsley
-// URL literals
-let api = @https://api.example.com/users
-let local = @http://localhost:8080/api
-
-// Properties (not functions)
-api.scheme    // "https"
-api.host      // "api.example.com"
-api.path      // "/users"
-
-// Query parameters
-let search = @https://example.com?q=test&page=2
-search.query.q     // "test"
-search.query.page  // "2"
-
-// Dynamic URLs
-let u = url("https://example.com:8080/path")
-u.scheme  // "https"
-u.host    // "example.com"
-u.port    // "8080"
-u.path    // "/path"
+// Style/Script tags (use @{} for interpolation)
+let accent = "#007bff"
+<style>
+    h1 { color: @{accent}; }
+    .box { border: 1px solid @{accent}; }
+</style>
 ```
 
 ### File I/O
 
-Parsley provides file handles with format-aware reading and writing.
+Parsley has built-in file handling with format-aware reading and writing.
 
-#### File Handles
-
-```parsley
-// Create file handles with format factories
-let f = file(@./readme.txt)       // Generic (format from extension)
-let jf = JSON(@./config.json)     // JSON format
-let cf = CSV(@./data.csv)         // CSV format (with header)
-let lf = lines(@./log.txt)        // Line-by-line
-let tf = text(@./notes.txt)       // Plain text
-let bf = bytes(@./image.png)      // Raw bytes
-
-// File handle properties (lazy-evaluated)
-jf.exists     // true/false
-jf.size       // Size in bytes
-jf.modified   // Datetime of last modification
-jf.isFile     // true
-jf.isDir      // false
-jf.ext        // "json"
-jf.basename   // "config.json"
-jf.stem       // "config"
-```
-
-#### Reading Files (`<==`)
+#### Reading Files
 
 ```parsley
 // Read with format decoding
-let config <== JSON(@./config.json)    // Returns dictionary
-let rows <== CSV(@./data.csv)          // Returns array of dicts
-let logLines <== lines(@./app.log)     // Returns array of strings
-let content <== text(@./readme.txt)    // Returns string
+let config <== JSON(@./config.json)     // Returns dict
+let users <== CSV(@./users.csv)         // Returns array of dicts
+let content <== text(@./readme.md)      // Returns string
 
-// Destructure directly from file
+// Destructure from file
 let {name, version} <== JSON(@./package.json)
 
-// Error capture pattern
+// Error handling
 let {data, error} <== JSON(@./config.json)
 if (error) {
-    log("Failed to load:", error)
+    <p class="error">Failed: {error}</p>
 } else {
-    log("Loaded:", data.name)
+    <pre>{data}</pre>
 }
 
-// Fallback with ?? operator
-let config <== JSON(@./config.json) ?? {defaults: true}
+// Fallback with ??
+let config <== JSON(@./config.json) ?? {theme: "light"}
 ```
 
-#### Writing Files (`==>`)
+#### Writing Files
 
 ```parsley
 // Write with format encoding
-myDict ==> JSON(@./output.json)        // Encodes as JSON
-records ==> CSV(@./export.csv)         // Encodes as CSV
-"Hello" ==> text(@./greeting.txt)      // Writes string
-logLines ==> lines(@./app.log)         // Writes array as lines
+userData ==> JSON(@./output.json)
+records ==> CSV(@./export.csv)
+"Hello" ==> text(@./greeting.txt)
+
+// Append
+logEntry ==>> lines(@./app.log)
 ```
 
-#### Appending to Files (`==>>`)
+#### Directories and Globs
 
 ```parsley
-// Append to existing file
-newEntry ==>> lines(@./app.log)
-(message + "\n") ==>> text(@./debug.log)
-```
-
-#### Directory Operations
-
-```parsley
-// Create directory handle
 let d = dir(@./images)
+d.exists                      // true
+d.count                       // Number of files
 
-d.exists      // true
-d.isDir       // true
-d.count       // Number of entries
-d.files       // Array of file handles
-
-// Read directory contents
 let files <== dir(@./images)
 for (f in files) {
-    log(f.basename, "-", f.size, "bytes")
+    <p>{f.basename}: {f.size} bytes</p>
 }
 
 // Glob patterns
 let images = glob(@./images/*.jpg)
-let sources = glob(@./src/**/*.pars)
-
 for (img in images) {
     <img src="{img.path}" />
 }
 ```
 
-#### Complete Example
+### Modules
 
 ```parsley
-// Load config with fallback
-let config <== JSON(@./config.json) ?? {theme: "light"}
+// validators.pars
+let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
+let isEmail = fn(str) { str ~ emailRegex != null }
 
-// Process data files
-let {data, error} <== CSV(@./users.csv)
+// app.pars
+let {isEmail} = import(@./validators.pars)
+
+if (isEmail(userInput)) {
+    <p class="valid">Email is valid</p>
+}
+```
+
+Only `let` bindings are exported. Variables without `let` are module-private.
+
+## Examples
+
+### Blog Template
+
+```parsley
+let posts <== JSON(@./posts.json) ?? []
+
+let PostCard = fn({post}) {
+    <article class="post">
+        <h2><a href="/posts/{post.slug}">{post.title}</a></h2>
+        <time>{time(post.date).format("long")}</time>
+        <p>{post.excerpt}</p>
+    </article>
+}
+
+let BlogPage = fn({title, children}) {
+    <!DOCTYPE html> + <html lang="en">
+        <head>
+            <meta charset="utf-8" />
+            <title>{title}</title>
+            <style>
+                body { font-family: system-ui; max-width: 800px; margin: 2em auto; }
+                .post { margin-bottom: 2em; padding-bottom: 1em; border-bottom: 1px solid #eee; }
+                time { color: #666; font-size: 0.9em; }
+            </style>
+        </head>
+        <body>
+            <header><h1>{title}</h1></header>
+            <main>{children}</main>
+        </body>
+    </html>
+}
+
+<BlogPage title="My Blog">
+    for (post in posts) {
+        <PostCard post="{post}" />
+    }
+</BlogPage>
+```
+
+### Data Dashboard
+
+```parsley
+let {data, error} <== CSV(@./sales.csv)
+
+let Dashboard = fn({title, children}) {
+    <!DOCTYPE html> + <html>
+        <head>
+            <title>{title}</title>
+            <style>
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background: #f5f5f5; }
+                .total { font-weight: bold; background: #e8f4e8; }
+                .error { color: red; padding: 1em; background: #fee; }
+            </style>
+        </head>
+        <body>{children}</body>
+    </html>
+}
 
 if (error) {
-    <p class="error">Failed to load users: {error}</p>
+    <Dashboard title="Error">
+        <p class="error">Failed to load data: {error}</p>
+    </Dashboard>
 } else {
-    <table>
-        <thead><tr><th>Name</th><th>Email</th></tr></thead>
-        <tbody>
-            for (user in data) {
-                <tr>
-                    <td>{user.name}</td>
-                    <td>{user.email ?? "N/A"}</td>
+    // Calculate total
+    let total = 0
+    for (row in data) { total = total + toFloat(row.amount ?? "0") }
+
+    <Dashboard title="Sales Report">
+        <h1>Sales Report</h1>
+        <p>Generated: {now().format("long")}</p>
+        
+        <table>
+            <thead>
+                <tr><th>Date</th><th>Product</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+                for (row in data) {
+                    <tr>
+                        <td>{row.date}</td>
+                        <td>{row.product}</td>
+                        <td>{toFloat(row.amount).currency("USD")}</td>
+                    </tr>
+                }
+                <tr class="total">
+                    <td colspan="2">Total</td>
+                    <td>{total.currency("USD")}</td>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </Dashboard>
+}
+```
+
+### Static Site Generator
+
+```parsley
+// Generate pages from markdown files
+let pages = glob(@./content/*.md)
+
+for (page in pages) {
+    let content <== text(page)
+    let slug = page.stem
+    
+    let html = <html>
+        <head><title>{slug}</title></head>
+        <body>
+            <article>{content}</article>
+        </body>
+    </html>
+    
+    toString(html) ==> text(@./dist/{slug}.html)
 }
 
-// Save processed results
-let processed = for (user in data ?? []) {
-    {name: user.name.upper(), active: true}
-}
-processed ==> JSON(@./processed.json)
+log("Generated", pages.length(), "pages")
 ```
 
-### Module System
+## Development
 
-Modules are regular Parsley scripts. Only `let` bindings are exported.
+### Building
 
-#### Creating a Module
+```bash
+make build              # Build binary
+make test               # Run tests
+make install            # Install to $GOPATH/bin
 
-**math.pars:**
-```parsley
-let PI = 3.14159
-
-let add = fn(a, b) { a + b }
-let multiply = fn(a, b) { a * b }
-
-// Private (not exported - no 'let')
-helper = fn(x) { x * 2 }
+# Manual
+go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
 ```
 
-#### Importing Modules
+### Testing
 
-```parsley
-// Import entire module
-let math = import(@./math.pars)
-math.add(2, 3)  // 5
-
-// Destructure imports
-let {add, multiply} = import(@./math.pars)
-add(10, 5)  // 15
+```bash
+go test ./...                    # All tests
+go test ./pkg/evaluator -v       # Specific package
+go test -cover ./...             # With coverage
 ```
 
-#### Module Features
+### Running
 
-- **Caching**: Modules loaded once and cached
-- **Circular dependency detection**: Prevents import cycles
-- **Relative paths**: `@./file.pars`, `@../lib/utils.pars`
-- **Private state**: Variables without `let` are module-private
-
-#### Example: Counter with Private State
-
-**counter.pars:**
-```parsley
-count = 0  // Private (no 'let')
-
-let increment = fn() {
-    count = count + 1
-    count
-}
-
-let getCount = fn() { count }
-```
-
-**Usage:**
-```parsley
-let counter = import(@./counter.pars)
-counter.increment()  // 1
-counter.increment()  // 2
-counter.count        // null (not exported)
-counter.getCount()   // 2 (live access)
-```
-
-### HTML/XML Tags
-
-#### Singleton Tags
-
-```parsley
-<br/>
-<img src="photo.jpg" width="300" />
-<meta charset="utf-8" />
-```
-
-#### Tag Pairs
-
-```parsley
-<div>
-    <h1>Welcome</h1>
-    <p>Hello, World!</p>
-</div>
-```
-
-#### Components (Uppercase)
-
-```parsley
-let Card = fn({title, body}) {
-    <div class="card">
-        <h2>{title}</h2>
-        <p>{body}</p>
-    </div>
-}
-
-<Card title="Hello" body="This is a card" />
-```
-
-#### Fragments
-
-```parsley
-<>
-    <p>First paragraph</p>
-    <p>Second paragraph</p>
-</>
-```
-
-#### Web Components (Hyphenated Tags)
-
-```parsley
-<my-component>content</my-component>
-<custom-element id="test">text</custom-element>
-<my-icon name="star" />
-```
-
-#### XML Comments
-
-XML comments are skipped during parsing:
-
-```parsley
-<div>hello<!-- this is a comment -->world</div>
-// Output: <div>helloworld</div>
-```
-
-#### CDATA Sections
-
-CDATA sections preserve literal content:
-
-```parsley
-<div><![CDATA[literal <b>text</b>]]></div>
-// Output: <div>literal <b>text</b></div>
-```
-
-#### XML Processing Instructions
-
-XML processing instructions (`<?...?>`) are passed through as strings:
-
-```parsley
-<?xml version="1.0" encoding="UTF-8"?>
-// Output: <?xml version="1.0" encoding="UTF-8"?>
-
-// Concatenate with HTML:
-<?xml version="1.0"?> + <html><body>content</body></html>
-// Output: <?xml version="1.0"?><html><body>content</body></html>
-```
-
-#### DOCTYPE Declarations
-
-DOCTYPE declarations are passed through as strings:
-
-```parsley
-<!DOCTYPE html>
-// Output: <!DOCTYPE html>
-
-// Full HTML5 document:
-<!DOCTYPE html> + <html><head></head><body></body></html>
-```
-
-#### Raw Text Mode (Style/Script Tags)
-
-Inside `<style>` and `<script>` tags, braces `{}` are treated as literal characters (for CSS rules and JavaScript code). Use `@{}` for interpolation:
-
-```parsley
-<style>body { color: red; }</style>
-// Output: <style>body { color: red; }</style>
-
-// Interpolation with @{}:
-color = "blue"
-<style>.class { color: @{color}; }</style>
-// Output: <style>.class { color: blue; }</style>
-
-// JavaScript example:
-value = 42
-<script>var x = @{value};</script>
-// Output: <script>var x = 42;</script>
-```
-
-Outside of style/script tags, `{}` works as normal interpolation.
-
-#### Programmatic Tag Creation
-
-The `tag()` function creates tag dictionaries for programmatic manipulation:
-
-```parsley
-// Create a tag programmatically
-tag("div")
-// Returns: {__type: tag, name: div, attrs: {}, contents: null}
-
-// With attributes
-tag("a", {href: "/home"})
-// Returns: {__type: tag, name: a, attrs: {href: /home}, contents: null}
-
-// With content
-tag("p", {class: "intro"}, "Hello world")
-// Returns: {__type: tag, name: p, attrs: {class: intro}, contents: Hello world}
-
-// Convert back to HTML string
-toString(tag("div", {class: "container"}, "Hello"))
-// Output: <div class="container">Hello</div>
-
-// Self-closing tags
-toString(tag("br"))
-// Output: <br />
+```bash
+./pars                           # REPL
+./pars script.pars               # Execute file
+./pars --pretty page.pars        # Pretty-print HTML
+./pars --version                 # Show version
 ```
 
 ## Reference
 
-### Data Types
+For complete API documentation, see [docs/reference.md](docs/reference.md).
 
-| Type | Example | Description |
-|------|---------|-------------|
-| Integer | `42`, `-15` | Whole numbers |
-| Float | `3.14`, `2.718` | Decimal numbers |
-| String | `"hello"`, `"world"` | Text with interpolation |
-| Boolean | `true`, `false` | Logical values |
-| Null | `null` | Absence of value |
-| Array | `[1, 2, 3]` | Ordered collections |
-| Dictionary | `{x: 1, y: 2}` | Key-value pairs |
-| Function | `fn(x) { x * 2 }` | First-class functions |
-| Regex | `/pattern/flags` | Regular expressions |
-| Date/Time | `@2024-11-26` | Temporal values |
-| Duration | `@1d`, `@2h` | Time spans |
-| Path | `@./file.pars` | File paths |
-| URL | `@https://example.com` | Web addresses |
-| File Handle | `JSON(@./config.json)` | File with format binding |
-| Directory | `dir(@./folder)` | Directory handle |
+### Quick Reference
+
+| Type | Methods |
+|------|---------|
+| String | `.upper()` `.lower()` `.trim()` `.split()` `.replace()` `.length()` |
+| Array | `.length()` `.sort()` `.reverse()` `.map()` `.filter()` `.format()` |
+| Dictionary | `.keys()` `.values()` `.has()` |
+| Number | `.format()` `.currency()` `.percent()` |
+| Datetime | `.format()` + properties: `.year` `.month` `.day` `.hour` etc. |
+| Duration | `.format()` |
+| Path | `.basename` `.ext` `.stem` `.dirname` `.isAbsolute()` |
+| URL | `.scheme` `.host` `.path` `.query` `.origin()` |
 
 ### Operators
 
-#### Arithmetic
-- `+` Addition
-- `-` Subtraction
-- `*` Multiplication
-- `/` Division
-- `%` Modulo
-- `++` Concatenation (arrays, dictionaries, strings)
+| Op | Description |
+|----|-------------|
+| `??` | Nullish coalescing: `value ?? default` |
+| `~` | Regex match: `str ~ /pattern/` |
+| `<==` | Read file: `let data <== JSON(@./file.json)` |
+| `==>` | Write file: `data ==> JSON(@./out.json)` |
+| `==>>` | Append file: `line ==>> text(@./log.txt)` |
+| `++` | Concatenate: `[1] ++ [2]` or `{a:1} ++ {b:2}` |
 
-#### Comparison
-- `==` Equal
-- `!=` Not equal
-- `<` Less than
-- `<=` Less than or equal
-- `>` Greater than
-- `>=` Greater than or equal
+---
 
-#### Logical
-- `&&` AND
-- `||` OR
-- `!` NOT
+## Module System
 
-#### Pattern Matching
-- `~` Regex match (returns array or null)
-- `!~` Regex not-match (returns boolean)
+Parsley supports importing and organizing code with modules.
 
-#### Nullish Coalescing
-- `??` Returns left operand if not null, otherwise right operand
+### Importing Modules
 
 ```parsley
-value ?? default           // Returns default only if value is null
+// Import from relative path
+import ./modules/utils.pars
 
-null ?? "fallback"         // "fallback"
-"hello" ?? "fallback"      // "hello"
-0 ?? 42                    // 0 (not null, so no fallback)
-false ?? true              // false (not null)
+// Import from standard library
+import std/strings
 
-// Chains naturally
-a ?? b ?? c ?? "default"   // First non-null value
+// Access module exports
+let result = utils.helper("input")
 ```
 
-#### File I/O
-- `<==` Read from file handle
-- `==>` Write to file handle
-- `==>>` Append to file handle
+### Creating Modules
 
 ```parsley
-let data <== JSON(@./config.json)   // Read
-data ==> JSON(@./output.json)       // Write
-line ==>> lines(@./log.txt)         // Append
+// mymodule.pars
+let version = "1.0"
+
+fn double(x) {
+  x * 2
+}
+
+// Export explicitly
+export version
+export double
 ```
 
-#### Special
-- `=` Assignment
-- `:` Dictionary key-value separator
-- `.` Property/method access
-- `[]` Indexing and slicing
-- `...` Spread operator (in progress)
+### Standard Library
 
-### Built-in Functions
+Parsley includes a growing standard library in the `std/` directory.
 
-#### Type Conversion
-- `toInt(str)` - String to integer
-- `toFloat(str)` - String to float
-- `toNumber(str)` - Auto-detect int/float
-- `toString(...)` - Convert to string
-- `toDebug(...)` - Debug representation
+---
 
-#### String Operations
-- `toUpper(str)` - Convert to uppercase
-- `toLower(str)` - Convert to lowercase
-- `split(str, delim)` - Split by string or regex delimiter
-- `replace(str, pattern, replacement)` - Replace matches (string or regex)
-- `trim(str)` - Remove leading/trailing whitespace
-- `len(str)` - String length
+## HTML/XML Tags
 
-#### Array Operations
-- `len(array)` - Array length
-- `map(fn, array)` - Apply function to each element (or use for loops)
-- `sort(array)` - Natural sort (returns new array)
-- `sortBy(array, compareFn)` - Custom sort
-- `reverse(array)` - Reverse copy
+Generate structured markup with tag literals.
 
-Note: `filter()` and `reduce()` can be implemented using for loops
+### Basic Tags
 
-#### Dictionary Operations
-- `keys(dict)` - All keys
-- `values(dict)` - All values (evaluated)
-- `has(dict, key)` - Check key exists
-- `toArray(dict)` - Convert to `[key, value]` pairs
-- `toDict(array)` - Convert pairs to dictionary
-
-#### File I/O
-- `file(path)` - Create file handle (format inferred from extension)
-- `JSON(path)` - Create JSON file handle
-- `CSV(path)` - Create CSV file handle (with header row)
-- `lines(path)` - Create line-based file handle
-- `text(path)` - Create text file handle
-- `bytes(path)` - Create binary file handle
-- `dir(path)` - Create directory handle
-- `glob(pattern)` - Match files by glob pattern
-
-#### Tag Operations
-- `tag(name)` - Create tag dictionary
-- `tag(name, attrs)` - Create tag with attributes dictionary
-- `tag(name, attrs, contents)` - Create tag with attributes and content
-- Note: `toString()` converts tag dictionaries back to HTML strings
-
-#### Mathematical
-- `sqrt(x)`, `round(x)`, `pow(base, exp)`
-- `pi()` - Returns π
-- `sin(x)`, `cos(x)`, `tan(x)`
-- `asin(x)`, `acos(x)`, `atan(x)`
-
-#### Date/Time
-- `now()` - Current time
-- `time(input)` - Parse/create datetime
-- `time(input, delta)` - Apply time delta
-
-#### Localization
-- `formatNumber(num, locale?)` - Format number with locale (e.g., `formatNumber(1234.5, "de-DE")` → "1.234,5")
-- `formatCurrency(num, currencyCode, locale?)` - Format currency (e.g., `formatCurrency(99.99, "EUR", "de-DE")` → "99,99 €")
-- `formatPercent(num, locale?)` - Format percentage (e.g., `formatPercent(0.1234, "de-DE")` → "12,34 %")
-- `formatDate(datetime, style?, locale?)` - Format date (style: "short", "medium", "long", "full")
-- `format(duration, locale?)` - Format duration as relative time (e.g., `format(@-1d, "de-DE")` → "gestern")
-- `format(array, style?, locale?)` - Format list with locale (style: "and", "or", "unit")
-
-Example locale-aware formatting:
 ```parsley
-// Numbers
-formatNumber(1234567.89, "de-DE")     // "1.234.567,89"
-formatNumber(1234567.89, "fr-FR")     // "1 234 567,89"
+// Self-closing tags
+let icon = <img src="logo.png" alt="Logo">
+
+// Tags with content
+let heading = <h1>"Welcome"</h1>
+
+// Nested tags
+let nav = <nav class="main">
+  <a href="/">"Home"</a>
+  <a href="/about">"About"</a>
+</nav>
+```
+
+### Dynamic Content
+
+```parsley
+let userName = "Alice"
+let isAdmin = true
+
+let badge = <span class={isAdmin ? "admin" : "user"}>{userName}</span>
+
+// Spread attributes
+let attrs = { class: "btn", disabled: false }
+let button = <button ...attrs>"Click"</button>
+```
+
+### Generating Lists
+
+```parsley
+let items = ["Apple", "Banana", "Cherry"]
+
+let list = <ul>
+  {for item in items {
+    <li>{item}</li>
+  }}
+</ul>
+```
+
+### Tag Factories
+
+```parsley
+// Create named tags
+let Card = tag("div", { class: "card" })
+let card = <Card>"Content"</Card>
+
+// SVG elements
+let svg = <svg viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="40" fill="blue">
+</svg>
+```
+
+---
+
+## Error Handling
+
+### Error Capture Pattern
+
+Capture errors instead of halting execution:
+
+```parsley
+// Wrap in {data, error} to capture errors
+let {data, error} <== JSON(@./config.json)
+
+if error {
+  log("Failed to load config:", error)
+  let data = { defaults: true }
+}
+```
+
+### Validation with Regex
+
+```parsley
+fn validateEmail(email) {
+  if !(email ~ /^[\w.-]+@[\w.-]+\.\w+$/) {
+    { valid: false, error: "Invalid email format" }
+  } else {
+    { valid: true, email: email }
+  }
+}
+
+let result = validateEmail("test@example.com")
+```
+
+### Nullish Coalescing
+
+```parsley
+// Use ?? for fallback values
+let config <== JSON(@./config.json)
+let port = config.port ?? 8080
+let host = config.host ?? "localhost"
+```
+
+---
+
+## Localization
+
+Format numbers, currencies, and dates for different locales.
+
+### Number Formatting
+
+```parsley
+let price = 1234567.89
+
+// With locale
+price.format("en-US")      // "1,234,567.89"
+price.format("de-DE")      // "1.234.567,89"
 
 // Currency
-formatCurrency(99.99, "USD", "en-US") // "$ 99.99"
-formatCurrency(99.99, "EUR", "de-DE") // "99,99 €"
+price.currency("USD", "en-US")  // "$1,234,567.89"
+price.currency("EUR", "de-DE")  // "1.234.567,89 €"
 
-// Dates
-let d = time({year: 2024, month: 12, day: 25})
-formatDate(d, "long", "en-US")        // "December 25, 2024"
-formatDate(d, "long", "de-DE")        // "25. Dezember 2024"
-formatDate(d, "long", "fr-FR")        // "25 décembre 2024"
-formatDate(d, "long", "ja-JP")        // "2024年12月25日"
-formatDate(d, "full", "es-ES")        // "miércoles, 25 de diciembre de 2024"
-
-// Relative Time (durations)
-format(@1d)                           // "tomorrow"
-format(@-1d)                          // "yesterday"
-format(@-2d, "de-DE")                 // "vorgestern"
-format(@3h, "fr-FR")                  // "dans 3 heures"
-
-// Relative time with datetime arithmetic
-let christmas = @2025-12-25
-format(christmas - now())             // "in 4 weeks" (varies by current date)
-
-// List Formatting
-format(["apple", "banana", "cherry"]) // "apple, banana, and cherry"
-format(["a", "b", "c"], "or")         // "a, b, or c"
-format(["a", "b", "c"], "and", "en-GB") // "a, b and c" (no Oxford comma)
-format(["Apfel", "Banane"], "and", "de-DE") // "Apfel und Banane"
-format(["りんご", "バナナ"], "and", "ja-JP") // "りんごとバナナ"
-format(["5 feet", "6 inches"], "unit") // "5 feet, 6 inches"
+// Percentage
+let rate = 0.156
+rate.percent("en-US", 1)   // "15.6%"
 ```
 
-### Method-Style API
+### Date Formatting
 
-In addition to traditional function calls, Parsley supports method-style calls on primitive types. This provides a fluent, chainable interface.
-
-#### String Methods
 ```parsley
-"hello".upper()           // "HELLO"
-"HELLO".lower()           // "hello"
-"  hello  ".trim()        // "hello"
-"a,b,c".split(",")        // ["a", "b", "c"]
-"hello".replace("l", "L") // "heLLo"
-"hello".length()          // 5
+let date = now()
+
+date.format("short", "en-US")   // "1/15/25"
+date.format("medium", "en-GB")  // "15 Jan 2025"
+date.format("long", "fr-FR")    // "15 janvier 2025"
 ```
 
-#### Array Methods
+---
+
+## Complete Example: Static Site Generator
+
 ```parsley
-[1, 2, 3].length()        // 3
-[3, 1, 2].sort()          // [1, 2, 3]
-[1, 2, 3].reverse()       // [3, 2, 1]
-[1, 2, 3].map(fn(x) { x * 2 })        // [2, 4, 6]
-[1, 2, 3, 4].filter(fn(x) { x > 2 })  // [3, 4]
-["a", "b", "c"].format()              // "a, b, and c"
-["a", "b"].format("or")               // "a or b"
+// site-generator.pars
+// Generate a static blog site from markdown-style data
+
+let site = {
+  title: "My Blog",
+  author: "Alice",
+  baseUrl: "https://blog.example.com"
+}
+
+let posts = [
+  { slug: "hello", title: "Hello World", date: "2025-01-15", content: "First post!" },
+  { slug: "update", title: "Big Update", date: "2025-01-20", content: "New features..." }
+]
+
+// Generate HTML page
+fn renderPage(title, content) {
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>{title} | {site.title}</title>
+      <link rel="stylesheet" href="/style.css">
+    </head>
+    <body>
+      <header>
+        <h1>{site.title}</h1>
+        <nav>
+          <a href="/">"Home"</a>
+          <a href="/posts">"Posts"</a>
+        </nav>
+      </header>
+      <main>{content}</main>
+      <footer>
+        "© 2025 " {site.author}
+      </footer>
+    </body>
+  </html>
+}
+
+// Generate post page
+fn renderPost(post) {
+  let content = <article>
+    <h1>{post.title}</h1>
+    <time>{post.date}</time>
+    <div class="content">{post.content}</div>
+  </article>
+  
+  renderPage(post.title, content)
+}
+
+// Generate index page
+fn renderIndex() {
+  let content = <div>
+    <h1>"Recent Posts"</h1>
+    <ul class="post-list">
+      {for post in posts {
+        <li>
+          <a href={"/posts/" ++ post.slug}>{post.title}</a>
+          <time>{post.date}</time>
+        </li>
+      }}
+    </ul>
+  </div>
+  
+  renderPage("Home", content)
+}
+
+// Generate site (requires --allow-write flag when implemented)
+// renderIndex() ==> text(@./output/index.html)
+// for post in posts {
+//   renderPost(post) ==> text(@./output/posts/{post.slug}.html)
+// }
+
+// For now, just output to stdout
+renderIndex()
 ```
 
-#### Number Methods
-```parsley
-1234567.format()               // "1,234,567"
-1234.56.format("de-DE")        // "1.234,56"
-99.currency("USD")             // "$ 99.00"
-99.99.currency("EUR", "de-DE") // "99,99 €"
-0.125.percent()                // "13%"
-```
+Run with: `./pars site-generator.pars`
 
-#### Dictionary Methods
-```parsley
-let d = {a: 1, b: 2}
-d.keys()      // ["a", "b"]
-d.values()    // [1, 2]
-d.has("a")    // true
-d.has("c")    // false
-```
-
-#### Datetime Methods
-```parsley
-let dt = time({year: 2024, month: 12, day: 25})
-dt.format()                    // "12/25/2024"
-dt.format("long")              // "December 25, 2024"
-dt.format("long", "de-DE")     // "25. Dezember 2024"
-dt.dayOfYear                   // 360
-dt.week                        // 52
-dt.timestamp                   // Unix timestamp
-```
-
-#### Duration Methods
-```parsley
-@1d.format()                   // "tomorrow"
-@-1d.format()                  // "yesterday"
-@-1d.format("de-DE")           // "gestern"
-```
-
-#### Path Methods
-```parsley
-let p = path("/usr/local/bin")
-p.isAbsolute()                 // true
-p.isRelative()                 // false
-
-let p2 = path("relative/path")
-p2.isAbsolute()                // false
-p2.isRelative()                // true
-```
-
-#### URL Methods
-```parsley
-let u = url("https://example.com:8080/api/users?limit=10#section")
-u.origin()                     // "https://example.com:8080"
-u.pathname()                   // "/api/users"
-u.search()                     // "?limit=10"
-u.href()                       // full URL string
-```
-
-#### Method Chaining
-Methods return appropriate types enabling fluent chains:
-```parsley
-"  hello world  ".trim().upper().split(" ")  // ["HELLO", "WORLD"]
-[3, 1, 2].sort().reverse()                   // [3, 2, 1]
-[1, 2, 3].map(fn(x) { x * 2 }).reverse()     // [6, 4, 2]
-1234567.format().split(",").length()         // 3
-```
-
-#### Null Propagation
-Methods called on null values return null instead of erroring:
-```parsley
-let d = {a: 1}
-d.b.upper()           // null (d.b is null, .upper() propagates)
-d.b.split(",").reverse()  // null (entire chain returns null)
-```
-
-#### Regular Expressions
-- `regex(pattern, flags?)` - Create regex
-- `replace(text, pattern, replacement)` - Replace
-- `split(text, delimiter)` - Split
-
-#### Modules
-- `import(path)` - Import module
-
-#### Paths/URLs
-- `path(str)` - Parse file path
-- `url(str)` - Parse URL
-
-#### Debugging
-- `log(...)` - Output to stdout
-- `logLine(...)` - Output with file:line prefix
+---
 
 ## Development
 
 ### Building from Source
 
 ```bash
-# Using Make
-make build    # Build binary
-make test     # Run tests
-make clean    # Remove binary
-make install  # Install to $GOPATH/bin
+# Clone repository
+git clone https://github.com/username/parsley.git
+cd parsley
 
-# Manual build
+# Build
 go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
+
+# Run tests
+go test ./...
 ```
 
-### Running
+### Running Parsley
 
 ```bash
-# Interactive REPL
-./pars
-
-# Execute file
+# Execute a file
 ./pars script.pars
 
-# Pretty-print HTML output
-./pars --pretty page.pars
+# Interactive REPL
+./pars
 
 # Show version
 ./pars --version
 ```
 
-### Testing
+### Project Structure
 
-```bash
-# All tests
-go test ./...
-
-# Specific package
-go test ./pkg/lexer -v
-go test ./pkg/parser -v
-go test ./pkg/evaluator -v
-
-# With coverage
-go test -cover ./...
+```
+parsley/
+├── main.go              # Entry point
+├── pkg/
+│   ├── ast/             # Abstract Syntax Tree
+│   ├── lexer/           # Tokenizer
+│   ├── parser/          # Parser
+│   ├── evaluator/       # Interpreter
+│   └── repl/            # Interactive mode
+├── std/                 # Standard library
+├── examples/            # Example scripts
+└── docs/                # Documentation
+    └── reference.md     # Full API reference
 ```
 
-## Examples
+---
 
-### Web Page Generator
+## Contributing
 
-```parsley
-let darkColor = "#333"
-let brightColor = "#007bff"
-let date = time(now().date).format
-let author = "Sam Phillips"
+Contributions are welcome! Please:
 
-let Page = fn({title, content}) {
-	<!DOCTYPE html> + <html>
-		<head>
-			<meta charset="utf-8" />
-			<title>{title}</title>
-			// style tags can contain raw CSS without parsing
-			// only @{} sections are interpolated
-			<style>
-				/* updated: @{date} by: @{author} */
-				body {
-					font-family: sans-serif;
-					margin: 2em;
-					line-height: 1.6;
-				}
-				h1 {
-					color: @{darkColor};
-					border-bottom: 2px solid @{brightColor};
-					padding-bottom: 0.5em;
-				}
-				.container {
-					max-width: 800px;
-					margin: 0 auto;
-				}
-			</style>
-		</head>
-		<body>
-			<div class="container">
-				<h1>{title}</h1>
-				{content}
-			</div>
-		</body>
-	</html>
-}
+1. Fork the repository
+2. Create a feature branch
+3. Write tests for new functionality
+4. Ensure all tests pass (`go test ./...`)
+5. Submit a pull request
 
-// contents of Page component get passed as "content" prop
-<Page title="My Blog">
-    <h1>Welcome to my blog!</h1>
-    <p>This is generated with Parsley.</p>
-</Page>
-```
-
-### Data Processing
-
-```parsley
-let data = [
-    {name: "Alice", score: 95},
-    {name: "Bob", score: 82},
-    {name: "Carol", score: 91}
-]
-
-// Filter using for loop
-let topStudents = for (student in data) {
-    if (student.score >= 90) { student }
-}
-
-// Sort
-let sorted = sortBy(topStudents, fn(a, b) {
-    if (a.score > b.score) { [a, b] } else { [b, a] }
-})
-
-// Display results
-for (student in sorted) {
-    log(student.name, ":", student.score)
-}
-
-// Reduce pattern - calculate average
-let total = 0
-for (student in data) {
-    total = total + student.score
-}
-let average = total / len(data)
-log("Average:", average)
-```
-
-### Module Example
-
-**validators.pars:**
-```parsley
-let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
-let phoneRegex = /^\(\d{3}\) \d{3}-\d{4}$/
-
-let isEmail = fn(str) { str ~ emailRegex != null }
-let isPhone = fn(str) { str ~ phoneRegex != null }
-let isStrongPassword = fn(str) {
-    len(str) >= 8 && str ~ /[A-Z]/ && str ~ /[0-9]/
-}
-```
-
-**app.pars:**
-```parsley
-let {isEmail, isStrongPassword} = import(@./validators.pars)
-
-let validateUser = fn(email, password) {
-    if (!isEmail(email)) {
-        "Invalid email"
-    } else if (!isStrongPassword(password)) {
-        "Password must be 8+ chars with uppercase and number"
-    } else {
-        "Valid"
-    }
-}
-
-log(validateUser("test@example.com", "Secret123"))  // "Valid"
-```
-
-### File I/O Example
-
-```parsley
-// Load configuration with fallback defaults
-let config <== JSON(@./config.json) ?? {
-    theme: "light",
-    language: "en"
-}
-
-// Read CSV data with error handling
-let {data, error} <== CSV(@./users.csv)
-
-if (error) {
-    log("Error loading users:", error)
-} else {
-    // Process and transform data
-    let activeUsers = for (user in data) {
-        if (user.status == "active") {
-            {
-                name: user.name.upper(),
-                email: user.email ?? "N/A",
-                joined: time(user.created_at).format("long")
-            }
-        }
-    }
-    
-    // Save processed results
-    activeUsers ==> JSON(@./active_users.json)
-    
-    // Generate HTML report
-    let report = <html>
-        <body>
-            <h1>Active Users Report</h1>
-            <p>Generated: {now().format("long")}</p>
-            <table>
-                <thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead>
-                <tbody>
-                    for (user in activeUsers) {
-                        <tr>
-                            <td>{user.name}</td>
-                            <td>{user.email}</td>
-                            <td>{user.joined}</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </body>
-    </html>
-    
-    toString(report) ==> text(@./report.html)
-}
-
-// Append to log file
-let logEntry = now().iso + " - Report generated\n"
-logEntry ==>> text(@./activity.log)
-```
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
