@@ -10,8 +10,8 @@ Syntax highlighting and language support for the Parsley programming language.
   - Strings (double-quoted) with escape sequences and template interpolation `{expr}`
   - Template literals (backticks) with interpolation
   - Regular expression literals (`/pattern/flags`)
-  - Path literals (`@/usr/local/bin`, `@./file.pars`)
-  - URL literals (`@https://example.com/api`)
+  - Paths (`@/usr/local/bin`, `@./file.pars`)
+  - URLs (`@https://example.com/api`)
   - Numbers (integers and floats)
   - Boolean constants (`true`, `false`, `null`)
   - Special `_` variable (write-only)

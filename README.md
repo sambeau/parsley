@@ -107,10 +107,10 @@ null                  // Null
 
 // Special types
 /\w+@\w+\.\w+/        // Regex
-@2024-12-25           // DateTime literal
-@1d2h30m              // Duration literal
-@./config.json        // Path literal
-@https://example.com  // URL literal
+@2024-12-25           // DateTime
+@1d2h30m              // Duration
+@./config.json        // Path
+@https://example.com  // URL
 ```
 
 #### Strings
@@ -180,7 +180,7 @@ dt.year, dt.month, dt.day     // Components
 dt.format("long")             // "November 28, 2024"
 dt.format("long", "de-DE")    // "28. November 2024"
 
-@2024-12-25                   // Date literal
+@2024-12-25                   // Date
 @1d                           // Duration: 1 day
 @-1d.format()                 // "yesterday"
 ```

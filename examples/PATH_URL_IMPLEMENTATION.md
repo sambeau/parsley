@@ -44,7 +44,7 @@ Creates a URL dictionary with:
 
 ## Phase 2: Literal Syntax ✅
 
-### Path Literals
+### Paths
 
 Paths can be created using the `@` prefix:
 
@@ -64,7 +64,7 @@ p.extension   // "txt"
 p.stem        // "file"
 ```
 
-### URL Literals
+### URLs
 
 URLs can be created using the `@` prefix:
 
@@ -90,13 +90,13 @@ u.query.q     // "test"
 The lexer intelligently distinguishes between different `@` literal types:
 
 ```parsley
-@2024-12-25                    // DateTime literal
-@2h30m                         // Duration literal
-@/usr/local/bin                // Path literal (starts with /)
-@./config.json                 // Path literal (starts with ./)
-@~/documents                   // Path literal (starts with ~/)
-@https://example.com           // URL literal (has ://)
-@http://localhost:8080/api     // URL literal (has ://)
+@2024-12-25                    // DateTime
+@2h30m                         // Duration
+@/usr/local/bin                // Path (starts with /)
+@./config.json                 // Path (starts with ./)
+@~/documents                   // Path (starts with ~/)
+@https://example.com           // URL (has ://)
+@http://localhost:8080/api     // URL (has ://)
 ```
 
 Detection logic:

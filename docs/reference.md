@@ -230,8 +230,8 @@ time({year: 2024, month: 12, day: 25})   // From components
 
 ### Literals
 ```parsley
-@2024-11-26          // Date literal
-@2024-11-26T15:30    // DateTime literal
+@2024-11-26          // Date
+@2024-11-26T15:30    // DateTime
 ```
 
 ### Properties
@@ -292,8 +292,8 @@ daysUntil.format()  // "in 4 weeks"
 
 ### Creation
 ```parsley
-@./config.json       // Relative path literal
-@/usr/local/bin      // Absolute path literal
+@./config.json       // Relative path
+@/usr/local/bin      // Absolute path
 path("some/path")    // Dynamic path
 ```
 
@@ -317,7 +317,7 @@ path("some/path")    // Dynamic path
 
 ### Creation
 ```parsley
-@https://api.example.com/users    // URL literal
+@https://api.example.com/users    // URL
 url("https://example.com:8080")   // Dynamic URL
 ```
 

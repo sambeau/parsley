@@ -13,8 +13,8 @@ Updated the Parsley VSCode extension to match the current grammar (v0.9.0), incl
 
 #### Added New Literal Types
 - **Regular Expression Literals**: `/pattern/flags` syntax with proper highlighting
-- **Path Literals**: `@/path/to/file` and `@./relative/path` syntax
-- **URL Literals**: `@https://example.com/api` syntax
+- **Paths**: `@/path/to/file` and `@./relative/path` syntax
+- **URLs**: `@https://example.com/api` syntax
 
 #### Updated Built-in Functions
 Removed deprecated functions and added new ones:
@@ -44,8 +44,8 @@ Current complete list:
 - Added examples for new features:
   - Module imports with `import()`
   - Regular expression literals
-  - Path literals
-  - URL literals
+  - Paths
+  - URLs
 - Updated built-in functions list
 - Added sections demonstrating new syntax
 
@@ -68,14 +68,14 @@ let match = "user@example.com" ~ emailRegex
 let notMatch = "invalid" !~ emailRegex
 ```
 
-### ✅ Path Literals
+### ✅ Paths
 ```parsley
 let configPath = @./config/settings.json
 let binPath = @/usr/local/bin
 let homePath = @~/documents/file.txt
 ```
 
-### ✅ URL Literals
+### ✅ URLs
 ```parsley
 let apiUrl = @https://api.example.com/v1/users
 let localUrl = @http://localhost:8080/api
