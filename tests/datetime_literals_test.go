@@ -39,9 +39,9 @@ func TestDatetimeLiteralBasic(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`@2024-12-25`, `{__type: "datetime", year: 2024, month: 12, day: 25, hour: 0, minute: 0, second: 0, unix: 1735084800, weekday: "Wednesday", iso: "2024-12-25T00:00:00Z"}`},
-		{`@2024-01-01`, `{__type: "datetime", year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, unix: 1704067200, weekday: "Monday", iso: "2024-01-01T00:00:00Z"}`},
-		{`@2024-06-15`, `{__type: "datetime", year: 2024, month: 6, day: 15, hour: 0, minute: 0, second: 0, unix: 1718409600, weekday: "Saturday", iso: "2024-06-15T00:00:00Z"}`},
+		{`@2024-12-25`, `{__type: datetime, day: 25, hour: 0, iso: 2024-12-25T00:00:00Z, minute: 0, month: 12, second: 0, unix: 1735084800, weekday: Wednesday, year: 2024}`},
+		{`@2024-01-01`, `{__type: datetime, day: 1, hour: 0, iso: 2024-01-01T00:00:00Z, minute: 0, month: 1, second: 0, unix: 1704067200, weekday: Monday, year: 2024}`},
+		{`@2024-06-15`, `{__type: datetime, day: 15, hour: 0, iso: 2024-06-15T00:00:00Z, minute: 0, month: 6, second: 0, unix: 1718409600, weekday: Saturday, year: 2024}`},
 	}
 
 	for _, tt := range tests {
@@ -55,9 +55,9 @@ func TestDatetimeLiteralWithTime(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`@2024-12-25T14:30:00`, `{__type: "datetime", year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 0, unix: 1735136400, weekday: "Wednesday", iso: "2024-12-25T14:30:00Z"}`},
-		{`@2024-01-15T09:45:30`, `{__type: "datetime", year: 2024, month: 1, day: 15, hour: 9, minute: 45, second: 30, unix: 1705314330, weekday: "Monday", iso: "2024-01-15T09:45:30Z"}`},
-		{`@2024-06-01T23:59:59`, `{__type: "datetime", year: 2024, month: 6, day: 1, hour: 23, minute: 59, second: 59, unix: 1717286399, weekday: "Saturday", iso: "2024-06-01T23:59:59Z"}`},
+		{`@2024-12-25T14:30:00`, `{__type: datetime, day: 25, hour: 14, iso: 2024-12-25T14:30:00Z, minute: 30, month: 12, second: 0, unix: 1735137000, weekday: Wednesday, year: 2024}`},
+		{`@2024-01-15T09:45:30`, `{__type: datetime, day: 15, hour: 9, iso: 2024-01-15T09:45:30Z, minute: 45, month: 1, second: 30, unix: 1705311930, weekday: Monday, year: 2024}`},
+		{`@2024-06-01T23:59:59`, `{__type: datetime, day: 1, hour: 23, iso: 2024-06-01T23:59:59Z, minute: 59, month: 6, second: 59, unix: 1717286399, weekday: Saturday, year: 2024}`},
 	}
 
 	for _, tt := range tests {
@@ -71,9 +71,9 @@ func TestDatetimeLiteralWithTimezone(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`@2024-12-25T14:30:00Z`, `{__type: "datetime", year: 2024, month: 12, day: 25, hour: 14, minute: 30, second: 0, unix: 1735136400, weekday: "Wednesday", iso: "2024-12-25T14:30:00Z"}`},
-		{`@2024-12-25T14:30:00-05:00`, `{__type: "datetime", year: 2024, month: 12, day: 25, hour: 19, minute: 30, second: 0, unix: 1735154400, weekday: "Wednesday", iso: "2024-12-25T19:30:00Z"}`},
-		{`@2024-06-15T08:00:00+08:00`, `{__type: "datetime", year: 2024, month: 6, day: 15, hour: 0, minute: 0, second: 0, unix: 1718380800, weekday: "Saturday", iso: "2024-06-15T00:00:00Z"}`},
+		{`@2024-12-25T14:30:00Z`, `{__type: datetime, day: 25, hour: 14, iso: 2024-12-25T14:30:00Z, minute: 30, month: 12, second: 0, unix: 1735137000, weekday: Wednesday, year: 2024}`},
+		{`@2024-12-25T14:30:00-05:00`, `{__type: datetime, day: 25, hour: 14, iso: 2024-12-25T14:30:00-05:00, minute: 30, month: 12, second: 0, unix: 1735155000, weekday: Wednesday, year: 2024}`},
+		{`@2024-06-15T08:00:00+08:00`, `{__type: datetime, day: 15, hour: 8, iso: 2024-06-15T08:00:00+08:00, minute: 0, month: 6, second: 0, unix: 1718409600, weekday: Saturday, year: 2024}`},
 	}
 
 	for _, tt := range tests {
@@ -93,8 +93,8 @@ func TestDatetimeLiteralFieldAccess(t *testing.T) {
 		{`@2024-12-25T14:30:00.hour`, `14`},
 		{`@2024-12-25T14:30:00.minute`, `30`},
 		{`@2024-12-25T14:30:00.second`, `0`},
-		{`@2024-12-25.weekday`, `"Wednesday"`},
-		{`@2024-12-25.iso`, `"2024-12-25T00:00:00Z"`},
+		{`@2024-12-25.weekday`, `Wednesday`},
+		{`@2024-12-25.iso`, `2024-12-25T00:00:00Z`},
 	}
 
 	for _, tt := range tests {
@@ -129,12 +129,12 @@ func TestDatetimeLiteralArithmetic(t *testing.T) {
 		expected string
 	}{
 		// Add seconds to datetime
-		{`@2024-12-25 + 86400`, `{__type: "datetime", year: 2024, month: 12, day: 26, hour: 0, minute: 0, second: 0, unix: 1735171200, weekday: "Thursday", iso: "2024-12-26T00:00:00Z"}`},
-		{`@2024-12-25T14:30:00 + 3600`, `{__type: "datetime", year: 2024, month: 12, day: 25, hour: 15, minute: 30, second: 0, unix: 1735140000, weekday: "Wednesday", iso: "2024-12-25T15:30:00Z"}`},
+		{`@2024-12-25 + 86400`, `{__type: datetime, day: 26, hour: 0, iso: 2024-12-26T00:00:00Z, minute: 0, month: 12, second: 0, unix: 1735171200, weekday: Thursday, year: 2024}`},
+		{`@2024-12-25T14:30:00 + 3600`, `{__type: datetime, day: 25, hour: 15, iso: 2024-12-25T15:30:00Z, minute: 30, month: 12, second: 0, unix: 1735140600, weekday: Wednesday, year: 2024}`},
 		// Subtract seconds from datetime
-		{`@2024-12-25 - 86400`, `{__type: "datetime", year: 2024, month: 12, day: 24, hour: 0, minute: 0, second: 0, unix: 1734998400, weekday: "Tuesday", iso: "2024-12-24T00:00:00Z"}`},
+		{`@2024-12-25 - 86400`, `{__type: datetime, day: 24, hour: 0, iso: 2024-12-24T00:00:00Z, minute: 0, month: 12, second: 0, unix: 1734998400, weekday: Tuesday, year: 2024}`},
 		// Commutative addition
-		{`86400 + @2024-12-25`, `{__type: "datetime", year: 2024, month: 12, day: 26, hour: 0, minute: 0, second: 0, unix: 1735171200, weekday: "Thursday", iso: "2024-12-26T00:00:00Z"}`},
+		{`86400 + @2024-12-25`, `{__type: datetime, day: 26, hour: 0, iso: 2024-12-26T00:00:00Z, minute: 0, month: 12, second: 0, unix: 1735171200, weekday: Thursday, year: 2024}`},
 	}
 
 	for _, tt := range tests {
@@ -214,11 +214,11 @@ func TestDatetimeLiteralEdgeCases(t *testing.T) {
 		expected string
 	}{
 		// Leap year
-		{`@2024-02-29`, `{__type: "datetime", year: 2024, month: 2, day: 29, hour: 0, minute: 0, second: 0, unix: 1709164800, weekday: "Thursday", iso: "2024-02-29T00:00:00Z"}`},
+		{`@2024-02-29`, `{__type: datetime, day: 29, hour: 0, iso: 2024-02-29T00:00:00Z, minute: 0, month: 2, second: 0, unix: 1709164800, weekday: Thursday, year: 2024}`},
 		// New Year's Day
-		{`@2024-01-01T00:00:00`, `{__type: "datetime", year: 2024, month: 1, day: 1, hour: 0, minute: 0, second: 0, unix: 1704067200, weekday: "Monday", iso: "2024-01-01T00:00:00Z"}`},
+		{`@2024-01-01T00:00:00`, `{__type: datetime, day: 1, hour: 0, iso: 2024-01-01T00:00:00Z, minute: 0, month: 1, second: 0, unix: 1704067200, weekday: Monday, year: 2024}`},
 		// New Year's Eve
-		{`@2024-12-31T23:59:59`, `{__type: "datetime", year: 2024, month: 12, day: 31, hour: 23, minute: 59, second: 59, unix: 1735689599, weekday: "Tuesday", iso: "2024-12-31T23:59:59Z"}`},
+		{`@2024-12-31T23:59:59`, `{__type: datetime, day: 31, hour: 23, iso: 2024-12-31T23:59:59Z, minute: 59, month: 12, second: 59, unix: 1735689599, weekday: Tuesday, year: 2024}`},
 	}
 
 	for _, tt := range tests {

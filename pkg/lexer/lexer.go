@@ -51,9 +51,10 @@ const (
 	NOT_MATCH // !~
 
 	// File I/O operators
-	READ_FROM // <==
-	WRITE_TO  // ==>
-	APPEND_TO // ==>>
+	READ_FROM  // <==
+	FETCH_FROM // <=/=
+	WRITE_TO   // ==>
+	APPEND_TO  // ==>>
 
 	// Delimiters
 	COMMA     // ,
@@ -167,6 +168,8 @@ func (tt TokenType) String() string {
 		return "NOT_MATCH"
 	case READ_FROM:
 		return "READ_FROM"
+	case FETCH_FROM:
+		return "FETCH_FROM"
 	case WRITE_TO:
 		return "WRITE_TO"
 	case APPEND_TO:
@@ -444,7 +447,15 @@ func (l *Lexer) NextToken() Token {
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
 	case '<':
-		if l.peekChar() == '=' && l.peekCharN(2) == '=' {
+		if l.peekChar() == '=' && l.peekCharN(2) == '/' && l.peekCharN(3) == '=' {
+			// <=/= (fetch from URL)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '='
+			l.readChar() // consume '/'
+			l.readChar() // consume '='
+			tok = Token{Type: FETCH_FROM, Literal: "<=/=", Line: line, Column: col}
+		} else if l.peekChar() == '=' && l.peekCharN(2) == '=' {
 			// <== (read from file)
 			line := l.line
 			col := l.column

@@ -181,6 +181,29 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		result := locale.FormatList(items, style, localeStr)
 		return &String{Value: result}
 
+	case "join":
+		// join(separator?) - joins array elements into a string
+		if len(args) > 1 {
+			return newError("wrong number of arguments for 'join'. got=%d, want=0-1", len(args))
+		}
+
+		separator := ""
+		if len(args) == 1 {
+			sepStr, ok := args[0].(*String)
+			if !ok {
+				return newError("argument to 'join' must be a STRING, got %s", args[0].Type())
+			}
+			separator = sepStr.Value
+		}
+
+		// Convert array elements to strings
+		items := make([]string, len(arr.Elements))
+		for i, elem := range arr.Elements {
+			items[i] = objectToTemplateString(elem)
+		}
+
+		return &String{Value: strings.Join(items, separator)}
+
 	default:
 		return newError("unknown method '%s' for ARRAY", method)
 	}
@@ -530,6 +553,13 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 // evalDatetimeMethod evaluates a method call on a datetime dictionary
 func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
 	case "format":
 		// format(style?, locale?)
 		if len(args) > 2 {
@@ -588,6 +618,13 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 // evalDurationMethod evaluates a method call on a duration dictionary
 func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
@@ -626,6 +663,13 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 // evalPathMethod evaluates a method call on a path dictionary
 func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
 	case "isAbsolute":
 		if len(args) != 0 {
 			return newError("wrong number of arguments for 'isAbsolute'. got=%d, want=0", len(args))
@@ -664,6 +708,13 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 // evalUrlMethod evaluates a method call on a URL dictionary
 func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
 	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
 	case "origin":
 		if len(args) != 0 {
 			return newError("wrong number of arguments for 'origin'. got=%d, want=0", len(args))
@@ -757,5 +808,164 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	default:
 		return newError("unknown method '%s' for url", method)
+	}
+}
+
+// ============================================================================
+// Regex Methods
+// ============================================================================
+
+// evalRegexMethod evaluates a method call on a regex dictionary
+func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
+	case "format":
+		// format(style?)
+		// Styles: "pattern" (just pattern), "literal" (with slashes/flags), "verbose" (pattern and flags separated)
+		if len(args) > 1 {
+			return newError("wrong number of arguments for 'format'. got=%d, want=0-1", len(args))
+		}
+
+		// Get pattern and flags
+		var pattern, flags string
+		if patternExpr, ok := dict.Pairs["pattern"]; ok {
+			if p := Eval(patternExpr, env); p != nil {
+				if str, ok := p.(*String); ok {
+					pattern = str.Value
+				}
+			}
+		}
+		if flagsExpr, ok := dict.Pairs["flags"]; ok {
+			if f := Eval(flagsExpr, env); f != nil {
+				if str, ok := f.(*String); ok {
+					flags = str.Value
+				}
+			}
+		}
+
+		// Get style (default to "literal")
+		style := "literal"
+		if len(args) == 1 {
+			styleArg, ok := args[0].(*String)
+			if !ok {
+				return newError("argument to 'format' must be STRING (style), got %s", args[0].Type())
+			}
+			style = styleArg.Value
+		}
+
+		switch style {
+		case "pattern":
+			return &String{Value: pattern}
+		case "literal":
+			return &String{Value: "/" + pattern + "/" + flags}
+		case "verbose":
+			if flags == "" {
+				return &String{Value: "pattern: " + pattern}
+			}
+			return &String{Value: "pattern: " + pattern + ", flags: " + flags}
+		default:
+			return newError("invalid style %q for 'format', use 'pattern', 'literal', or 'verbose'", style)
+		}
+
+	case "test":
+		// test(string) - returns boolean if the regex matches the string
+		if len(args) != 1 {
+			return newError("wrong number of arguments for 'test'. got=%d, want=1", len(args))
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newError("argument to 'test' must be STRING, got %s", args[0].Type())
+		}
+
+		// Get pattern and flags
+		var pattern, flags string
+		if patternExpr, ok := dict.Pairs["pattern"]; ok {
+			if p := Eval(patternExpr, env); p != nil {
+				if s, ok := p.(*String); ok {
+					pattern = s.Value
+				}
+			}
+		}
+		if flagsExpr, ok := dict.Pairs["flags"]; ok {
+			if f := Eval(flagsExpr, env); f != nil {
+				if s, ok := f.(*String); ok {
+					flags = s.Value
+				}
+			}
+		}
+
+		// Compile regex with flags
+		re, err := compileRegex(pattern, flags)
+		if err != nil {
+			return newError("invalid regex pattern: %s", err.Error())
+		}
+
+		return nativeBoolToParsBoolean(re.MatchString(str.Value))
+
+	default:
+		return newError("unknown method '%s' for regex", method)
+	}
+}
+
+// ============================================================================
+// File Methods
+// ============================================================================
+
+// evalFileMethod evaluates a method call on a file dictionary
+func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
+	default:
+		return newError("unknown method '%s' for file", method)
+	}
+}
+
+// ============================================================================
+// Dir Methods
+// ============================================================================
+
+// evalDirMethod evaluates a method call on a directory dictionary
+func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
+	default:
+		return newError("unknown method '%s' for dir", method)
+	}
+}
+
+// ============================================================================
+// Request Methods
+// ============================================================================
+
+// evalRequestMethod evaluates a method call on a request dictionary
+func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+		}
+		return dict
+
+	default:
+		return newError("unknown method '%s' for request", method)
 	}
 }

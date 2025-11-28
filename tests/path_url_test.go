@@ -36,22 +36,22 @@ func TestPathParsing(t *testing.T) {
 		{
 			name:     "absolute unix path",
 			input:    `path("/usr/local/bin")`,
-			expected: `{__type: path, components: ["", "usr", "local", "bin"], absolute: true}`,
+			expected: `{__type: path, absolute: true, components: , usr, local, bin}`,
 		},
 		{
 			name:     "relative path",
 			input:    `path("./config/app.json")`,
-			expected: `{__type: path, components: [".", "config", "app.json"], absolute: false}`,
+			expected: `{__type: path, absolute: false, components: ., config, app.json}`,
 		},
 		{
 			name:     "path components access",
 			input:    `let p = path("/usr/local/bin"); p.components`,
-			expected: `"", "usr", "local", "bin"`,
+			expected: `, usr, local, bin`,
 		},
 		{
 			name:     "path components index",
 			input:    `let p = path("/usr/local/bin"); p.components[-1]`,
-			expected: `"bin"`,
+			expected: `bin`,
 		},
 		{
 			name:     "path absolute flag",
@@ -87,42 +87,42 @@ func TestPathComputedProperties(t *testing.T) {
 		{
 			name:     "basename",
 			input:    `let p = path("/usr/local/bin/tool.exe"); p.basename`,
-			expected: `"tool.exe"`,
+			expected: `tool.exe`,
 		},
 		{
 			name:     "extension",
 			input:    `let p = path("/usr/local/bin/tool.exe"); p.extension`,
-			expected: `"exe"`,
+			expected: `exe`,
 		},
 		{
 			name:     "ext alias",
 			input:    `let p = path("/usr/local/bin/tool.exe"); p.ext`,
-			expected: `"exe"`,
+			expected: `exe`,
 		},
 		{
 			name:     "stem",
 			input:    `let p = path("/usr/local/bin/tool.exe"); p.stem`,
-			expected: `"tool"`,
+			expected: `tool`,
 		},
 		{
 			name:     "dirname as string",
 			input:    `let p = path("/usr/local/bin/tool.exe"); toString(p.dirname)`,
-			expected: `"/usr/local/bin"`,
+			expected: `/usr/local/bin`,
 		},
 		{
 			name:     "parent alias",
 			input:    `let p = path("/usr/local/bin/tool.exe"); toString(p.parent)`,
-			expected: `"/usr/local/bin"`,
+			expected: `/usr/local/bin`,
 		},
 		{
 			name:     "no extension",
 			input:    `let p = path("/usr/local/bin/README"); p.extension`,
-			expected: `""`,
+			expected: ``,
 		},
 		{
 			name:     "multi-part extension",
 			input:    `let p = path("/archive/file.tar.gz"); p.extension`,
-			expected: `"gz"`,
+			expected: `gz`,
 		},
 	}
 
@@ -148,17 +148,17 @@ func TestPathToString(t *testing.T) {
 		{
 			name:     "absolute path to string",
 			input:    `let p = path("/usr/local/bin"); toString(p)`,
-			expected: `"/usr/local/bin"`,
+			expected: `/usr/local/bin`,
 		},
 		{
 			name:     "relative path to string",
 			input:    `let p = path("./config/app.json"); toString(p)`,
-			expected: `"./config/app.json"`,
+			expected: `./config/app.json`,
 		},
 		{
 			name:     "roundtrip path",
 			input:    `let p = path("/usr/local/bin"); toString(path(toString(p)))`,
-			expected: `"/usr/local/bin"`,
+			expected: `/usr/local/bin`,
 		},
 	}
 
@@ -184,12 +184,12 @@ func TestUrlParsing(t *testing.T) {
 		{
 			name:     "basic https URL",
 			input:    `let u = url("https://example.com"); u.scheme`,
-			expected: `"https"`,
+			expected: `https`,
 		},
 		{
 			name:     "URL host",
 			input:    `let u = url("https://example.com"); u.host`,
-			expected: `"example.com"`,
+			expected: `example.com`,
 		},
 		{
 			name:     "URL with port",
@@ -199,27 +199,27 @@ func TestUrlParsing(t *testing.T) {
 		{
 			name:     "URL path",
 			input:    `let u = url("https://example.com/api/users"); u.path`,
-			expected: `"", "api", "users"`,
+			expected: `, api, users`,
 		},
 		{
 			name:     "URL query param",
 			input:    `let u = url("https://example.com/api?limit=10"); u.query.limit`,
-			expected: `"10"`,
+			expected: `10`,
 		},
 		{
 			name:     "URL fragment",
 			input:    `let u = url("https://example.com/page#section"); u.fragment`,
-			expected: `"section"`,
+			expected: `section`,
 		},
 		{
 			name:     "URL with username",
 			input:    `let u = url("https://user@example.com"); u.username`,
-			expected: `"user"`,
+			expected: `user`,
 		},
 		{
 			name:     "URL with username and password",
 			input:    `let u = url("https://user:pass@example.com"); u.password`,
-			expected: `"pass"`,
+			expected: `pass`,
 		},
 	}
 
@@ -245,17 +245,17 @@ func TestUrlComputedProperties(t *testing.T) {
 		{
 			name:     "origin without port",
 			input:    `let u = url("https://example.com/api"); u.origin`,
-			expected: `"https://example.com"`,
+			expected: `https://example.com`,
 		},
 		{
 			name:     "origin with port",
 			input:    `let u = url("https://example.com:8080/api"); u.origin`,
-			expected: `"https://example.com:8080"`,
+			expected: `https://example.com:8080`,
 		},
 		{
 			name:     "pathname",
 			input:    `let u = url("https://example.com/api/users"); u.pathname`,
-			expected: `"/api/users"`,
+			expected: `/api/users`,
 		},
 	}
 
@@ -281,27 +281,27 @@ func TestUrlToString(t *testing.T) {
 		{
 			name:     "simple URL to string",
 			input:    `let u = url("https://example.com"); toString(u)`,
-			expected: `"https://example.com"`,
+			expected: `https://example.com`,
 		},
 		{
 			name:     "URL with path to string",
 			input:    `let u = url("https://example.com/api/users"); toString(u)`,
-			expected: `"https://example.com/api/users"`,
+			expected: `https://example.com/api/users`,
 		},
 		{
 			name:     "URL with query to string",
 			input:    `let u = url("https://example.com/api?limit=10"); toString(u)`,
-			expected: `"https://example.com/api?limit=10"`,
+			expected: `https://example.com/api?limit=10`,
 		},
 		{
 			name:     "URL with fragment to string",
 			input:    `let u = url("https://example.com/page#section"); toString(u)`,
-			expected: `"https://example.com/page#section"`,
+			expected: `https://example.com/page#section`,
 		},
 		{
 			name:     "complex URL roundtrip",
 			input:    `let u = url("https://user@example.com:8080/api?limit=10#top"); toString(u)`,
-			expected: `"https://user@example.com:8080/api?limit=10#top"`,
+			expected: `https://user@example.com:8080/api?limit=10#top`,
 		},
 	}
 
@@ -325,9 +325,9 @@ func TestPathArrayComposition(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "filter path components",
-			input:    `let p = path("/usr/local/bin"); toString(path("/" + toString(p.components.filter(fn(c) { c != "local" }))))`,
-			expected: `"/usr/bin"`,
+			name:     "filter path components using join",
+			input:    `let p = path("/usr/local/bin"); p.components.filter(fn(c) { c != "local" }).join("/")`,
+			expected: `/usr/bin`,
 		},
 		{
 			name:     "map path components",

@@ -205,8 +205,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return stmt
 	case lexer.IDENT:
-		// Check if this is an assignment statement (= or <==)
-		if p.peekTokenIs(lexer.ASSIGN) || p.peekTokenIs(lexer.READ_FROM) {
+		// Check if this is an assignment statement (= or <== or <=/=)
+		if p.peekTokenIs(lexer.ASSIGN) || p.peekTokenIs(lexer.READ_FROM) || p.peekTokenIs(lexer.FETCH_FROM) {
 			return p.parseAssignmentStatement(false)
 		}
 		// Check for potential destructuring: IDENT followed by COMMA
@@ -300,7 +300,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 			return nil
 		}
 
-		// Check for <== (read statement) or = (regular let)
+		// Check for <== (read statement) or <=/= (fetch statement) or = (regular let)
 		if p.peekTokenIs(lexer.READ_FROM) {
 			p.nextToken() // consume <==
 			readStmt := &ast.ReadStatement{
@@ -314,6 +314,21 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 				p.nextToken()
 			}
 			return readStmt
+		}
+
+		if p.peekTokenIs(lexer.FETCH_FROM) {
+			p.nextToken() // consume <=/=
+			fetchStmt := &ast.FetchStatement{
+				Token:       p.curToken,
+				DictPattern: dictPattern,
+				IsLet:       true,
+			}
+			p.nextToken()
+			fetchStmt.Source = p.parseExpression(LOWEST)
+			if p.peekTokenIs(lexer.SEMICOLON) {
+				p.nextToken()
+			}
+			return fetchStmt
 		}
 
 		if !p.expectPeek(lexer.ASSIGN) {
@@ -350,7 +365,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
-	// Check for <== (read statement)
+	// Check for <== (read statement) or <=/= (fetch statement)
 	if p.peekTokenIs(lexer.READ_FROM) {
 		p.nextToken() // consume <==
 		readStmt := &ast.ReadStatement{
@@ -368,6 +383,25 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 			p.nextToken()
 		}
 		return readStmt
+	}
+
+	if p.peekTokenIs(lexer.FETCH_FROM) {
+		p.nextToken() // consume <=/=
+		fetchStmt := &ast.FetchStatement{
+			Token: p.curToken,
+			IsLet: true,
+		}
+		if len(names) == 1 {
+			fetchStmt.Name = names[0]
+		} else {
+			fetchStmt.Names = names
+		}
+		p.nextToken()
+		fetchStmt.Source = p.parseExpression(LOWEST)
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return fetchStmt
 	}
 
 	// Regular let statement
@@ -411,7 +445,7 @@ func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
-	// Check for <== (read statement)
+	// Check for <== (read statement) or <=/= (fetch statement)
 	if p.peekTokenIs(lexer.READ_FROM) {
 		p.nextToken() // consume <==
 		readStmt := &ast.ReadStatement{
@@ -429,6 +463,25 @@ func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 			p.nextToken()
 		}
 		return readStmt
+	}
+
+	if p.peekTokenIs(lexer.FETCH_FROM) {
+		p.nextToken() // consume <=/=
+		fetchStmt := &ast.FetchStatement{
+			Token: p.curToken,
+			IsLet: false,
+		}
+		if len(names) == 1 {
+			fetchStmt.Name = names[0]
+		} else {
+			fetchStmt.Names = names
+		}
+		p.nextToken()
+		fetchStmt.Source = p.parseExpression(LOWEST)
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return fetchStmt
 	}
 
 	// Regular assignment
@@ -464,6 +517,7 @@ func (p *Parser) parseDictDestructuringAssignment() ast.Statement {
 	}
 
 	// Check for <== (read statement)
+	// Check for <== (read statement) or <=/= (fetch statement)
 	if p.peekTokenIs(lexer.READ_FROM) {
 		p.nextToken() // consume <==
 		readStmt := &ast.ReadStatement{
@@ -477,6 +531,21 @@ func (p *Parser) parseDictDestructuringAssignment() ast.Statement {
 			p.nextToken()
 		}
 		return readStmt
+	}
+
+	if p.peekTokenIs(lexer.FETCH_FROM) {
+		p.nextToken() // consume <=/=
+		fetchStmt := &ast.FetchStatement{
+			Token:       p.curToken,
+			DictPattern: dictPattern,
+			IsLet:       false,
+		}
+		p.nextToken()
+		fetchStmt.Source = p.parseExpression(LOWEST)
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return fetchStmt
 	}
 
 	// Regular assignment

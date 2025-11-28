@@ -5,7 +5,9 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -178,7 +180,16 @@ func (d *Dictionary) Type() ObjectType { return DICTIONARY_OBJ }
 func (d *Dictionary) Inspect() string {
 	var out strings.Builder
 	pairs := []string{}
-	for key, expr := range d.Pairs {
+
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(d.Pairs))
+	for key := range d.Pairs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		expr := d.Pairs[key]
 		// For inspection, we show the expression, not the evaluated value
 		pairs = append(pairs, fmt.Sprintf("%s: %s", key, expr.String()))
 	}
@@ -920,6 +931,301 @@ func datetimeDictToString(dict *Dictionary) string {
 	return dict.Inspect()
 }
 
+// durationDictToString converts a duration dictionary to a human-readable string
+func durationDictToString(dict *Dictionary) string {
+	var months, seconds int64
+
+	// Get months
+	if monthsExpr, ok := dict.Pairs["months"]; ok {
+		monthsObj := Eval(monthsExpr, dict.Env)
+		if i, ok := monthsObj.(*Integer); ok {
+			months = i.Value
+		}
+	}
+
+	// Get seconds
+	if secondsExpr, ok := dict.Pairs["seconds"]; ok {
+		secondsObj := Eval(secondsExpr, dict.Env)
+		if i, ok := secondsObj.(*Integer); ok {
+			seconds = i.Value
+		}
+	}
+
+	// Handle zero duration
+	if months == 0 && seconds == 0 {
+		return "0 seconds"
+	}
+
+	var parts []string
+	isNegative := months < 0 || seconds < 0
+
+	// Handle negative values
+	if months < 0 {
+		months = -months
+	}
+	if seconds < 0 {
+		seconds = -seconds
+	}
+
+	// Convert months to years and months
+	years := months / 12
+	months = months % 12
+
+	if years > 0 {
+		if years == 1 {
+			parts = append(parts, "1 year")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d years", years))
+		}
+	}
+	if months > 0 {
+		if months == 1 {
+			parts = append(parts, "1 month")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d months", months))
+		}
+	}
+
+	// Convert seconds to days, hours, minutes, seconds
+	days := seconds / 86400
+	seconds = seconds % 86400
+	hours := seconds / 3600
+	seconds = seconds % 3600
+	minutes := seconds / 60
+	seconds = seconds % 60
+
+	if days > 0 {
+		if days == 1 {
+			parts = append(parts, "1 day")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d days", days))
+		}
+	}
+	if hours > 0 {
+		if hours == 1 {
+			parts = append(parts, "1 hour")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d hours", hours))
+		}
+	}
+	if minutes > 0 {
+		if minutes == 1 {
+			parts = append(parts, "1 minute")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d minutes", minutes))
+		}
+	}
+	if seconds > 0 {
+		if seconds == 1 {
+			parts = append(parts, "1 second")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d seconds", seconds))
+		}
+	}
+
+	result := strings.Join(parts, " ")
+	if isNegative {
+		return "-" + result
+	}
+	return result
+}
+
+// regexDictToString converts a regex dictionary to its literal form /pattern/flags
+func regexDictToString(dict *Dictionary) string {
+	var pattern, flags string
+
+	if patternExpr, ok := dict.Pairs["pattern"]; ok {
+		patternObj := Eval(patternExpr, dict.Env)
+		if str, ok := patternObj.(*String); ok {
+			pattern = str.Value
+		}
+	}
+
+	if flagsExpr, ok := dict.Pairs["flags"]; ok {
+		flagsObj := Eval(flagsExpr, dict.Env)
+		if str, ok := flagsObj.(*String); ok {
+			flags = str.Value
+		}
+	}
+
+	return "/" + pattern + "/" + flags
+}
+
+// fileDictToString converts a file dictionary to its path string
+func fileDictToString(dict *Dictionary) string {
+	// Extract path components from the file dict
+	var components []string
+	var isAbsolute bool
+
+	if compExpr, ok := dict.Pairs["_pathComponents"]; ok {
+		compObj := Eval(compExpr, dict.Env)
+		if arr, ok := compObj.(*Array); ok {
+			for _, elem := range arr.Elements {
+				if str, ok := elem.(*String); ok {
+					components = append(components, str.Value)
+				}
+			}
+		}
+	}
+
+	if absExpr, ok := dict.Pairs["_pathAbsolute"]; ok {
+		absObj := Eval(absExpr, dict.Env)
+		if b, ok := absObj.(*Boolean); ok {
+			isAbsolute = b.Value
+		}
+	}
+
+	// Build path string
+	var result strings.Builder
+	for i, comp := range components {
+		if comp == "" && i == 0 && isAbsolute {
+			result.WriteString("/")
+		} else {
+			if i > 0 && (i > 1 || !isAbsolute) {
+				result.WriteString("/")
+			}
+			result.WriteString(comp)
+		}
+	}
+
+	return result.String()
+}
+
+// dirDictToString converts a directory dictionary to its path string (with trailing slash)
+func dirDictToString(dict *Dictionary) string {
+	// Extract path components from the dir dict
+	var components []string
+	var isAbsolute bool
+
+	if compExpr, ok := dict.Pairs["_pathComponents"]; ok {
+		compObj := Eval(compExpr, dict.Env)
+		if arr, ok := compObj.(*Array); ok {
+			for _, elem := range arr.Elements {
+				if str, ok := elem.(*String); ok {
+					components = append(components, str.Value)
+				}
+			}
+		}
+	}
+
+	if absExpr, ok := dict.Pairs["_pathAbsolute"]; ok {
+		absObj := Eval(absExpr, dict.Env)
+		if b, ok := absObj.(*Boolean); ok {
+			isAbsolute = b.Value
+		}
+	}
+
+	// Build path string
+	var result strings.Builder
+	for i, comp := range components {
+		if comp == "" && i == 0 && isAbsolute {
+			result.WriteString("/")
+		} else {
+			if i > 0 && (i > 1 || !isAbsolute) {
+				result.WriteString("/")
+			}
+			result.WriteString(comp)
+		}
+	}
+
+	// Add trailing slash for directories
+	pathStr := result.String()
+	if !strings.HasSuffix(pathStr, "/") {
+		pathStr += "/"
+	}
+
+	return pathStr
+}
+
+// requestDictToString converts a request dictionary to METHOD URL format
+func requestDictToString(dict *Dictionary) string {
+	var method, urlStr string
+
+	// Get method (default to GET)
+	method = "GET"
+	if methodExpr, ok := dict.Pairs["method"]; ok {
+		methodObj := Eval(methodExpr, dict.Env)
+		if str, ok := methodObj.(*String); ok {
+			method = str.Value
+		}
+	}
+
+	// Reconstruct URL from _url_* fields
+	var result strings.Builder
+
+	// Scheme
+	if schemeExpr, ok := dict.Pairs["_url_scheme"]; ok {
+		schemeObj := Eval(schemeExpr, dict.Env)
+		if str, ok := schemeObj.(*String); ok {
+			result.WriteString(str.Value)
+			result.WriteString("://")
+		}
+	}
+
+	// Host
+	if hostExpr, ok := dict.Pairs["_url_host"]; ok {
+		hostObj := Eval(hostExpr, dict.Env)
+		if str, ok := hostObj.(*String); ok {
+			result.WriteString(str.Value)
+		}
+	}
+
+	// Port
+	if portExpr, ok := dict.Pairs["_url_port"]; ok {
+		portObj := Eval(portExpr, dict.Env)
+		if i, ok := portObj.(*Integer); ok && i.Value != 0 {
+			result.WriteString(":")
+			result.WriteString(strconv.FormatInt(i.Value, 10))
+		}
+	}
+
+	// Path
+	if pathExpr, ok := dict.Pairs["_url_path"]; ok {
+		pathObj := Eval(pathExpr, dict.Env)
+		if arr, ok := pathObj.(*Array); ok && len(arr.Elements) > 0 {
+			startIdx := 0
+			if str, ok := arr.Elements[0].(*String); ok && str.Value == "" {
+				result.WriteString("/")
+				startIdx = 1
+			} else if len(arr.Elements) > 0 {
+				result.WriteString("/")
+			}
+			for i := startIdx; i < len(arr.Elements); i++ {
+				if str, ok := arr.Elements[i].(*String); ok && str.Value != "" {
+					if i > startIdx {
+						result.WriteString("/")
+					}
+					result.WriteString(str.Value)
+				}
+			}
+		}
+	}
+
+	// Query
+	if queryExpr, ok := dict.Pairs["_url_query"]; ok {
+		queryObj := Eval(queryExpr, dict.Env)
+		if queryDict, ok := queryObj.(*Dictionary); ok && len(queryDict.Pairs) > 0 {
+			result.WriteString("?")
+			first := true
+			for key, expr := range queryDict.Pairs {
+				if !first {
+					result.WriteString("&")
+				}
+				first = false
+				result.WriteString(key)
+				result.WriteString("=")
+				valObj := Eval(expr, dict.Env)
+				if str, ok := valObj.(*String); ok {
+					result.WriteString(str.Value)
+				}
+			}
+		}
+	}
+
+	urlStr = result.String()
+	return method + " " + urlStr
+}
+
 // applyDelta applies time deltas to a time.Time
 func applyDelta(t time.Time, delta *Dictionary, env *Environment) time.Time {
 	// Apply date-based deltas first (years, months, days)
@@ -974,9 +1280,18 @@ func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
 	pairs := make(map[string]ast.Expression)
 
 	// Mark this as a regex dictionary
-	pairs["__type"] = &ast.StringLiteral{Value: "regex"}
-	pairs["pattern"] = &ast.StringLiteral{Value: node.Pattern}
-	pairs["flags"] = &ast.StringLiteral{Value: node.Flags}
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "regex"},
+		Value: "regex",
+	}
+	pairs["pattern"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: node.Pattern},
+		Value: node.Pattern,
+	}
+	pairs["flags"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: node.Flags},
+		Value: node.Flags,
+	}
 
 	// Try to compile the regex to validate it
 	_, err := compileRegex(node.Pattern, node.Flags)
@@ -2904,22 +3219,7 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `JSON`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
-				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `JSON` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `JSON` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict
 				var options *Dictionary
@@ -2929,7 +3229,25 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				return fileToDict(pathDict, "json", options, env)
+				// First argument can be a path, URL, or string
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if isUrlDict(arg) {
+						// URL dictionary - create request handle for fetch
+						return requestToDict(arg, "json", options, env)
+					}
+					if isPathDict(arg) {
+						// Path dictionary - create file handle
+						return fileToDict(arg, "json", options, env)
+					}
+					return newError("first argument to `JSON` must be a path or URL, got dictionary")
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict := pathToDict(components, isAbsolute, env)
+					return fileToDict(pathDict, "json", options, env)
+				default:
+					return newError("first argument to `JSON` must be a path, URL, or string, got %s", args[0].Type())
+				}
 			},
 		},
 		"YAML": {
@@ -2938,22 +3256,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `YAML`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `YAML` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `YAML` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict
 				var options *Dictionary
@@ -2961,6 +3266,24 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						options = optDict
 					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "yaml", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `YAML` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `YAML` must be a path, URL, or string, got %s", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "yaml", options, env)
@@ -2972,22 +3295,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `CSV`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `CSV` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `CSV` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict (e.g., {header: true})
 				var options *Dictionary
@@ -2995,6 +3305,24 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						options = optDict
 					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "csv", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `CSV` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `CSV` must be a path, URL, or string, got %s", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "csv", options, env)
@@ -3006,22 +3334,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `lines`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `lines` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `lines` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict
 				var options *Dictionary
@@ -3029,6 +3344,24 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						options = optDict
 					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "lines", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `lines` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `lines` must be a path, URL, or string, got %s", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "lines", options, env)
@@ -3040,22 +3373,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `text`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `text` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `text` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict (e.g., {encoding: "latin1"})
 				var options *Dictionary
@@ -3063,6 +3383,24 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						options = optDict
 					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "text", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `text` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `text` must be a path, URL, or string, got %s", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "text", options, env)
@@ -3074,22 +3412,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `bytes`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `bytes` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `bytes` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict
 				var options *Dictionary
@@ -3097,6 +3422,24 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						options = optDict
 					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "bytes", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `bytes` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `bytes` must be a path, URL, or string, got %s", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "bytes", options, env)
@@ -3109,22 +3452,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `SVG`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `SVG` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `SVG` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict
 				var options *Dictionary
@@ -3132,6 +3462,24 @@ func getBuiltins() map[string]*Builtin {
 					if optDict, ok := args[1].(*Dictionary); ok {
 						options = optDict
 					}
+				}
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "svg", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `SVG` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `SVG` must be a path, URL, or string, got %s", args[0].Type())
 				}
 
 				return fileToDict(pathDict, "svg", options, env)
@@ -3144,22 +3492,9 @@ func getBuiltins() map[string]*Builtin {
 					return newError("wrong number of arguments to `MD`. got=%d, want=1 or 2", len(args))
 				}
 
-				// First argument must be a path dictionary or string
+				// First argument must be a path dictionary, URL dictionary, or string
 				var pathDict *Dictionary
 				env := NewEnvironment()
-
-				switch arg := args[0].(type) {
-				case *Dictionary:
-					if !isPathDict(arg) {
-						return newError("first argument to `MD` must be a path, got dictionary")
-					}
-					pathDict = arg
-				case *String:
-					components, isAbsolute := parsePathString(arg.Value)
-					pathDict = pathToDict(components, isAbsolute, env)
-				default:
-					return newError("first argument to `MD` must be a path or string, got %s", args[0].Type())
-				}
 
 				// Second argument is optional options dict
 				var options *Dictionary
@@ -3169,7 +3504,25 @@ func getBuiltins() map[string]*Builtin {
 					}
 				}
 
-				return fileToDict(pathDict, "markdown", options, env)
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					// Check if it's a URL dict first
+					if isUrlDict(arg) {
+						// Create request dictionary for URL
+						return requestToDict(arg, "md", options, env)
+					}
+					if !isPathDict(arg) {
+						return newError("first argument to `MD` must be a path or URL, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `MD` must be a path, URL, or string, got %s", args[0].Type())
+				}
+
+				return fileToDict(pathDict, "md", options, env)
 			},
 		},
 		// Directory handle factory
@@ -3805,6 +4158,46 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
+		"repr": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("wrong number of arguments to `repr`. got=%d, want=1", len(args))
+				}
+
+				// Return the debug/dictionary representation of any value
+				// For dictionaries (including pseudo-types), returns the dict's Inspect()
+				// For other types, returns their string representation
+				arg := args[0]
+				if arg == nil {
+					return &String{Value: "null"}
+				}
+
+				switch obj := arg.(type) {
+				case *Dictionary:
+					// For all dictionaries (including pseudo-types), return the raw dict representation
+					return &String{Value: obj.Inspect()}
+				case *Array:
+					return &String{Value: obj.Inspect()}
+				case *String:
+					// For strings, include quotes in repr
+					return &String{Value: "\"" + obj.Value + "\""}
+				case *Integer:
+					return &String{Value: obj.Inspect()}
+				case *Float:
+					return &String{Value: obj.Inspect()}
+				case *Boolean:
+					return &String{Value: obj.Inspect()}
+				case *Null:
+					return &String{Value: "null"}
+				case *Function:
+					return &String{Value: obj.Inspect()}
+				case *Error:
+					return &String{Value: "error: " + obj.Message}
+				default:
+					return &String{Value: obj.Inspect()}
+				}
+			},
+		},
 		"toInt": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
@@ -4275,6 +4668,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
 
+	case *ast.FetchStatement:
+		return evalFetchStatement(node, env)
+
 	case *ast.WriteStatement:
 		return evalWriteStatement(node, env)
 
@@ -4487,6 +4883,70 @@ func Eval(node ast.Node, env *Environment) Object {
 				}
 				if isUrlDict(receiver) {
 					result := evalUrlMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// If unknown method, fall through to dictionary methods
+					if result != nil && isError(result) {
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				if isRegexDict(receiver) {
+					result := evalRegexMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// If unknown method, fall through to dictionary methods
+					if result != nil && isError(result) {
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				if isFileDict(receiver) {
+					result := evalFileMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// If unknown method, fall through to dictionary methods
+					if result != nil && isError(result) {
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				if isDirDict(receiver) {
+					result := evalDirMethod(receiver, method, args, env)
+					if result != nil && !isError(result) {
+						return result
+					}
+					// If unknown method, fall through to dictionary methods
+					if result != nil && isError(result) {
+						if errObj, ok := result.(*Error); ok && strings.Contains(errObj.Message, "unknown method") {
+							dictResult := evalDictionaryMethod(receiver, method, args, env)
+							if dictResult != nil {
+								return dictResult
+							}
+						}
+						return result
+					}
+				}
+				if isRequestDict(receiver) {
+					result := evalRequestMethod(receiver, method, args, env)
 					if result != nil && !isError(result) {
 						return result
 					}
@@ -6605,6 +7065,21 @@ func objectToTemplateString(obj Object) string {
 		if isDatetimeDict(obj) {
 			return datetimeDictToString(obj)
 		}
+		if isDurationDict(obj) {
+			return durationDictToString(obj)
+		}
+		if isRegexDict(obj) {
+			return regexDictToString(obj)
+		}
+		if isFileDict(obj) {
+			return fileDictToString(obj)
+		}
+		if isDirDict(obj) {
+			return dirDictToString(obj)
+		}
+		if isRequestDict(obj) {
+			return requestDictToString(obj)
+		}
 		return obj.Inspect()
 	case *Null:
 		return ""
@@ -6655,6 +7130,26 @@ func objectToPrintString(obj Object) string {
 		if isDatetimeDict(obj) {
 			// Convert datetime dictionary to ISO 8601 string
 			return datetimeDictToString(obj)
+		}
+		if isDurationDict(obj) {
+			// Convert duration dictionary to human-readable string
+			return durationDictToString(obj)
+		}
+		if isRegexDict(obj) {
+			// Convert regex dictionary to /pattern/flags format
+			return regexDictToString(obj)
+		}
+		if isFileDict(obj) {
+			// Convert file dictionary to path string
+			return fileDictToString(obj)
+		}
+		if isDirDict(obj) {
+			// Convert dir dictionary to path string with trailing slash
+			return dirDictToString(obj)
+		}
+		if isRequestDict(obj) {
+			// Convert request dictionary to METHOD URL format
+			return requestDictToString(obj)
 		}
 		return obj.Inspect()
 	case *Null:
@@ -7138,6 +7633,463 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 	}
 
 	return content
+}
+
+// evalFetchStatement evaluates the <=/= operator to fetch URL content
+func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
+	// Check if we're using dict pattern destructuring with error capture pattern
+	useErrorCapture := node.DictPattern != nil && isErrorCapturePattern(node.DictPattern)
+
+	// Evaluate the source expression (should be a request handle or URL)
+	source := Eval(node.Source, env)
+	if isError(source) {
+		if useErrorCapture {
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeFetchResponseDict(NULL, source.(*Error).Message, 0, nil, env), env, node.IsLet, false)
+		}
+		return source
+	}
+
+	// The source should be a request dictionary (from JSON(@url), etc.) or a URL dictionary
+	sourceDict, ok := source.(*Dictionary)
+	if !ok {
+		if useErrorCapture {
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeFetchResponseDict(NULL, fmt.Sprintf("fetch operator <=/= requires a request or URL handle, got %s", source.Type()), 0, nil, env), env, node.IsLet, false)
+		}
+		return newError("fetch operator <=/= requires a request or URL handle, got %s", source.Type())
+	}
+
+	var content Object
+	var fetchErr *Error
+	var statusCode int64
+	var headers *Dictionary
+
+	if isRequestDict(sourceDict) {
+		// Fetch URL content based on format
+		content, statusCode, headers, fetchErr = fetchUrlContent(sourceDict, env)
+		if fetchErr != nil {
+			if useErrorCapture {
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeFetchResponseDict(NULL, fetchErr.Message, statusCode, headers, env), env, node.IsLet, false)
+			}
+			return fetchErr
+		}
+	} else if isUrlDict(sourceDict) {
+		// Wrap URL in a request dictionary with default format (text)
+		reqDict := urlToRequestDict(sourceDict, "text", nil, env)
+		content, statusCode, headers, fetchErr = fetchUrlContent(reqDict, env)
+		if fetchErr != nil {
+			if useErrorCapture {
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeFetchResponseDict(NULL, fetchErr.Message, statusCode, headers, env), env, node.IsLet, false)
+			}
+			return fetchErr
+		}
+	} else {
+		if useErrorCapture {
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeFetchResponseDict(NULL, "fetch operator <=/= requires a request or URL handle, got dictionary", 0, nil, env), env, node.IsLet, false)
+		}
+		return newError("fetch operator <=/= requires a request or URL handle, got dictionary")
+	}
+
+	// Assign to the target variable(s)
+	if node.DictPattern != nil {
+		if useErrorCapture {
+			// Wrap successful result in {data: ..., error: null, status: ..., headers: ...} format
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeFetchResponseDict(content, "", statusCode, headers, env), env, node.IsLet, false)
+		}
+		// Normal dict destructuring - extract keys directly from content
+		return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet, false)
+	}
+
+	if len(node.Names) > 0 {
+		return evalDestructuringAssignment(node.Names, content, env, node.IsLet, false)
+	}
+
+	// Single assignment
+	if node.Name != nil && node.Name.Value != "_" {
+		if node.IsLet {
+			env.SetLet(node.Name.Value, content)
+		} else {
+			env.Update(node.Name.Value, content)
+		}
+	}
+
+	return content
+}
+
+// isRequestDict checks if a dictionary is a request handle by looking for __type field
+func isRequestDict(dict *Dictionary) bool {
+	typeExpr, ok := dict.Pairs["__type"]
+	if !ok {
+		return false
+	}
+	if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+		return strLit.Value == "request"
+	}
+	return false
+}
+
+// urlToRequestDict wraps a URL dictionary in a request dictionary
+func urlToRequestDict(urlDict *Dictionary, format string, options *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "request"},
+		Value: "request",
+	}
+
+	// Copy URL fields
+	for key, expr := range urlDict.Pairs {
+		pairs["_url_"+key] = expr
+	}
+
+	pairs["method"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "GET"},
+		Value: "GET",
+	}
+
+	pairs["format"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: format},
+		Value: format,
+	}
+
+	// Add empty headers dict
+	pairs["headers"] = &ast.DictionaryLiteral{
+		Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+		Pairs: make(map[string]ast.Expression),
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// requestToDict creates a request dictionary from a URL dictionary with format and options
+func requestToDict(urlDict *Dictionary, format string, options *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "request"},
+		Value: "request",
+	}
+
+	// Copy URL fields with prefix
+	for key, expr := range urlDict.Pairs {
+		pairs["_url_"+key] = expr
+	}
+
+	pairs["format"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: format},
+		Value: format,
+	}
+
+	// Default method is GET
+	method := "GET"
+	if options != nil {
+		if methodExpr, ok := options.Pairs["method"]; ok {
+			methodObj := Eval(methodExpr, env)
+			if methodStr, ok := methodObj.(*String); ok {
+				method = strings.ToUpper(methodStr.Value)
+			}
+		}
+	}
+	pairs["method"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: method},
+		Value: method,
+	}
+
+	// Copy headers from options
+	if options != nil {
+		if headersExpr, ok := options.Pairs["headers"]; ok {
+			pairs["headers"] = headersExpr
+		} else {
+			pairs["headers"] = &ast.DictionaryLiteral{
+				Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+				Pairs: make(map[string]ast.Expression),
+			}
+		}
+		// Copy body from options
+		if bodyExpr, ok := options.Pairs["body"]; ok {
+			pairs["body"] = bodyExpr
+		}
+		// Copy timeout from options
+		if timeoutExpr, ok := options.Pairs["timeout"]; ok {
+			pairs["timeout"] = timeoutExpr
+		}
+	} else {
+		pairs["headers"] = &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: make(map[string]ast.Expression),
+		}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// makeFetchResponseDict creates a {data: ..., error: ..., status: ..., headers: ...} dictionary
+func makeFetchResponseDict(data Object, errorMsg string, status int64, headers *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Set data field
+	pairs["data"] = &ast.ObjectLiteralExpression{Obj: data}
+
+	// Set error field
+	if errorMsg == "" {
+		pairs["error"] = &ast.ObjectLiteralExpression{Obj: NULL}
+	} else {
+		pairs["error"] = &ast.ObjectLiteralExpression{Obj: &String{Value: errorMsg}}
+	}
+
+	// Set status field
+	pairs["status"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", status)},
+		Value: status,
+	}
+
+	// Set headers field
+	if headers != nil {
+		pairs["headers"] = &ast.ObjectLiteralExpression{Obj: headers}
+	} else {
+		pairs["headers"] = &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: make(map[string]ast.Expression),
+		}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// getRequestUrlString extracts the URL string from a request dictionary
+func getRequestUrlString(dict *Dictionary, env *Environment) string {
+	var result strings.Builder
+
+	// Get scheme
+	schemeExpr, ok := dict.Pairs["_url_scheme"]
+	if !ok {
+		return ""
+	}
+	schemeObj := Eval(schemeExpr, env)
+	schemeStr, ok := schemeObj.(*String)
+	if !ok {
+		return ""
+	}
+	result.WriteString(schemeStr.Value)
+	result.WriteString("://")
+
+	// Get host
+	hostExpr, ok := dict.Pairs["_url_host"]
+	if !ok {
+		return ""
+	}
+	hostObj := Eval(hostExpr, env)
+	hostStr, ok := hostObj.(*String)
+	if !ok {
+		return ""
+	}
+	result.WriteString(hostStr.Value)
+
+	// Get port (if non-zero)
+	if portExpr, ok := dict.Pairs["_url_port"]; ok {
+		portObj := Eval(portExpr, env)
+		if portInt, ok := portObj.(*Integer); ok && portInt.Value != 0 {
+			result.WriteString(fmt.Sprintf(":%d", portInt.Value))
+		}
+	}
+
+	// Get path
+	if pathExpr, ok := dict.Pairs["_url_path"]; ok {
+		pathObj := Eval(pathExpr, env)
+		if pathArr, ok := pathObj.(*Array); ok {
+			for _, elem := range pathArr.Elements {
+				result.WriteString("/")
+				if str, ok := elem.(*String); ok {
+					result.WriteString(str.Value)
+				}
+			}
+		}
+	}
+
+	// Get query
+	if queryExpr, ok := dict.Pairs["_url_query"]; ok {
+		queryObj := Eval(queryExpr, env)
+		if queryDict, ok := queryObj.(*Dictionary); ok && len(queryDict.Pairs) > 0 {
+			result.WriteString("?")
+			first := true
+			for key, valExpr := range queryDict.Pairs {
+				if !first {
+					result.WriteString("&")
+				}
+				first = false
+				valObj := Eval(valExpr, env)
+				result.WriteString(key)
+				result.WriteString("=")
+				switch v := valObj.(type) {
+				case *String:
+					result.WriteString(v.Value)
+				case *Integer:
+					result.WriteString(fmt.Sprintf("%d", v.Value))
+				default:
+					result.WriteString(valObj.Inspect())
+				}
+			}
+		}
+	}
+
+	return result.String()
+}
+
+// fetchUrlContent fetches content from a URL based on the request configuration
+func fetchUrlContent(reqDict *Dictionary, env *Environment) (Object, int64, *Dictionary, *Error) {
+	// Get the URL string
+	urlStr := getRequestUrlString(reqDict, env)
+	if urlStr == "" {
+		return nil, 0, nil, newError("request handle has no valid URL")
+	}
+
+	// Get method
+	method := "GET"
+	if methodExpr, ok := reqDict.Pairs["method"]; ok {
+		methodObj := Eval(methodExpr, env)
+		if methodStr, ok := methodObj.(*String); ok {
+			method = strings.ToUpper(methodStr.Value)
+		}
+	}
+
+	// Get format
+	format := "text"
+	if formatExpr, ok := reqDict.Pairs["format"]; ok {
+		formatObj := Eval(formatExpr, env)
+		if formatStr, ok := formatObj.(*String); ok {
+			format = formatStr.Value
+		}
+	}
+
+	// Get timeout (default 30 seconds)
+	timeout := 30 * time.Second
+	if timeoutExpr, ok := reqDict.Pairs["timeout"]; ok {
+		timeoutObj := Eval(timeoutExpr, env)
+		if timeoutInt, ok := timeoutObj.(*Integer); ok {
+			timeout = time.Duration(timeoutInt.Value) * time.Millisecond
+		}
+	}
+
+	// Prepare request body
+	var bodyReader io.Reader
+	if bodyExpr, ok := reqDict.Pairs["body"]; ok {
+		bodyObj := Eval(bodyExpr, env)
+		if bodyObj != nil && bodyObj != NULL {
+			// Encode body based on content type (default to JSON for objects)
+			switch v := bodyObj.(type) {
+			case *String:
+				bodyReader = strings.NewReader(v.Value)
+			case *Dictionary, *Array:
+				jsonBytes, err := encodeJSON(bodyObj)
+				if err != nil {
+					return nil, 0, nil, newError("failed to encode request body: %s", err.Error())
+				}
+				bodyReader = bytes.NewReader(jsonBytes)
+			default:
+				bodyReader = strings.NewReader(bodyObj.Inspect())
+			}
+		}
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Create request
+	req, err := http.NewRequest(method, urlStr, bodyReader)
+	if err != nil {
+		return nil, 0, nil, newError("failed to create request: %s", err.Error())
+	}
+
+	// Set headers
+	if headersExpr, ok := reqDict.Pairs["headers"]; ok {
+		headersObj := Eval(headersExpr, env)
+		if headersDict, ok := headersObj.(*Dictionary); ok {
+			for key, valExpr := range headersDict.Pairs {
+				valObj := Eval(valExpr, env)
+				if valStr, ok := valObj.(*String); ok {
+					req.Header.Set(key, valStr.Value)
+				}
+			}
+		}
+	}
+
+	// Set default Content-Type for POST/PUT with body
+	if bodyReader != nil && req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, nil, newError("fetch failed: %s", err.Error())
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, int64(resp.StatusCode), nil, newError("failed to read response: %s", err.Error())
+	}
+
+	// Convert response headers to dictionary
+	respHeaders := &Dictionary{Pairs: make(map[string]ast.Expression), Env: env}
+	for key, values := range resp.Header {
+		if len(values) > 0 {
+			respHeaders.Pairs[key] = &ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: values[0]},
+				Value: values[0],
+			}
+		}
+	}
+
+	// Decode based on format
+	var content Object
+	var parseErr *Error
+
+	switch format {
+	case "text":
+		content = &String{Value: string(data)}
+
+	case "json":
+		content, parseErr = parseJSON(string(data))
+		if parseErr != nil {
+			return nil, int64(resp.StatusCode), respHeaders, parseErr
+		}
+
+	case "yaml":
+		content, parseErr = parseYAML(string(data))
+		if parseErr != nil {
+			return nil, int64(resp.StatusCode), respHeaders, parseErr
+		}
+
+	case "lines":
+		lines := strings.Split(string(data), "\n")
+		elements := make([]Object, len(lines))
+		for i, line := range lines {
+			elements[i] = &String{Value: line}
+		}
+		content = &Array{Elements: elements}
+
+	case "bytes":
+		elements := make([]Object, len(data))
+		for i, b := range data {
+			elements[i] = &Integer{Value: int64(b)}
+		}
+		content = &Array{Elements: elements}
+
+	default:
+		// Default to text
+		content = &String{Value: string(data)}
+	}
+
+	return content, int64(resp.StatusCode), respHeaders, nil
 }
 
 // isErrorCapturePattern checks if a dict destructuring pattern contains "data" or "error" keys

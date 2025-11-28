@@ -707,6 +707,46 @@ func (rs *ReadStatement) String() string {
 	return out.String()
 }
 
+// FetchStatement represents fetch-from-URL statements like 'let x <=/= JSON(@https://...)' or '{data, error} <=/= JSON(@url)'
+type FetchStatement struct {
+	Token       lexer.Token               // the <=/= token
+	Name        *Identifier               // single name for let x <=/=
+	Names       []*Identifier             // multiple names for array destructuring
+	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
+	IsLet       bool                      // true if 'let' was used
+	Source      Expression                // the URL/request handle expression
+}
+
+func (fs *FetchStatement) statementNode()       {}
+func (fs *FetchStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *FetchStatement) String() string {
+	var out bytes.Buffer
+
+	if fs.IsLet {
+		out.WriteString("let ")
+	}
+	if fs.DictPattern != nil {
+		out.WriteString(fs.DictPattern.String())
+	} else if len(fs.Names) > 0 {
+		for i, name := range fs.Names {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(name.String())
+		}
+	} else if fs.Name != nil {
+		out.WriteString(fs.Name.String())
+	}
+	out.WriteString(" <=/= ")
+
+	if fs.Source != nil {
+		out.WriteString(fs.Source.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
 // WriteStatement represents write-to-file statements like 'data ==> file(...)' or 'data ==>> file(...)'
 type WriteStatement struct {
 	Token  lexer.Token // the ==> or ==>> token

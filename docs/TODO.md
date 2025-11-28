@@ -35,3 +35,7 @@
 - Add 'const'?
 - Optional Chaining (!.)
 - File I/O security sandbox (--allow-read, --allow-write flags)
+- 1 ++ [2,3,4,5] , [1,2,3,4] ++ 5
+- HTML()? or is that just text?
+- paths: path and name, display as name
+- SQL and databases {user} = [$GetUser userID={userId}] <=/=> SQL()

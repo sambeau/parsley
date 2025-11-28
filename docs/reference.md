@@ -146,6 +146,8 @@ let name = "World"
 | `.reverse()` | Reverse order | `[1,2,3].reverse()` → `[3,2,1]` |
 | `.map(fn)` | Transform each | `[1,2].map(fn(x){x*2})` → `[2,4]` |
 | `.filter(fn)` | Keep matching | `[1,2,3].filter(fn(x){x>1})` → `[2,3]` |
+| `.join()` | Join to string | `["a","b","c"].join()` → `"abc"` |
+| `.join(sep)` | Join with separator | `["a","b","c"].join(",")` → `"a,b,c"` |
 | `.format()` | List as prose | `["a","b"].format()` → `"a and b"` |
 | `.format("or")` | With conjunction | `["a","b"].format("or")` → `"a or b"` |
 
@@ -257,6 +259,7 @@ time({year: 2024, month: 12, day: 25})   // From components
 | `.format()` | Default format | `dt.format()` → `"11/26/2024"` |
 | `.format(style)` | Style format | `dt.format("long")` → `"November 26, 2024"` |
 | `.format(style, locale)` | Localized | `dt.format("long","de-DE")` → `"26. November 2024"` |
+| `.toDict()` | Dictionary form | `dt.toDict()` → `{year: 2024, month: 11, ...}` |
 
 Style options: `"short"`, `"medium"`, `"long"`, `"full"`
 
@@ -278,6 +281,15 @@ Style options: `"short"`, `"medium"`, `"long"`, `"full"`
 |--------|-------------|---------|
 | `.format()` | Relative time | `@1d.format()` → `"tomorrow"` |
 | `.format(locale)` | Localized | `@-1d.format("de-DE")` → `"gestern"` |
+| `.toDict()` | Dictionary form | `@1d2h.toDict()` → `{__type: "duration", ...}` |
+
+### String Conversion
+Durations convert to human-readable strings in templates and print statements:
+```parsley
+let d = @1d2h30m
+"{d}"              // "1 day, 2 hours, 30 minutes"
+log(d)             // 1 day, 2 hours, 30 minutes
+```
 
 ### Arithmetic
 ```parsley
@@ -310,6 +322,15 @@ path("some/path")    // Dynamic path
 |--------|-------------|
 | `.isAbsolute()` | Is absolute path |
 | `.isRelative()` | Is relative path |
+| `.toDict()` | Dictionary form |
+
+### String Conversion
+Paths convert to their path string in templates:
+```parsley
+let p = @./src/main.go
+"{p}"              // "./src/main.go"
+log(p)             // ./src/main.go
+```
 
 ---
 
@@ -337,11 +358,20 @@ url("https://example.com:8080")   // Dynamic URL
 | `.pathname()` | Path only |
 | `.search()` | Query string with `?` |
 | `.href()` | Full URL string |
+| `.toDict()` | Dictionary form |
 
 ```parsley
 let u = @https://example.com?q=test&page=2
 u.query.q      // "test"
 u.query.page   // "2"
+```
+
+### String Conversion
+URLs convert to their full URL string in templates:
+```parsley
+let u = @https://api.example.com/v1
+"{u}"              // "https://api.example.com/v1"
+log(u)             // https://api.example.com/v1
 ```
 
 ---
@@ -447,6 +477,23 @@ let sources = files(@./src/**/*.pars)
 ### Dynamic Creation
 ```parsley
 regex("\\d+", "i")
+```
+
+### Methods
+| Method | Description | Example |
+|--------|-------------|---------|
+| `.test(string)` | Test if matches | `/\d+/.test("abc123")` → `true` |
+| `.format()` | Pattern only | `/\d+/i.format()` → `\d+` |
+| `.format("literal")` | Literal form | `/\d+/i.format("literal")` → `/\d+/i` |
+| `.format("verbose")` | Detailed form | `/\d+/i.format("verbose")` → `regex(\d+, i)` |
+| `.toDict()` | Dictionary form | `/\d+/i.toDict()` → `{pattern: "\\d+", flags: "i", ...}` |
+
+### String Conversion
+Regex patterns convert to literal notation in templates:
+```parsley
+let r = /[a-z]+/i
+"{r}"              // "/[a-z]+/i"
+log(r)             // /[a-z]+/i
 ```
 
 ### Matching
@@ -564,6 +611,33 @@ tag("div", {class: "box"}, "content")
 | `log(...)` | Output to stdout |
 | `logLine(...)` | Output with file:line prefix |
 | `toDebug(value)` | Debug representation |
+| `repr(value)` | Dictionary representation of pseudo-types |
+
+### The `repr()` Function
+The `repr()` function returns a detailed dictionary representation of pseudo-types (datetime, duration, regex, path, url, file, dir, request). This is useful for debugging and introspection:
+
+```parsley
+let d = @1d2h30m
+repr(d)    // {__type: "duration", days: 1, hours: 2, minutes: 30, ...}
+
+let r = /\w+/i
+repr(r)    // {__type: "regex", pattern: "\\w+", flags: "i"}
+
+let p = @./src/main.go
+repr(p)    // {__type: "path", path: "./src/main.go", basename: "main.go", ...}
+```
+
+For regular values, `repr()` returns them unchanged.
+
+### The `toDict()` Method
+All pseudo-types support a `.toDict()` method that returns their internal dictionary representation:
+
+```parsley
+@2024-12-25.toDict()    // {__type: "datetime", year: 2024, month: 12, day: 25, ...}
+@1h30m.toDict()         // {__type: "duration", hours: 1, minutes: 30, ...}
+/\d+/g.toDict()         // {__type: "regex", pattern: "\\d+", flags: "g"}
+@./config.json.toDict() // {__type: "path", path: "./config.json", ...}
+```
 
 ---
 
