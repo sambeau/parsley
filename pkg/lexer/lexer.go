@@ -286,6 +286,47 @@ func NewWithFilename(input string, filename string) *Lexer {
 	return l
 }
 
+// LexerState holds the state of a lexer for save/restore
+type LexerState struct {
+	position      int
+	readPosition  int
+	ch            byte
+	line          int
+	column        int
+	inTagContent  bool
+	tagDepth      int
+	lastTokenType TokenType
+	inRawTextTag  string
+}
+
+// SaveState saves the current lexer state for potential restoration
+func (l *Lexer) SaveState() LexerState {
+	return LexerState{
+		position:      l.position,
+		readPosition:  l.readPosition,
+		ch:            l.ch,
+		line:          l.line,
+		column:        l.column,
+		inTagContent:  l.inTagContent,
+		tagDepth:      l.tagDepth,
+		lastTokenType: l.lastTokenType,
+		inRawTextTag:  l.inRawTextTag,
+	}
+}
+
+// RestoreState restores the lexer to a previously saved state
+func (l *Lexer) RestoreState(state LexerState) {
+	l.position = state.position
+	l.readPosition = state.readPosition
+	l.ch = state.ch
+	l.line = state.line
+	l.column = state.column
+	l.inTagContent = state.inTagContent
+	l.tagDepth = state.tagDepth
+	l.lastTokenType = state.lastTokenType
+	l.inRawTextTag = state.inRawTextTag
+}
+
 // readChar reads the next character and advances position
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {

@@ -214,21 +214,21 @@ func TestReadOperatorBytes(t *testing.T) {
 // TestReadOperatorErrors tests error handling for <==
 func TestReadOperatorErrors(t *testing.T) {
 	tests := []struct {
-		name        string
-		code        string
-		shouldError bool
+		name          string
+		code          string
+		shouldError   bool
 		errorContains string
 	}{
 		{
-			name:        "read non-existent file",
-			code:        `let x <== text("/nonexistent/file.txt"); x`,
-			shouldError: true,
+			name:          "read non-existent file",
+			code:          `let x <== text("/nonexistent/file.txt"); x`,
+			shouldError:   true,
 			errorContains: "failed to read file",
 		},
 		{
-			name:        "read without file handle",
-			code:        `let x <== "not a file"; x`,
-			shouldError: true,
+			name:          "read without file handle",
+			code:          `let x <== "not a file"; x`,
+			shouldError:   true,
 			errorContains: "requires a file handle",
 		},
 	}

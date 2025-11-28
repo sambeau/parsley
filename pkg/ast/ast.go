@@ -699,6 +699,35 @@ func (rs *ReadStatement) String() string {
 	return out.String()
 }
 
+// WriteStatement represents write-to-file statements like 'data ==> file(...)' or 'data ==>> file(...)'
+type WriteStatement struct {
+	Token  lexer.Token // the ==> or ==>> token
+	Value  Expression  // the data to write
+	Target Expression  // the file handle expression
+	Append bool        // true for ==>> (append), false for ==> (write)
+}
+
+func (ws *WriteStatement) statementNode()       {}
+func (ws *WriteStatement) TokenLiteral() string { return ws.Token.Literal }
+func (ws *WriteStatement) String() string {
+	var out bytes.Buffer
+
+	if ws.Value != nil {
+		out.WriteString(ws.Value.String())
+	}
+	if ws.Append {
+		out.WriteString(" ==>> ")
+	} else {
+		out.WriteString(" ==> ")
+	}
+	if ws.Target != nil {
+		out.WriteString(ws.Target.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
 // DictDestructuringPattern represents a dictionary destructuring pattern like {a, b as c, ...rest}
 type DictDestructuringPattern struct {
 	Token lexer.Token             // the '{' token

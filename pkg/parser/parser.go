@@ -183,11 +183,12 @@ func (p *Parser) parseStatement() ast.Statement {
 	case lexer.LBRACE:
 		// Check if this is a dictionary destructuring assignment
 		// We need to look ahead to see if this is {a, b} = ... or just a dict literal
-		// For now, try parsing as destructuring assignment
+		// Save complete state including lexer position for proper backtracking
 		savedCur := p.curToken
 		savedPeek := p.peekToken
 		savedPrev := p.prevToken
 		savedErrors := len(p.errors)
+		savedLexerState := p.l.SaveState()
 
 		stmt := p.parseDictDestructuringAssignment()
 
@@ -197,6 +198,7 @@ func (p *Parser) parseStatement() ast.Statement {
 			p.peekToken = savedPeek
 			p.prevToken = savedPrev
 			p.errors = p.errors[:savedErrors]
+			p.l.RestoreState(savedLexerState)
 			return p.parseExpressionStatement()
 		}
 		return stmt
@@ -214,6 +216,7 @@ func (p *Parser) parseStatement() ast.Statement {
 			savedPeek := p.peekToken
 			savedPrev := p.prevToken
 			savedErrors := len(p.errors)
+			savedLexerState := p.l.SaveState()
 
 			stmt := p.parseAssignmentStatement()
 
@@ -223,6 +226,7 @@ func (p *Parser) parseStatement() ast.Statement {
 				p.peekToken = savedPeek
 				p.prevToken = savedPrev
 				p.errors = p.errors[:savedErrors]
+				p.l.RestoreState(savedLexerState)
 				return p.parseExpressionStatement()
 			}
 			return stmt
@@ -460,10 +464,30 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 }
 
 // parseExpressionStatement parses expression statements
-func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
-	stmt := &ast.ExpressionStatement{Token: p.curToken}
+func (p *Parser) parseExpressionStatement() ast.Statement {
+	firstToken := p.curToken
 
-	stmt.Expression = p.parseExpression(LOWEST)
+	expr := p.parseExpression(LOWEST)
+
+	// Check for write operators ==> or ==>>
+	if p.peekTokenIs(lexer.WRITE_TO) || p.peekTokenIs(lexer.APPEND_TO) {
+		p.nextToken() // consume ==> or ==>>
+		writeStmt := &ast.WriteStatement{
+			Token:  p.curToken,
+			Value:  expr,
+			Append: p.curToken.Type == lexer.APPEND_TO,
+		}
+		p.nextToken() // move to target expression
+		writeStmt.Target = p.parseExpression(LOWEST)
+
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return writeStmt
+	}
+
+	stmt := &ast.ExpressionStatement{Token: firstToken}
+	stmt.Expression = expr
 
 	if p.peekTokenIs(lexer.SEMICOLON) {
 		p.nextToken()

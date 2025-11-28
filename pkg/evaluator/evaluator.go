@@ -3887,6 +3887,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.ReadStatement:
 		return evalReadStatement(node, env)
 
+	case *ast.WriteStatement:
+		return evalWriteStatement(node, env)
+
 	case *ast.ReturnStatement:
 		val := Eval(node.ReturnValue, env)
 		if isError(val) {
@@ -6786,6 +6789,296 @@ func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
 		rows[i] = &Array{Elements: elements}
 	}
 	return &Array{Elements: rows}, nil
+}
+
+// evalWriteStatement evaluates the ==> and ==>> operators to write file content
+func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
+	// Evaluate the value to write
+	value := Eval(node.Value, env)
+	if isError(value) {
+		return value
+	}
+
+	// Evaluate the target expression (should be a file handle)
+	target := Eval(node.Target, env)
+	if isError(target) {
+		return target
+	}
+
+	// The target should be a file dictionary
+	fileDict, ok := target.(*Dictionary)
+	if !ok || !isFileDict(fileDict) {
+		return newError("write operator requires a file handle, got %s", target.Type())
+	}
+
+	// Write the file content based on format
+	err := writeFileContent(fileDict, value, node.Append, env)
+	if err != nil {
+		return err
+	}
+
+	return NULL
+}
+
+// writeFileContent writes content to a file based on its format
+func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *Environment) *Error {
+	// Get the path from the file dictionary
+	pathStr := getFilePathString(fileDict, env)
+	if pathStr == "" {
+		return newError("file handle has no valid path")
+	}
+
+	// Get the format
+	formatExpr, hasFormat := fileDict.Pairs["format"]
+	if !hasFormat {
+		return newError("file handle has no format specified")
+	}
+	formatObj := Eval(formatExpr, env)
+	if isError(formatObj) {
+		return formatObj.(*Error)
+	}
+	formatStr, ok := formatObj.(*String)
+	if !ok {
+		return newError("file format must be a string, got %s", formatObj.Type())
+	}
+
+	// Encode the value based on format
+	var data []byte
+	var encodeErr error
+
+	switch formatStr.Value {
+	case "text":
+		data, encodeErr = encodeText(value)
+
+	case "bytes":
+		data, encodeErr = encodeBytes(value)
+
+	case "lines":
+		data, encodeErr = encodeLines(value, appendMode)
+
+	case "json":
+		data, encodeErr = encodeJSON(value)
+
+	case "csv", "csv-noheader":
+		data, encodeErr = encodeCSV(value, formatStr.Value == "csv")
+
+	default:
+		return newError("unsupported file format for writing: %s", formatStr.Value)
+	}
+
+	if encodeErr != nil {
+		return newError("failed to encode data: %s", encodeErr.Error())
+	}
+
+	// Write to file
+	var writeErr error
+	if appendMode {
+		f, err := os.OpenFile(pathStr, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return newError("failed to open file '%s' for append: %s", pathStr, err.Error())
+		}
+		defer f.Close()
+		_, writeErr = f.Write(data)
+	} else {
+		writeErr = os.WriteFile(pathStr, data, 0644)
+	}
+
+	if writeErr != nil {
+		return newError("failed to write to file '%s': %s", pathStr, writeErr.Error())
+	}
+
+	return nil
+}
+
+// encodeText encodes a value as text
+func encodeText(value Object) ([]byte, error) {
+	switch v := value.(type) {
+	case *String:
+		return []byte(v.Value), nil
+	default:
+		return []byte(value.Inspect()), nil
+	}
+}
+
+// encodeBytes encodes a value as bytes
+func encodeBytes(value Object) ([]byte, error) {
+	arr, ok := value.(*Array)
+	if !ok {
+		return nil, fmt.Errorf("bytes format requires an array, got %s", value.Type())
+	}
+
+	data := make([]byte, len(arr.Elements))
+	for i, elem := range arr.Elements {
+		intVal, ok := elem.(*Integer)
+		if !ok {
+			return nil, fmt.Errorf("bytes array must contain integers, got %s at index %d", elem.Type(), i)
+		}
+		if intVal.Value < 0 || intVal.Value > 255 {
+			return nil, fmt.Errorf("byte value out of range (0-255): %d at index %d", intVal.Value, i)
+		}
+		data[i] = byte(intVal.Value)
+	}
+	return data, nil
+}
+
+// encodeLines encodes a value as lines
+func encodeLines(value Object, appendMode bool) ([]byte, error) {
+	arr, ok := value.(*Array)
+	if !ok {
+		// Single value - treat as single line
+		if appendMode {
+			return []byte(value.Inspect() + "\n"), nil
+		}
+		return []byte(value.Inspect()), nil
+	}
+
+	var builder strings.Builder
+	for i, elem := range arr.Elements {
+		if i > 0 {
+			builder.WriteString("\n")
+		}
+		switch v := elem.(type) {
+		case *String:
+			builder.WriteString(v.Value)
+		default:
+			builder.WriteString(elem.Inspect())
+		}
+	}
+	return []byte(builder.String()), nil
+}
+
+// encodeJSON encodes a value as JSON
+func encodeJSON(value Object) ([]byte, error) {
+	goValue := objectToGo(value)
+	return json.MarshalIndent(goValue, "", "  ")
+}
+
+// objectToGo converts a Parsley Object to a Go interface{} for JSON encoding
+func objectToGo(obj Object) interface{} {
+	switch v := obj.(type) {
+	case *Null:
+		return nil
+	case *Boolean:
+		return v.Value
+	case *Integer:
+		return v.Value
+	case *Float:
+		return v.Value
+	case *String:
+		return v.Value
+	case *Array:
+		result := make([]interface{}, len(v.Elements))
+		for i, elem := range v.Elements {
+			result[i] = objectToGo(elem)
+		}
+		return result
+	case *Dictionary:
+		result := make(map[string]interface{})
+		for key, expr := range v.Pairs {
+			// Skip internal fields
+			if strings.HasPrefix(key, "_") {
+				continue
+			}
+			// Evaluate expression if it's an ObjectLiteralExpression
+			if ole, ok := expr.(*ast.ObjectLiteralExpression); ok {
+				result[key] = objectToGo(ole.Obj.(Object))
+			} else {
+				// For other expressions, we need to evaluate them
+				env := NewEnvironment()
+				val := Eval(expr, env)
+				result[key] = objectToGo(val)
+			}
+		}
+		return result
+	default:
+		return obj.Inspect()
+	}
+}
+
+// encodeCSV encodes a value as CSV
+func encodeCSV(value Object, hasHeader bool) ([]byte, error) {
+	arr, ok := value.(*Array)
+	if !ok {
+		return nil, fmt.Errorf("CSV format requires an array, got %s", value.Type())
+	}
+
+	if len(arr.Elements) == 0 {
+		return []byte{}, nil
+	}
+
+	var buf strings.Builder
+	writer := csv.NewWriter(&buf)
+
+	// Check if first element is a dictionary (has header) or array (no header)
+	firstDict, isDict := arr.Elements[0].(*Dictionary)
+
+	if isDict && hasHeader {
+		// Write header from dictionary keys
+		var headers []string
+		for key := range firstDict.Pairs {
+			if !strings.HasPrefix(key, "_") {
+				headers = append(headers, key)
+			}
+		}
+		sort.Strings(headers) // Consistent ordering
+		if err := writer.Write(headers); err != nil {
+			return nil, err
+		}
+
+		// Write rows
+		for _, elem := range arr.Elements {
+			dict, ok := elem.(*Dictionary)
+			if !ok {
+				return nil, fmt.Errorf("CSV with header requires all rows to be dictionaries")
+			}
+			row := make([]string, len(headers))
+			for i, key := range headers {
+				if expr, exists := dict.Pairs[key]; exists {
+					if ole, ok := expr.(*ast.ObjectLiteralExpression); ok {
+						row[i] = ole.Obj.(Object).Inspect()
+					} else {
+						env := NewEnvironment()
+						val := Eval(expr, env)
+						row[i] = val.Inspect()
+					}
+				}
+			}
+			if err := writer.Write(row); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		// Write as array of arrays
+		for _, elem := range arr.Elements {
+			rowArr, ok := elem.(*Array)
+			if !ok {
+				// Single-element row
+				if err := writer.Write([]string{elem.Inspect()}); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			row := make([]string, len(rowArr.Elements))
+			for i, cell := range rowArr.Elements {
+				switch v := cell.(type) {
+				case *String:
+					row[i] = v.Value
+				default:
+					row[i] = cell.Inspect()
+				}
+			}
+			if err := writer.Write(row); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return nil, err
+	}
+
+	return []byte(buf.String()), nil
 }
 
 // evalDictionaryIndexExpression handles dictionary access via dict["key"]
