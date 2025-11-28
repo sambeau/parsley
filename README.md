@@ -23,6 +23,7 @@ A minimalist concatenative programming language interpreter.
   - [Regular Expressions](#regular-expressions)
   - [Dates and Times](#dates-and-times)
   - [Paths and URLs](#paths-and-urls)
+  - [File I/O](#file-io)
   - [Module System](#module-system)
   - [HTML/XML Tags](#htmlxml-tags)
 - [Reference](#reference)
@@ -84,7 +85,8 @@ Parsley is a concatenative language with:
 - **Module system** for code reuse
 - **Native HTML/XML** tag syntax
 - **Regular expressions** as first-class values
-- **Rich data types**: arrays, dictionaries, dates, paths, URLs
+- **File I/O** with format-aware reading and writing
+- **Rich data types**: arrays, dictionaries, dates, paths, URLs, file handles
 
 ### Core Concepts
 
@@ -105,6 +107,13 @@ let greeting = "Hello, {name}!"
 
 // Module imports
 let {add, multiply} = import(@./math.pars)
+
+// File I/O with error handling
+let config <== JSON(@./config.json) ?? {defaults: true}
+let {data, error} <== CSV(@./data.csv)
+
+// Nullish coalescing
+let name = user.name ?? "Anonymous"
 ```
 
 ## Language Guide
@@ -451,6 +460,132 @@ u.port    // "8080"
 u.path    // "/path"
 ```
 
+### File I/O
+
+Parsley provides file handles with format-aware reading and writing.
+
+#### File Handles
+
+```parsley
+// Create file handles with format factories
+let f = file(@./readme.txt)       // Generic (format from extension)
+let jf = JSON(@./config.json)     // JSON format
+let cf = CSV(@./data.csv)         // CSV format (with header)
+let lf = lines(@./log.txt)        // Line-by-line
+let tf = text(@./notes.txt)       // Plain text
+let bf = bytes(@./image.png)      // Raw bytes
+
+// File handle properties (lazy-evaluated)
+jf.exists     // true/false
+jf.size       // Size in bytes
+jf.modified   // Datetime of last modification
+jf.isFile     // true
+jf.isDir      // false
+jf.ext        // "json"
+jf.basename   // "config.json"
+jf.stem       // "config"
+```
+
+#### Reading Files (`<==`)
+
+```parsley
+// Read with format decoding
+let config <== JSON(@./config.json)    // Returns dictionary
+let rows <== CSV(@./data.csv)          // Returns array of dicts
+let logLines <== lines(@./app.log)     // Returns array of strings
+let content <== text(@./readme.txt)    // Returns string
+
+// Destructure directly from file
+let {name, version} <== JSON(@./package.json)
+
+// Error capture pattern
+let {data, error} <== JSON(@./config.json)
+if (error) {
+    log("Failed to load:", error)
+} else {
+    log("Loaded:", data.name)
+}
+
+// Fallback with ?? operator
+let config <== JSON(@./config.json) ?? {defaults: true}
+```
+
+#### Writing Files (`==>`)
+
+```parsley
+// Write with format encoding
+myDict ==> JSON(@./output.json)        // Encodes as JSON
+records ==> CSV(@./export.csv)         // Encodes as CSV
+"Hello" ==> text(@./greeting.txt)      // Writes string
+logLines ==> lines(@./app.log)         // Writes array as lines
+```
+
+#### Appending to Files (`==>>`)
+
+```parsley
+// Append to existing file
+newEntry ==>> lines(@./app.log)
+(message + "\n") ==>> text(@./debug.log)
+```
+
+#### Directory Operations
+
+```parsley
+// Create directory handle
+let d = dir(@./images)
+
+d.exists      // true
+d.isDir       // true
+d.count       // Number of entries
+d.files       // Array of file handles
+
+// Read directory contents
+let files <== dir(@./images)
+for (f in files) {
+    log(f.basename, "-", f.size, "bytes")
+}
+
+// Glob patterns
+let images = glob(@./images/*.jpg)
+let sources = glob(@./src/**/*.pars)
+
+for (img in images) {
+    <img src="{img.path}" />
+}
+```
+
+#### Complete Example
+
+```parsley
+// Load config with fallback
+let config <== JSON(@./config.json) ?? {theme: "light"}
+
+// Process data files
+let {data, error} <== CSV(@./users.csv)
+
+if (error) {
+    <p class="error">Failed to load users: {error}</p>
+} else {
+    <table>
+        <thead><tr><th>Name</th><th>Email</th></tr></thead>
+        <tbody>
+            for (user in data) {
+                <tr>
+                    <td>{user.name}</td>
+                    <td>{user.email ?? "N/A"}</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+// Save processed results
+let processed = for (user in data ?? []) {
+    {name: user.name.upper(), active: true}
+}
+processed ==> JSON(@./processed.json)
+```
+
 ### Module System
 
 Modules are regular Parsley scripts. Only `let` bindings are exported.
@@ -668,6 +803,8 @@ toString(tag("br"))
 | Duration | `@1d`, `@2h` | Time spans |
 | Path | `@./file.pars` | File paths |
 | URL | `@https://example.com` | Web addresses |
+| File Handle | `JSON(@./config.json)` | File with format binding |
+| Directory | `dir(@./folder)` | Directory handle |
 
 ### Operators
 
@@ -696,10 +833,36 @@ toString(tag("br"))
 - `~` Regex match (returns array or null)
 - `!~` Regex not-match (returns boolean)
 
+#### Nullish Coalescing
+- `??` Returns left operand if not null, otherwise right operand
+
+```parsley
+value ?? default           // Returns default only if value is null
+
+null ?? "fallback"         // "fallback"
+"hello" ?? "fallback"      // "hello"
+0 ?? 42                    // 0 (not null, so no fallback)
+false ?? true              // false (not null)
+
+// Chains naturally
+a ?? b ?? c ?? "default"   // First non-null value
+```
+
+#### File I/O
+- `<==` Read from file handle
+- `==>` Write to file handle
+- `==>>` Append to file handle
+
+```parsley
+let data <== JSON(@./config.json)   // Read
+data ==> JSON(@./output.json)       // Write
+line ==>> lines(@./log.txt)         // Append
+```
+
 #### Special
 - `=` Assignment
 - `:` Dictionary key-value separator
-- `.` Dictionary access
+- `.` Property/method access
 - `[]` Indexing and slicing
 - `...` Spread operator (in progress)
 
@@ -735,6 +898,16 @@ Note: `filter()` and `reduce()` can be implemented using for loops
 - `has(dict, key)` - Check key exists
 - `toArray(dict)` - Convert to `[key, value]` pairs
 - `toDict(array)` - Convert pairs to dictionary
+
+#### File I/O
+- `file(path)` - Create file handle (format inferred from extension)
+- `JSON(path)` - Create JSON file handle
+- `CSV(path)` - Create CSV file handle (with header row)
+- `lines(path)` - Create line-based file handle
+- `text(path)` - Create text file handle
+- `bytes(path)` - Create binary file handle
+- `dir(path)` - Create directory handle
+- `glob(pattern)` - Match files by glob pattern
 
 #### Tag Operations
 - `tag(name)` - Create tag dictionary
@@ -1071,6 +1244,63 @@ let validateUser = fn(email, password) {
 }
 
 log(validateUser("test@example.com", "Secret123"))  // "Valid"
+```
+
+### File I/O Example
+
+```parsley
+// Load configuration with fallback defaults
+let config <== JSON(@./config.json) ?? {
+    theme: "light",
+    language: "en"
+}
+
+// Read CSV data with error handling
+let {data, error} <== CSV(@./users.csv)
+
+if (error) {
+    log("Error loading users:", error)
+} else {
+    // Process and transform data
+    let activeUsers = for (user in data) {
+        if (user.status == "active") {
+            {
+                name: user.name.upper(),
+                email: user.email ?? "N/A",
+                joined: time(user.created_at).format("long")
+            }
+        }
+    }
+    
+    // Save processed results
+    activeUsers ==> JSON(@./active_users.json)
+    
+    // Generate HTML report
+    let report = <html>
+        <body>
+            <h1>Active Users Report</h1>
+            <p>Generated: {now().format("long")}</p>
+            <table>
+                <thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead>
+                <tbody>
+                    for (user in activeUsers) {
+                        <tr>
+                            <td>{user.name}</td>
+                            <td>{user.email}</td>
+                            <td>{user.joined}</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </body>
+    </html>
+    
+    toString(report) ==> text(@./report.html)
+}
+
+// Append to log file
+let logEntry = now().iso + " - Report generated\n"
+logEntry ==>> text(@./activity.log)
 ```
 
 ## License
