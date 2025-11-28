@@ -10,12 +10,15 @@ Syntax highlighting and language support for the Parsley programming language.
   - Strings (double-quoted) with escape sequences and template interpolation `{expr}`
   - Template literals (backticks) with interpolation
   - Regular expression literals (`/pattern/flags`)
+  - Datetime literals (`@2024-11-26`, `@2024-11-26T14:30:00`)
+  - Time literals (`@12:30`, `@12:30:45`)
+  - Duration literals (`@1d`, `@2h30m`, `@1y6mo`)
   - Paths (`@/usr/local/bin`, `@./file.pars`)
   - URLs (`@https://example.com/api`)
   - Numbers (integers and floats)
   - Boolean constants (`true`, `false`, `null`)
   - Special `_` variable (write-only)
-  - Built-in functions (`import`, `map`, `sort`, `toString`, `log`, `regex`, `path`, `url`, etc.)
+  - Built-in functions (`import`, `map`, `sort`, `toString`, `log`, `regex`, `path`, `url`, `repr`, etc.)
   - HTML/XML tags (singleton and paired)
   - Operators (arithmetic, comparison, logical, assignment, regex match `~` and `!~`)
   - Destructuring syntax
@@ -34,12 +37,12 @@ Syntax highlighting and language support for the Parsley programming language.
 
    **macOS/Linux:**
    ```bash
-   cp -r .vscode-extension ~/.vscode/extensions/parsley-language-0.9.0
+   cp -r .vscode-extension ~/.vscode/extensions/parsley-language-0.9.11
    ```
 
    **Windows:**
    ```powershell
-   Copy-Item -Recurse .vscode-extension "$env:USERPROFILE\\.vscode\\extensions\\parsley-language-0.9.0"
+   Copy-Item -Recurse .vscode-extension "$env:USERPROFILE\\.vscode\\extensions\\parsley-language-0.9.11"
    ```
 
 2. Reload VS Code (`Cmd/Ctrl + Shift + P` → "Developer: Reload Window")
@@ -139,6 +142,18 @@ let {square as sq} = import(@./math.pars)
 // Regular expressions
 let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
 let match = "user@example.com" ~ emailRegex
+
+// Datetime literals
+let christmas = @2024-12-25              // Date only
+let meeting = @2024-12-25T14:30:00       // Full datetime
+let lunchTime = @12:30                   // Time only
+let preciseTime = @12:30:45              // Time with seconds
+
+// Duration literals
+let oneDay = @1d
+let twoHoursThirty = @2h30m
+let oneYearSixMonths = @1y6mo
+let yesterday = @-1d                     // Negative duration
 
 // Paths
 let configPath = @./config/settings.json

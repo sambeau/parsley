@@ -1,3 +1,27 @@
+# VSCode Extension Updates - v0.9.11
+
+## Summary
+
+Updated the Parsley VSCode extension to match the current grammar (v0.9.11), including support for datetime kind tracking and time-only literals.
+
+## Changes in v0.9.11
+
+### 1. Updated `package.json`
+- Bumped version from `0.9.0` to `0.9.11`
+
+### 2. Updated `syntaxes/parsley.tmLanguage.json`
+
+#### Added Datetime/Duration Literal Highlighting
+- **DateTime Literals**: `@2024-11-26T14:30:00Z` (full datetime with optional timezone)
+- **Date Literals**: `@2024-11-26` (date only)
+- **Time Literals**: `@12:30` or `@12:30:45` (time only, with or without seconds)
+- **Duration Literals**: `@1d`, `@2h30m`, `@1y6mo`, `@-1d` (including negative durations)
+
+#### Updated Built-in Functions
+- **Added**: `repr` - Debug representation of pseudo-types
+
+---
+
 # VSCode Extension Updates - v0.9.0
 
 ## Summary
@@ -24,7 +48,7 @@ Removed deprecated functions and added new ones:
 Current complete list:
 - `import` - Module imports
 - `len`, `map`, `sort`, `sortBy`, `reverse` - Array operations
-- `toString`, `toDebug`, `toNumber`, `toInt`, `toFloat` - Type conversions
+- `toString`, `toDebug`, `repr`, `toNumber`, `toInt`, `toFloat` - Type conversions
 - `toUpper`, `toLower` - String operations
 - `log`, `logLine` - Debugging
 - `has`, `keys`, `values`, `toArray`, `toDict`, `delete` - Dictionary operations
