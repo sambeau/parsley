@@ -442,36 +442,6 @@ for (page in pages) {
 log("Generated", pages.length(), "pages")
 ```
 
-## Development
-
-### Building
-
-```bash
-make build              # Build binary
-make test               # Run tests
-make install            # Install to $GOPATH/bin
-
-# Manual
-go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
-```
-
-### Testing
-
-```bash
-go test ./...                    # All tests
-go test ./pkg/evaluator -v       # Specific package
-go test -cover ./...             # With coverage
-```
-
-### Running
-
-```bash
-./pars                           # REPL
-./pars script.pars               # Execute file
-./pars --pretty page.pars        # Pretty-print HTML
-./pars --version                 # Show version
-```
-
 ## Reference
 
 For complete API documentation, see [docs/reference.md](docs/reference.md).
@@ -758,24 +728,30 @@ Run with: `./pars site-generator.pars`
 git clone https://github.com/username/parsley.git
 cd parsley
 
-# Build
-go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
+# Build with make
+make build              # Build binary
+make test               # Run tests
+make install            # Install to $GOPATH/bin
 
-# Run tests
-go test ./...
+# Or build manually
+go build -ldflags "-X main.Version=$(cat VERSION)" -o pars .
+```
+
+### Testing
+
+```bash
+go test ./...                    # All tests
+go test ./pkg/evaluator -v       # Specific package
+go test -cover ./...             # With coverage
 ```
 
 ### Running Parsley
 
 ```bash
-# Execute a file
-./pars script.pars
-
-# Interactive REPL
-./pars
-
-# Show version
-./pars --version
+./pars                           # Interactive REPL
+./pars script.pars               # Execute file
+./pars --pretty page.pars        # Pretty-print HTML output
+./pars --version                 # Show version
 ```
 
 ### Project Structure
