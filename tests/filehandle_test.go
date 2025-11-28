@@ -228,13 +228,13 @@ func TestFileBuiltinErrors(t *testing.T) {
 	tests := []struct {
 		input string
 	}{
-		{`file()`},          // No arguments
-		{`file(123)`},       // Wrong type
-		{`JSON()`},          // No arguments
-		{`CSV()`},           // No arguments
-		{`lines()`},         // No arguments
-		{`text()`},          // No arguments
-		{`bytes()`},         // No arguments
+		{`file()`},    // No arguments
+		{`file(123)`}, // Wrong type
+		{`JSON()`},    // No arguments
+		{`CSV()`},     // No arguments
+		{`lines()`},   // No arguments
+		{`text()`},    // No arguments
+		{`bytes()`},   // No arguments
 	}
 
 	for _, tt := range tests {

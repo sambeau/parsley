@@ -201,8 +201,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return stmt
 	case lexer.IDENT:
-		// Check if this is an assignment statement
-		if p.peekTokenIs(lexer.ASSIGN) {
+		// Check if this is an assignment statement (= or <==)
+		if p.peekTokenIs(lexer.ASSIGN) || p.peekTokenIs(lexer.READ_FROM) {
 			return p.parseAssignmentStatement()
 		}
 		// Check for potential destructuring: IDENT followed by COMMA
@@ -235,21 +235,39 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 // parseLetStatement parses let statements
-func (p *Parser) parseLetStatement() *ast.LetStatement {
-	stmt := &ast.LetStatement{Token: p.curToken}
+func (p *Parser) parseLetStatement() ast.Statement {
+	letToken := p.curToken
 
 	// Check for dictionary destructuring pattern
 	if p.peekTokenIs(lexer.LBRACE) {
 		p.nextToken() // move to '{'
-		stmt.DictPattern = p.parseDictDestructuringPattern()
-		if stmt.DictPattern == nil {
+		dictPattern := p.parseDictDestructuringPattern()
+		if dictPattern == nil {
 			return nil
+		}
+
+		// Check for <== (read statement) or = (regular let)
+		if p.peekTokenIs(lexer.READ_FROM) {
+			p.nextToken() // consume <==
+			readStmt := &ast.ReadStatement{
+				Token:       p.curToken,
+				DictPattern: dictPattern,
+				IsLet:       true,
+			}
+			p.nextToken()
+			readStmt.Source = p.parseExpression(LOWEST)
+			if p.peekTokenIs(lexer.SEMICOLON) {
+				p.nextToken()
+			}
+			return readStmt
 		}
 
 		if !p.expectPeek(lexer.ASSIGN) {
 			return nil
 		}
 
+		stmt := &ast.LetStatement{Token: letToken}
+		stmt.DictPattern = dictPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
 
@@ -278,7 +296,28 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
-	// Set either single name or multiple names
+	// Check for <== (read statement)
+	if p.peekTokenIs(lexer.READ_FROM) {
+		p.nextToken() // consume <==
+		readStmt := &ast.ReadStatement{
+			Token: p.curToken,
+			IsLet: true,
+		}
+		if len(names) == 1 {
+			readStmt.Name = names[0]
+		} else {
+			readStmt.Names = names
+		}
+		p.nextToken()
+		readStmt.Source = p.parseExpression(LOWEST)
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return readStmt
+	}
+
+	// Regular let statement
+	stmt := &ast.LetStatement{Token: letToken}
 	if len(names) == 1 {
 		stmt.Name = names[0]
 	} else {
@@ -300,9 +339,9 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	return stmt
 }
 
-// parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;'
-func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
-	stmt := &ast.AssignmentStatement{Token: p.curToken}
+// parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;' or 'x <== file(...)'
+func (p *Parser) parseAssignmentStatement() ast.Statement {
+	firstToken := p.curToken
 
 	// Collect identifiers (for destructuring)
 	names := []*ast.Identifier{
@@ -318,7 +357,28 @@ func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
 		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
 	}
 
-	// Set either single name or multiple names
+	// Check for <== (read statement)
+	if p.peekTokenIs(lexer.READ_FROM) {
+		p.nextToken() // consume <==
+		readStmt := &ast.ReadStatement{
+			Token: p.curToken,
+			IsLet: false,
+		}
+		if len(names) == 1 {
+			readStmt.Name = names[0]
+		} else {
+			readStmt.Names = names
+		}
+		p.nextToken()
+		readStmt.Source = p.parseExpression(LOWEST)
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return readStmt
+	}
+
+	// Regular assignment
+	stmt := &ast.AssignmentStatement{Token: firstToken}
 	if len(names) == 1 {
 		stmt.Name = names[0]
 	} else {
@@ -340,18 +400,38 @@ func (p *Parser) parseAssignmentStatement() *ast.AssignmentStatement {
 	return stmt
 }
 
-// parseDictDestructuringAssignment parses dictionary destructuring assignments like '{a, b} = dict;'
-func (p *Parser) parseDictDestructuringAssignment() *ast.AssignmentStatement {
-	stmt := &ast.AssignmentStatement{Token: p.curToken} // the '{' token
+// parseDictDestructuringAssignment parses dictionary destructuring assignments like '{a, b} = dict;' or '{a, b} <== file(...)'
+func (p *Parser) parseDictDestructuringAssignment() ast.Statement {
+	braceToken := p.curToken // the '{' token
 
-	stmt.DictPattern = p.parseDictDestructuringPattern()
-	if stmt.DictPattern == nil {
+	dictPattern := p.parseDictDestructuringPattern()
+	if dictPattern == nil {
 		return nil
 	}
 
+	// Check for <== (read statement)
+	if p.peekTokenIs(lexer.READ_FROM) {
+		p.nextToken() // consume <==
+		readStmt := &ast.ReadStatement{
+			Token:       p.curToken,
+			DictPattern: dictPattern,
+			IsLet:       false,
+		}
+		p.nextToken()
+		readStmt.Source = p.parseExpression(LOWEST)
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+		return readStmt
+	}
+
+	// Regular assignment
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil
 	}
+
+	stmt := &ast.AssignmentStatement{Token: braceToken}
+	stmt.DictPattern = dictPattern
 
 	p.nextToken()
 

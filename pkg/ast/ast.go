@@ -659,6 +659,46 @@ func (ds *DeleteStatement) String() string {
 	return out.String()
 }
 
+// ReadStatement represents read-from-file statements like 'let x <== file(...)' or '{a, b} <== file(...)'
+type ReadStatement struct {
+	Token       lexer.Token               // the <== token
+	Name        *Identifier               // single name for let x <==
+	Names       []*Identifier             // multiple names for array destructuring
+	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
+	IsLet       bool                      // true if 'let' was used
+	Source      Expression                // the file handle expression
+}
+
+func (rs *ReadStatement) statementNode()       {}
+func (rs *ReadStatement) TokenLiteral() string { return rs.Token.Literal }
+func (rs *ReadStatement) String() string {
+	var out bytes.Buffer
+
+	if rs.IsLet {
+		out.WriteString("let ")
+	}
+	if rs.DictPattern != nil {
+		out.WriteString(rs.DictPattern.String())
+	} else if len(rs.Names) > 0 {
+		for i, name := range rs.Names {
+			if i > 0 {
+				out.WriteString(", ")
+			}
+			out.WriteString(name.String())
+		}
+	} else if rs.Name != nil {
+		out.WriteString(rs.Name.String())
+	}
+	out.WriteString(" <== ")
+
+	if rs.Source != nil {
+		out.WriteString(rs.Source.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
 // DictDestructuringPattern represents a dictionary destructuring pattern like {a, b as c, ...rest}
 type DictDestructuringPattern struct {
 	Token lexer.Token             // the '{' token

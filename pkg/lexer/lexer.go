@@ -50,6 +50,11 @@ const (
 	MATCH     // ~
 	NOT_MATCH // !~
 
+	// File I/O operators
+	READ_FROM // <==
+	WRITE_TO  // ==>
+	APPEND_TO // ==>>
+
 	// Delimiters
 	COMMA     // ,
 	SEMICOLON // ;
@@ -159,6 +164,12 @@ func (tt TokenType) String() string {
 		return "MATCH"
 	case NOT_MATCH:
 		return "NOT_MATCH"
+	case READ_FROM:
+		return "READ_FROM"
+	case WRITE_TO:
+		return "WRITE_TO"
+	case APPEND_TO:
+		return "APPEND_TO"
 	case COMMA:
 		return "COMMA"
 	case SEMICOLON:
@@ -325,8 +336,20 @@ func (l *Lexer) NextToken() Token {
 	case '=':
 		if l.peekChar() == '=' {
 			ch := l.ch
-			l.readChar()
-			tok = Token{Type: EQ, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+			line := l.line
+			col := l.column
+			l.readChar() // consume second '='
+			if l.peekChar() == '>' {
+				l.readChar() // consume '>'
+				if l.peekChar() == '>' {
+					l.readChar() // consume second '>'
+					tok = Token{Type: APPEND_TO, Literal: "==>>", Line: line, Column: col}
+				} else {
+					tok = Token{Type: WRITE_TO, Literal: "==>", Line: line, Column: col}
+				}
+			} else {
+				tok = Token{Type: EQ, Literal: string(ch) + string(l.ch), Line: line, Column: col}
+			}
 		} else {
 			tok = newToken(ASSIGN, l.ch, l.line, l.column)
 		}
@@ -376,7 +399,14 @@ func (l *Lexer) NextToken() Token {
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
 	case '<':
-		if l.peekChar() == '=' {
+		if l.peekChar() == '=' && l.peekCharN(2) == '=' {
+			// <== (read from file)
+			line := l.line
+			col := l.column
+			l.readChar() // consume first '='
+			l.readChar() // consume second '='
+			tok = Token{Type: READ_FROM, Literal: "<==", Line: line, Column: col}
+		} else if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: LTE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}

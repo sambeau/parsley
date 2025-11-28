@@ -1,6 +1,8 @@
 package evaluator
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -3882,6 +3884,9 @@ func Eval(node ast.Node, env *Environment) Object {
 		}
 		return val
 
+	case *ast.ReadStatement:
+		return evalReadStatement(node, env)
+
 	case *ast.ReturnStatement:
 		val := Eval(node.ReturnValue, env)
 		if isError(val) {
@@ -6588,6 +6593,199 @@ func evalDeleteStatement(node *ast.DeleteStatement, env *Environment) Object {
 	default:
 		return newError("invalid delete target")
 	}
+}
+
+// evalReadStatement evaluates the <== operator to read file content
+func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
+	// Evaluate the source expression (should be a file handle)
+	source := Eval(node.Source, env)
+	if isError(source) {
+		return source
+	}
+
+	// The source should be a file dictionary
+	fileDict, ok := source.(*Dictionary)
+	if !ok || !isFileDict(fileDict) {
+		return newError("read operator <== requires a file handle, got %s", source.Type())
+	}
+
+	// Read the file content based on format
+	content, err := readFileContent(fileDict, env)
+	if err != nil {
+		return err
+	}
+
+	// Assign to the target variable(s)
+	if node.DictPattern != nil {
+		return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet)
+	}
+
+	if len(node.Names) > 0 {
+		return evalDestructuringAssignment(node.Names, content, env, node.IsLet)
+	}
+
+	// Single assignment
+	if node.Name != nil && node.Name.Value != "_" {
+		if node.IsLet {
+			env.SetLet(node.Name.Value, content)
+		} else {
+			env.Update(node.Name.Value, content)
+		}
+	}
+
+	return content
+}
+
+// readFileContent reads the content of a file based on its format
+func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
+	// Get the path from the file dictionary
+	pathStr := getFilePathString(fileDict, env)
+	if pathStr == "" {
+		return nil, newError("file handle has no valid path")
+	}
+
+	// Get the format
+	formatExpr, hasFormat := fileDict.Pairs["format"]
+	if !hasFormat {
+		return nil, newError("file handle has no format specified")
+	}
+	formatObj := Eval(formatExpr, env)
+	if isError(formatObj) {
+		return nil, formatObj.(*Error)
+	}
+	formatStr, ok := formatObj.(*String)
+	if !ok {
+		return nil, newError("file format must be a string, got %s", formatObj.Type())
+	}
+
+	// Read the raw file content
+	data, readErr := os.ReadFile(pathStr)
+	if readErr != nil {
+		return nil, newError("failed to read file '%s': %s", pathStr, readErr.Error())
+	}
+
+	// Decode based on format
+	switch formatStr.Value {
+	case "text":
+		return &String{Value: string(data)}, nil
+
+	case "bytes":
+		// Return as array of integers
+		elements := make([]Object, len(data))
+		for i, b := range data {
+			elements[i] = &Integer{Value: int64(b)}
+		}
+		return &Array{Elements: elements}, nil
+
+	case "lines":
+		// Split into lines
+		content := string(data)
+		lines := strings.Split(content, "\n")
+		elements := make([]Object, len(lines))
+		for i, line := range lines {
+			elements[i] = &String{Value: line}
+		}
+		return &Array{Elements: elements}, nil
+
+	case "json":
+		// Parse JSON
+		content := string(data)
+		return parseJSON(content)
+
+	case "csv":
+		// Parse CSV with header
+		return parseCSV(data, true)
+
+	case "csv-noheader":
+		// Parse CSV without header
+		return parseCSV(data, false)
+
+	default:
+		return nil, newError("unsupported file format: %s", formatStr.Value)
+	}
+}
+
+// parseJSON parses a JSON string into Parsley objects
+func parseJSON(content string) (Object, *Error) {
+	var data interface{}
+	if err := json.Unmarshal([]byte(content), &data); err != nil {
+		return nil, newError("failed to parse JSON: %s", err.Error())
+	}
+	return jsonToObject(data), nil
+}
+
+// jsonToObject converts a Go interface{} (from JSON) to a Parsley Object
+func jsonToObject(data interface{}) Object {
+	switch v := data.(type) {
+	case nil:
+		return NULL
+	case bool:
+		return nativeBoolToParsBoolean(v)
+	case float64:
+		// JSON numbers are always float64
+		if v == float64(int64(v)) {
+			return &Integer{Value: int64(v)}
+		}
+		return &Float{Value: v}
+	case string:
+		return &String{Value: v}
+	case []interface{}:
+		elements := make([]Object, len(v))
+		for i, elem := range v {
+			elements[i] = jsonToObject(elem)
+		}
+		return &Array{Elements: elements}
+	case map[string]interface{}:
+		pairs := make(map[string]ast.Expression)
+		for key, val := range v {
+			obj := jsonToObject(val)
+			pairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+		}
+		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	default:
+		return NULL
+	}
+}
+
+// parseCSV parses CSV data into an array of dictionaries (if header) or array of arrays
+func parseCSV(data []byte, hasHeader bool) (Object, *Error) {
+	reader := csv.NewReader(strings.NewReader(string(data)))
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, newError("failed to parse CSV: %s", err.Error())
+	}
+
+	if len(records) == 0 {
+		return &Array{Elements: []Object{}}, nil
+	}
+
+	if hasHeader {
+		// First row is headers
+		headers := records[0]
+		rows := make([]Object, 0, len(records)-1)
+
+		for _, record := range records[1:] {
+			pairs := make(map[string]ast.Expression)
+			for i, value := range record {
+				if i < len(headers) {
+					pairs[headers[i]] = &ast.ObjectLiteralExpression{Obj: &String{Value: value}}
+				}
+			}
+			rows = append(rows, &Dictionary{Pairs: pairs, Env: NewEnvironment()})
+		}
+		return &Array{Elements: rows}, nil
+	}
+
+	// No header - return array of arrays
+	rows := make([]Object, len(records))
+	for i, record := range records {
+		elements := make([]Object, len(record))
+		for j, value := range record {
+			elements[j] = &String{Value: value}
+		}
+		rows[i] = &Array{Elements: elements}
+	}
+	return &Array{Elements: rows}, nil
 }
 
 // evalDictionaryIndexExpression handles dictionary access via dict["key"]
