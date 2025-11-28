@@ -81,6 +81,7 @@ const (
 	ELSE     // "else"
 	RETURN   // "return"
 	DELETE   // "delete"
+	EXPORT   // "export"
 )
 
 // Token represents a single token
@@ -216,6 +217,8 @@ func (tt TokenType) String() string {
 		return "RETURN"
 	case DELETE:
 		return "DELETE"
+	case EXPORT:
+		return "EXPORT"
 	default:
 		return "UNKNOWN"
 	}
@@ -234,6 +237,7 @@ var keywords = map[string]TokenType{
 	"else":   ELSE,
 	"return": RETURN,
 	"delete": DELETE,
+	"export": EXPORT,
 	"and":    AND,
 	"or":     OR,
 	"not":    BANG,

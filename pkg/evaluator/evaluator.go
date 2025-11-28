@@ -192,13 +192,15 @@ type Environment struct {
 	Filename    string
 	LastToken   *lexer.Token
 	letBindings map[string]bool // tracks which variables were declared with 'let'
+	exports     map[string]bool // tracks which variables were explicitly exported
 }
 
 // NewEnvironment creates a new environment
 func NewEnvironment() *Environment {
 	s := make(map[string]Object)
 	l := make(map[string]bool)
-	return &Environment{store: s, outer: nil, letBindings: l}
+	x := make(map[string]bool)
+	return &Environment{store: s, outer: nil, letBindings: l, exports: x}
 }
 
 // NewEnclosedEnvironment creates a new environment with outer reference
@@ -235,6 +237,21 @@ func (e *Environment) SetLet(name string, val Object) Object {
 	return val
 }
 
+// SetExport stores a value in the environment and marks it as explicitly exported
+func (e *Environment) SetExport(name string, val Object) Object {
+	e.store[name] = val
+	e.exports[name] = true
+	return val
+}
+
+// SetLetExport stores a value in the environment, marks it as a let binding AND exported
+func (e *Environment) SetLetExport(name string, val Object) Object {
+	e.store[name] = val
+	e.letBindings[name] = true
+	e.exports[name] = true
+	return val
+}
+
 // IsLetBinding checks if a variable was declared with let
 func (e *Environment) IsLetBinding(name string) bool {
 	// Check current environment
@@ -242,6 +259,19 @@ func (e *Environment) IsLetBinding(name string) bool {
 		return true
 	}
 	// Don't check outer environments - each module has its own scope
+	return false
+}
+
+// IsExported checks if a variable is exported (either via explicit export or via let - backward compat)
+func (e *Environment) IsExported(name string) bool {
+	// Check for explicit export first
+	if e.exports[name] {
+		return true
+	}
+	// Backward compatibility: let bindings are also exported
+	if e.letBindings[name] {
+		return true
+	}
 	return false
 }
 
@@ -4089,18 +4119,22 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
-			return evalDictDestructuringAssignment(node.DictPattern, val, env, true)
+			return evalDictDestructuringAssignment(node.DictPattern, val, env, true, node.Export)
 		}
 
 		// Handle array destructuring assignment
 		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, val, env, true)
+			return evalDestructuringAssignment(node.Names, val, env, true, node.Export)
 		}
 
 		// Single assignment
 		// Special handling for '_' - don't store it
 		if node.Name.Value != "_" {
-			env.SetLet(node.Name.Value, val)
+			if node.Export {
+				env.SetLetExport(node.Name.Value, val)
+			} else {
+				env.SetLet(node.Name.Value, val)
+			}
 		}
 		return val
 
@@ -4112,18 +4146,22 @@ func Eval(node ast.Node, env *Environment) Object {
 
 		// Handle dictionary destructuring
 		if node.DictPattern != nil {
-			return evalDictDestructuringAssignment(node.DictPattern, val, env, false)
+			return evalDictDestructuringAssignment(node.DictPattern, val, env, false, node.Export)
 		}
 
 		// Handle array destructuring assignment
 		if len(node.Names) > 0 {
-			return evalDestructuringAssignment(node.Names, val, env, false)
+			return evalDestructuringAssignment(node.Names, val, env, false, node.Export)
 		}
 
 		// Single assignment
 		// Special handling for '_' - don't store it
 		if node.Name.Value != "_" {
-			env.Update(node.Name.Value, val)
+			if node.Export {
+				env.SetExport(node.Name.Value, val)
+			} else {
+				env.Update(node.Name.Value, val)
+			}
 		}
 		return val
 
@@ -5336,8 +5374,8 @@ func extendFunctionEnv(fn *Function, args []Object) *Environment {
 
 			// Handle different parameter types
 			if param.DictPattern != nil {
-				// Dictionary destructuring
-				evalDictDestructuringAssignment(param.DictPattern, arg, env, true)
+				// Dictionary destructuring (in function params, never exported)
+				evalDictDestructuringAssignment(param.DictPattern, arg, env, true, false)
 			} else if len(param.ArrayPattern) > 0 {
 				// Array destructuring
 				evalArrayDestructuringForParam(param.ArrayPattern, arg, env)
@@ -5599,7 +5637,7 @@ func isError(obj Object) bool {
 }
 
 // evalDestructuringAssignment handles array destructuring assignment
-func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Environment, isLet bool) Object {
+func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Environment, isLet bool, export bool) Object {
 	// Convert value to array if it isn't already
 	var elements []Object
 
@@ -5616,7 +5654,11 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		if i < len(elements) {
 			// Direct assignment for elements within bounds
 			if name.Value != "_" {
-				if isLet {
+				if export && isLet {
+					env.SetLetExport(name.Value, elements[i])
+				} else if export {
+					env.SetExport(name.Value, elements[i])
+				} else if isLet {
 					env.SetLet(name.Value, elements[i])
 				} else {
 					env.Update(name.Value, elements[i])
@@ -5625,7 +5667,11 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		} else {
 			// No more elements, assign null
 			if name.Value != "_" {
-				if isLet {
+				if export && isLet {
+					env.SetLetExport(name.Value, NULL)
+				} else if export {
+					env.SetExport(name.Value, NULL)
+				} else if isLet {
 					env.SetLet(name.Value, NULL)
 				} else {
 					env.Update(name.Value, NULL)
@@ -5641,7 +5687,11 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 		if lastName.Value != "_" {
 			// Replace the last assignment with an array of remaining elements
 			remaining := &Array{Elements: elements[lastIdx:]}
-			if isLet {
+			if export && isLet {
+				env.SetLetExport(lastName.Value, remaining)
+			} else if export {
+				env.SetExport(lastName.Value, remaining)
+			} else if isLet {
 				env.SetLet(lastName.Value, remaining)
 			} else {
 				env.Update(lastName.Value, remaining)
@@ -5654,7 +5704,7 @@ func evalDestructuringAssignment(names []*ast.Identifier, val Object, env *Envir
 }
 
 // evalDictDestructuringAssignment evaluates dictionary destructuring patterns
-func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool) Object {
+func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val Object, env *Environment, isLet bool, export bool) Object {
 	// Type check: value must be a dictionary
 	dict, ok := val.(*Dictionary)
 	if !ok {
@@ -5685,7 +5735,7 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 		// Handle nested destructuring
 		if keyPattern.Nested != nil {
 			if nestedPattern, ok := keyPattern.Nested.(*ast.DictDestructuringPattern); ok {
-				result := evalDictDestructuringAssignment(nestedPattern, value, env, isLet)
+				result := evalDictDestructuringAssignment(nestedPattern, value, env, isLet, export)
 				if isError(result) {
 					return result
 				}
@@ -5701,7 +5751,11 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 
 			// Assign to environment
 			if targetName != "_" {
-				if isLet {
+				if export && isLet {
+					env.SetLetExport(targetName, value)
+				} else if export {
+					env.SetExport(targetName, value)
+				} else if isLet {
 					env.Set(targetName, value)
 				} else {
 					env.Update(targetName, value)
@@ -5721,7 +5775,11 @@ func evalDictDestructuringAssignment(pattern *ast.DictDestructuringPattern, val 
 
 		restDict := &Dictionary{Pairs: restPairs, Env: dict.Env}
 		if pattern.Rest.Value != "_" {
-			if isLet {
+			if export && isLet {
+				env.SetLetExport(pattern.Rest.Value, restDict)
+			} else if export {
+				env.SetExport(pattern.Rest.Value, restDict)
+			} else if isLet {
 				env.SetLet(pattern.Rest.Value, restDict)
 			} else {
 				env.Update(pattern.Rest.Value, restDict)
@@ -6880,7 +6938,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		if useErrorCapture {
 			// Wrap the error in {data: null, error: "message"} format
 			return evalDictDestructuringAssignment(node.DictPattern,
-				makeDataErrorDict(NULL, source.(*Error).Message, env), env, node.IsLet)
+				makeDataErrorDict(NULL, source.(*Error).Message, env), env, node.IsLet, false)
 		}
 		return source
 	}
@@ -6891,7 +6949,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		errMsg := fmt.Sprintf("read operator <== requires a file or directory handle, got %s", source.Type())
 		if useErrorCapture {
 			return evalDictDestructuringAssignment(node.DictPattern,
-				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet)
+				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 		}
 		return newError(errMsg)
 	}
@@ -6906,7 +6964,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 			errMsg := "directory handle has no valid path"
 			if useErrorCapture {
 				return evalDictDestructuringAssignment(node.DictPattern,
-					makeDataErrorDict(NULL, errMsg, env), env, node.IsLet)
+					makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 			}
 			return newError(errMsg)
 		}
@@ -6914,7 +6972,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		if isError(content) {
 			if useErrorCapture {
 				return evalDictDestructuringAssignment(node.DictPattern,
-					makeDataErrorDict(NULL, content.(*Error).Message, env), env, node.IsLet)
+					makeDataErrorDict(NULL, content.(*Error).Message, env), env, node.IsLet, false)
 			}
 			return content
 		}
@@ -6924,7 +6982,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		if readErr != nil {
 			if useErrorCapture {
 				return evalDictDestructuringAssignment(node.DictPattern,
-					makeDataErrorDict(NULL, readErr.Message, env), env, node.IsLet)
+					makeDataErrorDict(NULL, readErr.Message, env), env, node.IsLet, false)
 			}
 			return readErr
 		}
@@ -6932,7 +6990,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		errMsg := "read operator <== requires a file or directory handle, got dictionary"
 		if useErrorCapture {
 			return evalDictDestructuringAssignment(node.DictPattern,
-				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet)
+				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 		}
 		return newError(errMsg)
 	}
@@ -6942,14 +7000,14 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 		if useErrorCapture {
 			// Wrap successful result in {data: ..., error: null} format
 			return evalDictDestructuringAssignment(node.DictPattern,
-				makeDataErrorDict(content, "", env), env, node.IsLet)
+				makeDataErrorDict(content, "", env), env, node.IsLet, false)
 		}
 		// Normal dict destructuring - extract keys directly from content
-		return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet)
+		return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet, false)
 	}
 
 	if len(node.Names) > 0 {
-		return evalDestructuringAssignment(node.Names, content, env, node.IsLet)
+		return evalDestructuringAssignment(node.Names, content, env, node.IsLet, false)
 	}
 
 	// Single assignment
@@ -7457,13 +7515,13 @@ func evalDictionaryIndexExpression(dict, index Object) Object {
 }
 
 // environmentToDict converts an environment's store to a Dictionary object
-// Only includes variables that were declared with 'let'
+// Only includes variables that are exported (either via explicit 'export' or 'let' for backward compat)
 func environmentToDict(env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
 
-	// Only export variables that were declared with 'let'
+	// Only export variables that are explicitly exported or declared with 'let'
 	for name, value := range env.store {
-		if env.IsLetBinding(name) {
+		if env.IsExported(name) {
 			// Wrap the object as a literal expression
 			pairs[name] = objectToExpression(value)
 		}

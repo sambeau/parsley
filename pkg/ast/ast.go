@@ -54,6 +54,7 @@ type LetStatement struct {
 	Names       []*Identifier             // multiple names for array destructuring
 	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
 	Value       Expression
+	Export      bool // true if 'export' keyword was used
 }
 
 func (ls *LetStatement) statementNode()       {}
@@ -61,6 +62,9 @@ func (ls *LetStatement) TokenLiteral() string { return ls.Token.Literal }
 func (ls *LetStatement) String() string {
 	var out bytes.Buffer
 
+	if ls.Export {
+		out.WriteString("export ")
+	}
 	out.WriteString(ls.TokenLiteral() + " ")
 	if ls.DictPattern != nil {
 		out.WriteString(ls.DictPattern.String())
@@ -91,6 +95,7 @@ type AssignmentStatement struct {
 	Names       []*Identifier             // multiple names for array destructuring
 	DictPattern *DictDestructuringPattern // pattern for dictionary destructuring
 	Value       Expression
+	Export      bool // true if 'export' keyword was used
 }
 
 func (as *AssignmentStatement) statementNode()       {}
@@ -98,6 +103,9 @@ func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
 func (as *AssignmentStatement) String() string {
 	var out bytes.Buffer
 
+	if as.Export {
+		out.WriteString("export ")
+	}
 	if as.DictPattern != nil {
 		out.WriteString(as.DictPattern.String())
 	} else if len(as.Names) > 0 {

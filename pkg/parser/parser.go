@@ -174,8 +174,10 @@ func (p *Parser) ParseProgram() *ast.Program {
 // parseStatement parses statements
 func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
+	case lexer.EXPORT:
+		return p.parseExportStatement()
 	case lexer.LET:
-		return p.parseLetStatement()
+		return p.parseLetStatement(false)
 	case lexer.RETURN:
 		return p.parseReturnStatement()
 	case lexer.DELETE:
@@ -205,7 +207,7 @@ func (p *Parser) parseStatement() ast.Statement {
 	case lexer.IDENT:
 		// Check if this is an assignment statement (= or <==)
 		if p.peekTokenIs(lexer.ASSIGN) || p.peekTokenIs(lexer.READ_FROM) {
-			return p.parseAssignmentStatement()
+			return p.parseAssignmentStatement(false)
 		}
 		// Check for potential destructuring: IDENT followed by COMMA
 		// We need to peek further to determine if this is `x,y = ...` or just `x,y` expression
@@ -218,7 +220,7 @@ func (p *Parser) parseStatement() ast.Statement {
 			savedErrors := len(p.errors)
 			savedLexerState := p.l.SaveState()
 
-			stmt := p.parseAssignmentStatement()
+			stmt := p.parseAssignmentStatement(false)
 
 			// If parsing failed (no = found), restore and parse as expression
 			if stmt == nil || len(p.errors) > savedErrors {
@@ -238,8 +240,56 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 }
 
+// parseExportStatement parses export statements like 'export let x = 5' or 'export x = 5'
+func (p *Parser) parseExportStatement() ast.Statement {
+	// Move past 'export'
+	p.nextToken()
+
+	// Check if next is 'let' or an identifier
+	if p.curTokenIs(lexer.LET) {
+		return p.parseLetStatement(true)
+	}
+
+	// Handle 'export x = 5' (assignment without let)
+	if p.curTokenIs(lexer.IDENT) {
+		return p.parseAssignmentStatement(true)
+	}
+
+	// Handle 'export {a, b} = ...' (dict destructuring)
+	if p.curTokenIs(lexer.LBRACE) {
+		// Save state for backtracking
+		savedCur := p.curToken
+		savedPeek := p.peekToken
+		savedPrev := p.prevToken
+		savedErrors := len(p.errors)
+		savedLexerState := p.l.SaveState()
+
+		stmt := p.parseDictDestructuringAssignment()
+
+		// If parsing failed, restore and report error
+		if stmt == nil || len(p.errors) > savedErrors {
+			p.curToken = savedCur
+			p.peekToken = savedPeek
+			p.prevToken = savedPrev
+			p.errors = p.errors[:savedErrors]
+			p.l.RestoreState(savedLexerState)
+			p.peekError(lexer.LET)
+			return nil
+		}
+
+		// Mark as export
+		if assignStmt, ok := stmt.(*ast.AssignmentStatement); ok {
+			assignStmt.Export = true
+		}
+		return stmt
+	}
+
+	p.peekError(lexer.LET)
+	return nil
+}
+
 // parseLetStatement parses let statements
-func (p *Parser) parseLetStatement() ast.Statement {
+func (p *Parser) parseLetStatement(export bool) ast.Statement {
 	letToken := p.curToken
 
 	// Check for dictionary destructuring pattern
@@ -270,7 +320,7 @@ func (p *Parser) parseLetStatement() ast.Statement {
 			return nil
 		}
 
-		stmt := &ast.LetStatement{Token: letToken}
+		stmt := &ast.LetStatement{Token: letToken, Export: export}
 		stmt.DictPattern = dictPattern
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
@@ -321,7 +371,7 @@ func (p *Parser) parseLetStatement() ast.Statement {
 	}
 
 	// Regular let statement
-	stmt := &ast.LetStatement{Token: letToken}
+	stmt := &ast.LetStatement{Token: letToken, Export: export}
 	if len(names) == 1 {
 		stmt.Name = names[0]
 	} else {
@@ -344,7 +394,7 @@ func (p *Parser) parseLetStatement() ast.Statement {
 }
 
 // parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;' or 'x <== file(...)'
-func (p *Parser) parseAssignmentStatement() ast.Statement {
+func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 	firstToken := p.curToken
 
 	// Collect identifiers (for destructuring)
@@ -382,7 +432,7 @@ func (p *Parser) parseAssignmentStatement() ast.Statement {
 	}
 
 	// Regular assignment
-	stmt := &ast.AssignmentStatement{Token: firstToken}
+	stmt := &ast.AssignmentStatement{Token: firstToken, Export: export}
 	if len(names) == 1 {
 		stmt.Name = names[0]
 	} else {
