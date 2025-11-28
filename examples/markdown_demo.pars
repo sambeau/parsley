@@ -1,0 +1,33 @@
+// Markdown loading demonstration
+// Load a markdown file with frontmatter and use it in a template
+
+let post <== MD(@./blog_post.md)
+
+// Create a blog post template
+let BlogPost = fn({title, author, date, tags, html}) {
+    <article class="blog-post">
+        <header>
+            <h1>{title}</h1>
+            <p class="meta">
+                By {author} on {date}
+            </p>
+            <div class="tags">
+                {for (tag in tags) {
+                    <span class="tag">{tag}</span>
+                }}
+            </div>
+        </header>
+        <div class="content">
+            {html}
+        </div>
+    </article>
+}
+
+// Render the blog post
+<BlogPost 
+    title={post.title}
+    author={post.author}
+    date={post.date}
+    tags={post.tags}
+    html={post.html}
+/>

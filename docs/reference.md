@@ -354,6 +354,7 @@ u.query.page   // "2"
 | `file(path)` | Auto-detect | Depends on ext | String |
 | `JSON(path)` | JSON | Dict or Array | Dict or Array |
 | `CSV(path)` | CSV | Array of Dicts | Array of Dicts |
+| `MD(path)` | Markdown | Dict (html + frontmatter) | String |
 | `SVG(path)` | SVG | String (prolog stripped) | String |
 | `lines(path)` | Lines | Array of Strings | Array of Strings |
 | `text(path)` | Text | String | String |
@@ -380,6 +381,14 @@ let content <== text(@./readme.txt)
 // Load SVG icons as reusable components
 let Arrow <== SVG(@./icons/arrow.svg)
 <button><Arrow/> Next</button>
+
+// Load markdown with YAML frontmatter
+let post <== MD(@./blog.md)
+post.title       // From frontmatter
+post.date        // Parsed as DateTime if ISO format
+post.tags        // Array from frontmatter
+post.html        // Rendered HTML
+post.raw         // Original markdown body
 
 // Destructure from file
 let {name, version} <== JSON(@./package.json)

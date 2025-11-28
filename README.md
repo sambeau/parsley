@@ -264,6 +264,14 @@ let content <== text(@./readme.md)      // Returns string
 let Arrow <== SVG(@./icons/arrow.svg)   // Returns cleaned SVG string
 <button><Arrow/> Next</button>          // Use as component
 
+// Load markdown with frontmatter
+let post <== MD(@./blog.md)             // Returns dict with html + metadata
+<article>
+  <h1>{post.title}</h1>
+  <time>{post.date}</time>
+  {post.html}
+</article>
+
 // Destructure from file
 let {name, version} <== JSON(@./package.json)
 

@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 	"github.com/sambeau/parsley/pkg/lexer"
 	"github.com/sambeau/parsley/pkg/locale"
 	"github.com/sambeau/parsley/pkg/parser"
+	"github.com/yuin/goldmark"
+	"gopkg.in/yaml.v3"
 
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
@@ -3098,6 +3101,41 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return fileToDict(pathDict, "svg", options, env)
+			},
+		},
+		// Markdown file format - reads MD files with frontmatter support
+		"MD": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `MD`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `MD` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `MD` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "markdown", options, env)
 			},
 		},
 		// Directory handle factory
@@ -7175,6 +7213,11 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		content := string(data)
 		return &String{Value: stripXMLProlog(content)}, nil
 
+	case "markdown":
+		// Parse markdown with optional YAML frontmatter
+		content := string(data)
+		return parseMarkdown(content, env)
+
 	default:
 		return nil, newError("unsupported file format: %s", formatStr.Value)
 	}
@@ -7187,6 +7230,95 @@ func parseJSON(content string) (Object, *Error) {
 		return nil, newError("failed to parse JSON: %s", err.Error())
 	}
 	return jsonToObject(data), nil
+}
+
+// parseMarkdown parses markdown content with optional YAML frontmatter
+// Returns a dictionary with: html, raw, and any frontmatter fields
+func parseMarkdown(content string, env *Environment) (Object, *Error) {
+	pairs := make(map[string]ast.Expression)
+
+	// Check for YAML frontmatter (starts with ---)
+	body := content
+	if strings.HasPrefix(strings.TrimSpace(content), "---") {
+		// Find the closing ---
+		trimmed := strings.TrimSpace(content)
+		rest := trimmed[3:] // Skip opening ---
+
+		endIndex := strings.Index(rest, "\n---")
+		if endIndex != -1 {
+			// Extract frontmatter YAML
+			frontmatterYAML := rest[:endIndex]
+			body = strings.TrimSpace(rest[endIndex+4:]) // Skip closing ---\n
+
+			// Parse YAML frontmatter
+			var frontmatter map[string]interface{}
+			if err := yaml.Unmarshal([]byte(frontmatterYAML), &frontmatter); err != nil {
+				return nil, newError("failed to parse frontmatter: %s", err.Error())
+			}
+
+			// Add frontmatter fields to result
+			for key, value := range frontmatter {
+				obj := yamlToObject(value)
+				pairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+			}
+		}
+	}
+
+	// Convert markdown to HTML using goldmark
+	var htmlBuf bytes.Buffer
+	md := goldmark.New()
+	if err := md.Convert([]byte(body), &htmlBuf); err != nil {
+		return nil, newError("failed to convert markdown: %s", err.Error())
+	}
+
+	// Add html and raw fields
+	pairs["html"] = &ast.ObjectLiteralExpression{Obj: &String{Value: htmlBuf.String()}}
+	pairs["raw"] = &ast.ObjectLiteralExpression{Obj: &String{Value: body}}
+
+	return &Dictionary{Pairs: pairs, Env: env}, nil
+}
+
+// yamlToObject converts a YAML value to a Parsley Object
+func yamlToObject(value interface{}) Object {
+	switch v := value.(type) {
+	case nil:
+		return NULL
+	case bool:
+		return nativeBoolToParsBoolean(v)
+	case int:
+		return &Integer{Value: int64(v)}
+	case int64:
+		return &Integer{Value: v}
+	case float64:
+		if v == float64(int64(v)) {
+			return &Integer{Value: int64(v)}
+		}
+		return &Float{Value: v}
+	case string:
+		// Try to parse as date if it looks like ISO format
+		if len(v) >= 10 && v[4] == '-' && v[7] == '-' {
+			if t, err := time.Parse("2006-01-02", v[:10]); err == nil {
+				return timeToDatetimeDict(t, NewEnvironment())
+			}
+		}
+		return &String{Value: v}
+	case []interface{}:
+		elements := make([]Object, len(v))
+		for i, elem := range v {
+			elements[i] = yamlToObject(elem)
+		}
+		return &Array{Elements: elements}
+	case map[string]interface{}:
+		pairs := make(map[string]ast.Expression)
+		for key, val := range v {
+			obj := yamlToObject(val)
+			pairs[key] = &ast.ObjectLiteralExpression{Obj: obj}
+		}
+		return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+	default:
+		// Handle other YAML types (like timestamps)
+		return &String{Value: fmt.Sprintf("%v", v)}
+	}
 }
 
 // jsonToObject converts a Go interface{} (from JSON) to a Parsley Object
