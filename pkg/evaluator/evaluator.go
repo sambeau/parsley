@@ -3065,6 +3065,41 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, "bytes", options, env)
 			},
 		},
+		// SVG file format - reads SVG files and strips XML prolog for use as components
+		"SVG": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `SVG`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `SVG` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `SVG` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "svg", options, env)
+			},
+		},
 		// Directory handle factory
 		"dir": {
 			Fn: func(args ...Object) Object {
@@ -5934,10 +5969,16 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 // evalCustomTagPair evaluates a custom (uppercase) tag pair as a function call
 func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
-	// Look up the component function
-	fn, ok := env.Get(node.Name)
+	// Look up the component variable/function
+	val, ok := env.Get(node.Name)
 	if !ok {
 		return newError("undefined component: %s", node.Name)
+	}
+
+	// If the value is a String (e.g., loaded SVG), return it directly
+	// Note: For tag pairs like <Arrow>...</Arrow>, the contents are ignored for string values
+	if str, isString := val.(*String); isString {
+		return str
 	}
 
 	// Parse props into a dictionary and add contents
@@ -5972,7 +6013,7 @@ func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
 	}
 
 	// Call the function with the props dictionary
-	return applyFunction(fn, []Object{dict})
+	return applyFunction(val, []Object{dict})
 }
 
 // evalTagContents evaluates tag contents and returns as a concatenated string
@@ -6238,14 +6279,19 @@ func evalStandardTag(tagName string, propsStr string, env *Environment) Object {
 
 // evalCustomTag evaluates a custom (uppercase) tag as a function call
 func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
-	// Look up the function
-	fn, ok := env.Get(tagName)
+	// Look up the variable/function
+	val, ok := env.Get(tagName)
 	if !ok {
 		if builtin, ok := getBuiltins()[tagName]; ok {
-			fn = builtin
+			val = builtin
 		} else {
 			return newError("function not found: %s", tagName)
 		}
+	}
+
+	// If the value is a String (e.g., loaded SVG), return it directly
+	if str, isString := val.(*String); isString {
+		return str
 	}
 
 	// Parse props into a dictionary
@@ -6255,7 +6301,7 @@ func evalCustomTag(tagName string, propsStr string, env *Environment) Object {
 	}
 
 	// Call the function with the props dictionary
-	return applyFunction(fn, []Object{props})
+	return applyFunction(val, []Object{props})
 }
 
 // parseTagProps parses tag properties into a dictionary
@@ -6951,7 +6997,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 		}
-		return newError(errMsg)
+		return newError("read operator <== requires a file or directory handle, got %s", source.Type())
 	}
 
 	var content Object
@@ -6966,7 +7012,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 				return evalDictDestructuringAssignment(node.DictPattern,
 					makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 			}
-			return newError(errMsg)
+			return newError("directory handle has no valid path")
 		}
 		content = readDirContents(pathStr, env)
 		if isError(content) {
@@ -6992,7 +7038,7 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 			return evalDictDestructuringAssignment(node.DictPattern,
 				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet, false)
 		}
-		return newError(errMsg)
+		return newError("read operator <== requires a file or directory handle, got dictionary")
 	}
 
 	// Assign to the target variable(s)
@@ -7061,6 +7107,13 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		return nil, newError("file handle has no valid path")
 	}
 
+	// Resolve the path relative to the current file
+	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+	if pathErr != nil {
+		return nil, newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+	}
+	pathStr = absPath
+
 	// Get the format
 	formatExpr, hasFormat := fileDict.Pairs["format"]
 	if !hasFormat {
@@ -7117,6 +7170,11 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		// Parse CSV without header
 		return parseCSV(data, false)
 
+	case "svg":
+		// Return SVG content with XML prolog stripped
+		content := string(data)
+		return &String{Value: stripXMLProlog(content)}, nil
+
 	default:
 		return nil, newError("unsupported file format: %s", formatStr.Value)
 	}
@@ -7162,6 +7220,52 @@ func jsonToObject(data interface{}) Object {
 	default:
 		return NULL
 	}
+}
+
+// stripXMLProlog removes XML prolog (<?xml ...?>) and DOCTYPE declarations from SVG content
+func stripXMLProlog(content string) string {
+	result := content
+
+	// Strip XML prolog: <?xml version="1.0" ...?>
+	for {
+		start := strings.Index(result, "<?")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(result[start:], "?>")
+		if end == -1 {
+			break
+		}
+		// Remove the prolog and any following whitespace
+		endPos := start + end + 2
+		for endPos < len(result) && (result[endPos] == ' ' || result[endPos] == '\t' || result[endPos] == '\n' || result[endPos] == '\r') {
+			endPos++
+		}
+		result = result[:start] + result[endPos:]
+	}
+
+	// Strip DOCTYPE: <!DOCTYPE ...>
+	for {
+		// Case insensitive search for DOCTYPE
+		lower := strings.ToLower(result)
+		start := strings.Index(lower, "<!doctype")
+		if start == -1 {
+			break
+		}
+		// Find the closing >
+		end := strings.Index(result[start:], ">")
+		if end == -1 {
+			break
+		}
+		// Remove the DOCTYPE and any following whitespace
+		endPos := start + end + 1
+		for endPos < len(result) && (result[endPos] == ' ' || result[endPos] == '\t' || result[endPos] == '\n' || result[endPos] == '\r') {
+			endPos++
+		}
+		result = result[:start] + result[endPos:]
+	}
+
+	return strings.TrimSpace(result)
 }
 
 // parseCSV parses CSV data into an array of dictionaries (if header) or array of arrays
@@ -7242,6 +7346,13 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 		return newError("file handle has no valid path")
 	}
 
+	// Resolve the path relative to the current file
+	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+	if pathErr != nil {
+		return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+	}
+	pathStr = absPath
+
 	// Get the format
 	formatExpr, hasFormat := fileDict.Pairs["format"]
 	if !hasFormat {
@@ -7275,6 +7386,9 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 
 	case "csv", "csv-noheader":
 		data, encodeErr = encodeCSV(value, formatStr.Value == "csv")
+
+	case "svg":
+		data, encodeErr = encodeSVG(value)
 
 	default:
 		return newError("unsupported file format for writing: %s", formatStr.Value)
@@ -7406,6 +7520,17 @@ func objectToGo(obj Object) interface{} {
 		return result
 	default:
 		return obj.Inspect()
+	}
+}
+
+// encodeSVG encodes a value as SVG (text format, for writing)
+func encodeSVG(value Object) ([]byte, error) {
+	switch v := value.(type) {
+	case *String:
+		return []byte(v.Value), nil
+	default:
+		// Convert to string representation
+		return []byte(value.Inspect()), nil
 	}
 }
 

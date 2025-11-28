@@ -260,6 +260,10 @@ let config <== JSON(@./config.json)     // Returns dict
 let users <== CSV(@./users.csv)         // Returns array of dicts
 let content <== text(@./readme.md)      // Returns string
 
+// Load SVG icons as components
+let Arrow <== SVG(@./icons/arrow.svg)   // Returns cleaned SVG string
+<button><Arrow/> Next</button>          // Use as component
+
 // Destructure from file
 let {name, version} <== JSON(@./package.json)
 
@@ -282,6 +286,7 @@ let config <== JSON(@./config.json) ?? {theme: "light"}
 userData ==> JSON(@./output.json)
 records ==> CSV(@./export.csv)
 "Hello" ==> text(@./greeting.txt)
+"<svg>...</svg>" ==> SVG(@./icon.svg)
 
 // Append
 logEntry ==>> lines(@./app.log)

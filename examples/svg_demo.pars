@@ -1,0 +1,16 @@
+// SVG loading demonstration
+// Load SVG files and use them as reusable components
+
+// Load an SVG file - XML prolog and DOCTYPE are automatically stripped
+let Arrow <== SVG(@./icons/arrow.svg)
+
+// Use the SVG as a custom component - just reference it like any component
+<div class="icon-container">
+  <Arrow/>
+</div>
+
+// You can use it multiple times
+<nav class="toolbar">
+  <button><Arrow/> Previous</button>
+  <button>Next <Arrow/></button>
+</nav>

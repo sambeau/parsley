@@ -354,6 +354,7 @@ u.query.page   // "2"
 | `file(path)` | Auto-detect | Depends on ext | String |
 | `JSON(path)` | JSON | Dict or Array | Dict or Array |
 | `CSV(path)` | CSV | Array of Dicts | Array of Dicts |
+| `SVG(path)` | SVG | String (prolog stripped) | String |
 | `lines(path)` | Lines | Array of Strings | Array of Strings |
 | `text(path)` | Text | String | String |
 | `bytes(path)` | Binary | Byte Array | Byte Array |
@@ -376,6 +377,10 @@ let config <== JSON(@./config.json)
 let rows <== CSV(@./data.csv)
 let content <== text(@./readme.txt)
 
+// Load SVG icons as reusable components
+let Arrow <== SVG(@./icons/arrow.svg)
+<button><Arrow/> Next</button>
+
 // Destructure from file
 let {name, version} <== JSON(@./package.json)
 
@@ -394,6 +399,7 @@ let config <== JSON(@./config.json) ?? {defaults: true}
 myDict ==> JSON(@./output.json)
 records ==> CSV(@./export.csv)
 "Hello" ==> text(@./greeting.txt)
+"<svg>...</svg>" ==> SVG(@./icon.svg)
 ```
 
 ### Appending (`==>>`)
