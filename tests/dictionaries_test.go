@@ -290,3 +290,52 @@ func TestDictDestructuringComplexExamples(t *testing.T) {
 		})
 	}
 }
+
+// TestDictionaryMethodsWithThis tests that user-defined methods can use 'this'
+func TestDictionaryMethodsWithThis(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "basic this binding",
+			input:    `let user = {name: "Sam", greet: fn() { "Hi, " + this.name }}; user.greet()`,
+			expected: `Hi, Sam`,
+		},
+		{
+			name:     "this with numeric property",
+			input:    `let calc = {value: 10, double: fn() { this.value * 2 }}; calc.double()`,
+			expected: "20",
+		},
+		{
+			name:     "method with arguments",
+			input:    `let calc = {value: 10, add: fn(x) { this.value + x }}; calc.add(5)`,
+			expected: "15",
+		},
+		{
+			name:     "multiple this references",
+			input:    `let p = {first: "John", last: "Doe", full: fn() { this.first + " " + this.last }}; p.full()`,
+			expected: `John Doe`,
+		},
+		{
+			name:     "nested method call",
+			input:    `let p = {name: "Bob", greet: fn() { "Hi " + this.name }, hello: fn() { this.greet() + "!" }}; p.hello()`,
+			expected: `Hi Bob!`,
+		},
+		{
+			name:     "built-in methods still work with user method",
+			input:    `let d = {a: 1, b: 2, getA: fn() { this.a }}; d.has("a")`,
+			expected: `true`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalInput(tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

@@ -400,7 +400,8 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		return nativeBoolToParsBoolean(exists)
 
 	default:
-		return newError("unknown method '%s' for DICTIONARY", method)
+		// Return nil for unknown methods to allow user-defined methods to be checked
+		return nil
 	}
 }
 

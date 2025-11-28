@@ -4356,10 +4356,22 @@ func Eval(node ast.Node, env *Environment) Object {
 						return result
 					}
 				}
-				// Regular dictionary methods
+				// Regular dictionary methods (keys, values, has)
 				result := evalDictionaryMethod(receiver, method, args, env)
 				if result != nil {
 					return result
+				}
+				// Check if the dictionary has a user-defined function at this key
+				if fnExpr, ok := receiver.Pairs[method]; ok {
+					fnObj := Eval(fnExpr, receiver.Env)
+					if fn, ok := fnObj.(*Function); ok {
+						// Call the function with 'this' bound to the dictionary
+						return applyMethodWithThis(fn, args, receiver)
+					}
+					// If it's not a function, return error
+					if !isError(fnObj) {
+						return newError("'%s' is not a function", method)
+					}
 				}
 				// Fall through to normal property/function evaluation
 			}
@@ -5157,6 +5169,16 @@ func applyFunction(fn Object, args []Object) Object {
 	default:
 		return newError("not a function: %T", fn)
 	}
+}
+
+// applyMethodWithThis calls a function with 'this' bound to a dictionary.
+// This enables object-oriented style method calls like user.greet() where
+// the function can access the dictionary via 'this'.
+func applyMethodWithThis(fn *Function, args []Object, thisObj *Dictionary) Object {
+	extendedEnv := extendFunctionEnv(fn, args)
+	extendedEnv.Set("this", thisObj)
+	evaluated := Eval(fn.Body, extendedEnv)
+	return unwrapReturnValue(evaluated)
 }
 
 func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {

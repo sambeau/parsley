@@ -147,14 +147,15 @@ nums.filter(fn(x) { x > 1 })  // [2, 3]
 let user = {
     name: "Sam",
     age: 57,
-    city: "London"
+    greet: fn() { "Hi, " + this.name }
 }
 
 user.name                     // "Sam"
 user["age"]                   // 57
+user.greet()                  // "Hi, Sam"
 
-user.keys()                   // ["name", "age", "city"]
-user.values()                 // ["Sam", 57, "London"]
+user.keys()                   // ["name", "age", "greet"]
+user.values()                 // ["Sam", 57, fn]
 user.has("name")              // true
 
 {a: 1} ++ {b: 2}              // {a: 1, b: 2}
