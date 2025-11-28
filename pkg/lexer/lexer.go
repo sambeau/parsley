@@ -1428,54 +1428,94 @@ func (l *Lexer) readRegex() (string, string) {
 
 // readDatetimeLiteral reads a datetime literal after @
 // Supports formats: @2024-12-25, @2024-12-25T14:30:00, @2024-12-25T14:30:00Z, @2024-12-25T14:30:00-05:00
+// Also supports time-only: @12:30, @12:30:00, @9:30
 func (l *Lexer) readDatetimeLiteral() string {
 	var datetime []byte
 	l.readChar() // skip @
 
-	// Read date part: YYYY-MM-DD
-	for isDigit(l.ch) || l.ch == '-' {
+	// Check if this is a time-only literal (starts with 1-2 digits then ':')
+	// vs a date literal (starts with 4 digits then '-')
+	isTimeOnly := false
+	startPos := l.position
+
+	// Count initial digits to determine if time-only
+	digitCount := 0
+	for isDigit(l.ch) {
+		digitCount++
 		datetime = append(datetime, l.ch)
 		l.readChar()
 	}
 
-	// Check for time part: T14:30:00
-	if l.ch == 'T' {
+	if digitCount <= 2 && l.ch == ':' {
+		// Time-only literal: HH:MM or HH:MM:SS
+		isTimeOnly = true
 		datetime = append(datetime, l.ch)
 		l.readChar()
-		// Read time: HH:MM:SS
-		for isDigit(l.ch) || l.ch == ':' {
-			datetime = append(datetime, l.ch)
-			l.readChar()
-		}
-	}
-
-	// Check for fractional seconds (.123)
-	if l.ch == '.' && isDigit(l.peekChar()) {
-		datetime = append(datetime, l.ch)
-		l.readChar()
-		// Read the fractional part
+		// Read minutes
 		for isDigit(l.ch) {
 			datetime = append(datetime, l.ch)
 			l.readChar()
 		}
-	}
-
-	// Check for timezone: Z or +05:00 or -05:00
-	if l.ch == 'Z' {
-		datetime = append(datetime, l.ch)
-		l.readChar()
-	} else if l.ch == '+' || l.ch == '-' {
-		// Only consume if followed by digit (timezone offset)
-		if isDigit(l.peekChar()) {
+		// Check for seconds: :SS
+		if l.ch == ':' {
 			datetime = append(datetime, l.ch)
 			l.readChar()
-			// Read timezone offset
+			for isDigit(l.ch) {
+				datetime = append(datetime, l.ch)
+				l.readChar()
+			}
+		}
+	} else if digitCount == 4 && l.ch == '-' {
+		// Date literal: YYYY-MM-DD potentially with time
+		// Continue reading date part
+		for l.ch == '-' || isDigit(l.ch) {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+		}
+
+		// Check for time part: T14:30:00
+		if l.ch == 'T' {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+			// Read time: HH:MM:SS
 			for isDigit(l.ch) || l.ch == ':' {
 				datetime = append(datetime, l.ch)
 				l.readChar()
 			}
 		}
+
+		// Check for fractional seconds (.123)
+		if l.ch == '.' && isDigit(l.peekChar()) {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+			// Read the fractional part
+			for isDigit(l.ch) {
+				datetime = append(datetime, l.ch)
+				l.readChar()
+			}
+		}
+
+		// Check for timezone: Z or +05:00 or -05:00
+		if l.ch == 'Z' {
+			datetime = append(datetime, l.ch)
+			l.readChar()
+		} else if l.ch == '+' || l.ch == '-' {
+			// Only consume if followed by digit (timezone offset)
+			if isDigit(l.peekChar()) {
+				datetime = append(datetime, l.ch)
+				l.readChar()
+				// Read timezone offset
+				for isDigit(l.ch) || l.ch == ':' {
+					datetime = append(datetime, l.ch)
+					l.readChar()
+				}
+			}
+		}
 	}
+
+	// Avoid unused variable warning
+	_ = isTimeOnly
+	_ = startPos
 
 	// Back up one char since we consumed one too many
 	l.position = l.readPosition - 1
@@ -1628,6 +1668,12 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 	}
 
 	if digitCount == 4 && checkPos < len(l.input) && l.input[checkPos] == '-' {
+		return DATETIME_LITERAL
+	}
+
+	// Check for time-only literal: 1-2 digits followed by ':'
+	// e.g., @12:30, @9:30, @12:30:00
+	if (digitCount == 1 || digitCount == 2) && checkPos < len(l.input) && l.input[checkPos] == ':' {
 		return DATETIME_LITERAL
 	}
 

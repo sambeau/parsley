@@ -246,9 +246,11 @@ func (rl *RegexLiteral) String() string {
 }
 
 // DatetimeLiteral represents datetime literals like @2024-12-25T14:30:00Z
+// Kind indicates how the literal was specified: "datetime", "date", or "time"
 type DatetimeLiteral struct {
 	Token lexer.Token // the lexer.DATETIME_LITERAL token
 	Value string      // the ISO-8601 datetime string
+	Kind  string      // "datetime", "date", or "time"
 }
 
 func (dl *DatetimeLiteral) expressionNode()      {}

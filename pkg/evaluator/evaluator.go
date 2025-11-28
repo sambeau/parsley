@@ -469,14 +469,20 @@ func objectsEqual(a, b Object) bool {
 	}
 }
 
-// timeToDict converts a Go time.Time to a Parsley Dictionary
-func timeToDict(t time.Time, env *Environment) *Dictionary {
+// timeToDictWithKind converts a Go time.Time to a Parsley Dictionary with a specified kind
+func timeToDictWithKind(t time.Time, kind string, env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
 
 	// Mark this as a datetime dictionary for special operator handling
 	pairs["__type"] = &ast.StringLiteral{
 		Token: lexer.Token{Type: lexer.STRING, Literal: "datetime"},
 		Value: "datetime",
+	}
+
+	// Store the kind (datetime, date, or time)
+	pairs["kind"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: kind},
+		Value: kind,
 	}
 
 	// Create integer literals for numeric values with proper tokens
@@ -522,6 +528,11 @@ func timeToDict(t time.Time, env *Environment) *Dictionary {
 	}
 
 	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// timeToDict converts a Go time.Time to a Parsley Dictionary (defaults to kind: "datetime")
+func timeToDict(t time.Time, env *Environment) *Dictionary {
+	return timeToDictWithKind(t, "datetime", env)
 }
 
 // dictToTime converts a Parsley Dictionary to a Go time.Time
@@ -638,6 +649,17 @@ func getDurationComponents(dict *Dictionary, env *Environment) (int64, int64, er
 	}
 
 	return monthsInt.Value, secondsInt.Value, nil
+}
+
+// getDatetimeKind extracts the kind from a datetime dictionary (defaults to "datetime")
+func getDatetimeKind(dict *Dictionary, env *Environment) string {
+	if kindExpr, ok := dict.Pairs["kind"]; ok {
+		kindObj := Eval(kindExpr, env)
+		if kindStr, ok := kindObj.(*String); ok {
+			return kindStr.Value
+		}
+	}
+	return "datetime"
 }
 
 // getDatetimeUnix extracts the unix timestamp from a datetime dictionary
@@ -846,89 +868,71 @@ func getDateFormatForStyle(style string, locale monday.Locale) string {
 }
 
 // datetimeDictToString converts a datetime dictionary to a human-friendly ISO 8601 string
+// Uses the "kind" field to determine output format: "datetime", "date", or "time"
 func datetimeDictToString(dict *Dictionary) string {
-	// Check if we have time components to determine format
-	var hour, minute, second int64
-	hasTimeComponents := false
+	// Check for kind field to determine output format
+	kind := "datetime" // default
+	if kindExpr, ok := dict.Pairs["kind"]; ok {
+		if kindLit, ok := kindExpr.(*ast.StringLiteral); ok {
+			kind = kindLit.Value
+		}
+	}
 
+	// Extract time components
+	var hour, minute, second int64
 	if hExpr, ok := dict.Pairs["hour"]; ok {
 		if hLit, ok := hExpr.(*ast.IntegerLiteral); ok {
 			hour = hLit.Value
-			hasTimeComponents = true
 		}
 	}
 	if minExpr, ok := dict.Pairs["minute"]; ok {
 		if minLit, ok := minExpr.(*ast.IntegerLiteral); ok {
 			minute = minLit.Value
-			hasTimeComponents = true
 		}
 	}
 	if sExpr, ok := dict.Pairs["second"]; ok {
 		if sLit, ok := sExpr.(*ast.IntegerLiteral); ok {
 			second = sLit.Value
-			hasTimeComponents = true
 		}
 	}
 
-	// If time is all zeros, return just the date part
-	if hasTimeComponents && hour == 0 && minute == 0 && second == 0 {
-		if isoExpr, ok := dict.Pairs["iso"]; ok {
-			if strLit, ok := isoExpr.(*ast.StringLiteral); ok {
-				isoStr := strLit.Value
-				// Strip off time portion if it's T00:00:00Z
-				if len(isoStr) >= 10 {
-					return isoStr[:10] // Just return YYYY-MM-DD
-				}
-			}
-		}
-	}
-
-	// Try to get the iso field (most reliable for full datetime)
-	if isoExpr, ok := dict.Pairs["iso"]; ok {
-		if strLit, ok := isoExpr.(*ast.StringLiteral); ok {
-			return strLit.Value
-		}
-		// If it's an identifier (evaluated), evaluate it
-		if ident, ok := isoExpr.(*ast.Identifier); ok {
-			if dict.Env != nil {
-				if obj, _ := dict.Env.Get(ident.Value); obj != nil {
-					if str, ok := obj.(*String); ok {
-						return str.Value
-					}
-				}
-			}
-		}
-	}
-
-	// Fallback: construct from components if available
+	// Extract date components
+	var year, month, day int64
 	if yearExpr, ok := dict.Pairs["year"]; ok {
-		var year, month, day int64
-
 		if yLit, ok := yearExpr.(*ast.IntegerLiteral); ok {
 			year = yLit.Value
 		}
-		if mExpr, ok := dict.Pairs["month"]; ok {
-			if mLit, ok := mExpr.(*ast.IntegerLiteral); ok {
-				month = mLit.Value
-			}
+	}
+	if mExpr, ok := dict.Pairs["month"]; ok {
+		if mLit, ok := mExpr.(*ast.IntegerLiteral); ok {
+			month = mLit.Value
 		}
-		if dExpr, ok := dict.Pairs["day"]; ok {
-			if dLit, ok := dExpr.(*ast.IntegerLiteral); ok {
-				day = dLit.Value
-			}
+	}
+	if dExpr, ok := dict.Pairs["day"]; ok {
+		if dLit, ok := dExpr.(*ast.IntegerLiteral); ok {
+			day = dLit.Value
 		}
-
-		// Format as ISO 8601
-		if hour == 0 && minute == 0 && second == 0 {
-			// Date only
-			return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
-		}
-		// Date and time
-		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02dZ", year, month, day, hour, minute, second)
 	}
 
-	// Last resort: return the dictionary inspection
-	return dict.Inspect()
+	// Format based on kind
+	switch kind {
+	case "time":
+		// Time only without seconds: HH:MM
+		return fmt.Sprintf("%02d:%02d", hour, minute)
+
+	case "time_seconds":
+		// Time with seconds: HH:MM:SS
+		return fmt.Sprintf("%02d:%02d:%02d", hour, minute, second)
+
+	case "date":
+		// Date only: YYYY-MM-DD
+		return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+
+	default:
+		// Full datetime: YYYY-MM-DDTHH:MM:SSZ
+		// If time is all zeros, still include it for datetime kind
+		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02dZ", year, month, day, hour, minute, second)
+	}
 }
 
 // durationDictToString converts a duration dictionary to a human-readable string
@@ -1302,28 +1306,53 @@ func evalRegexLiteral(node *ast.RegexLiteral, env *Environment) Object {
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
-// evalDatetimeLiteral evaluates a datetime literal like @2024-12-25T14:30:00Z
+// evalDatetimeLiteral evaluates a datetime literal like @2024-12-25T14:30:00Z or @12:30
 func evalDatetimeLiteral(node *ast.DatetimeLiteral, env *Environment) Object {
 	// Parse the ISO-8601 datetime string
 	var t time.Time
 	var err error
+	kind := node.Kind
+	if kind == "" {
+		kind = "datetime" // default for backwards compatibility
+	}
 
-	// Try parsing as RFC3339 first (most complete format with timezone)
-	t, err = time.Parse(time.RFC3339, node.Value)
-	if err != nil {
-		// Try date-only format (2024-12-25) - interpret as UTC
-		t, err = time.ParseInLocation("2006-01-02", node.Value, time.UTC)
+	if kind == "time" || kind == "time_seconds" {
+		// Time-only literal: HH:MM or HH:MM:SS
+		// Use current UTC date as the base
+		now := time.Now().UTC()
+
+		// Try parsing with seconds first
+		t, err = time.Parse("15:04:05", node.Value)
 		if err != nil {
-			// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
-			t, err = time.ParseInLocation("2006-01-02T15:04:05", node.Value, time.UTC)
+			// Try without seconds
+			t, err = time.Parse("15:04", node.Value)
 			if err != nil {
-				return newError("invalid datetime literal: %s", node.Value)
+				return newError("invalid time literal: %s", node.Value)
+			}
+		}
+
+		// Combine with current UTC date
+		t = time.Date(now.Year(), now.Month(), now.Day(),
+			t.Hour(), t.Minute(), t.Second(), 0, time.UTC)
+	} else {
+		// Date or datetime literal
+		// Try parsing as RFC3339 first (most complete format with timezone)
+		t, err = time.Parse(time.RFC3339, node.Value)
+		if err != nil {
+			// Try date-only format (2024-12-25) - interpret as UTC
+			t, err = time.ParseInLocation("2006-01-02", node.Value, time.UTC)
+			if err != nil {
+				// Try datetime without timezone (2024-12-25T14:30:05) - interpret as UTC
+				t, err = time.ParseInLocation("2006-01-02T15:04:05", node.Value, time.UTC)
+				if err != nil {
+					return newError("invalid datetime literal: %s", node.Value)
+				}
 			}
 		}
 	}
 
-	// Convert to dictionary using the same function as the time() builtin
-	return timeToDict(t, env)
+	// Convert to dictionary using the new function with kind
+	return timeToDictWithKind(t, kind, env)
 }
 
 // evalDurationLiteral parses a duration literal like @2h30m, @7d, @1y6mo
@@ -5398,15 +5427,18 @@ func evalDatetimeIntegerInfixExpression(tok lexer.Token, operator string, dt *Di
 		return newErrorWithPos(tok, "invalid datetime: %s", err)
 	}
 
+	// Get the kind from the original datetime
+	kind := getDatetimeKind(dt, env)
+
 	switch operator {
 	case "+":
 		// Add seconds to datetime
 		newTime := time.Unix(unixTime+seconds.Value, 0).UTC()
-		return timeToDict(newTime, env)
+		return timeToDictWithKind(newTime, kind, env)
 	case "-":
 		// Subtract seconds from datetime
 		newTime := time.Unix(unixTime-seconds.Value, 0).UTC()
-		return timeToDict(newTime, env)
+		return timeToDictWithKind(newTime, kind, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for datetime and integer: %s", operator)
 	}
@@ -5420,11 +5452,14 @@ func evalIntegerDatetimeInfixExpression(tok lexer.Token, operator string, second
 		return newErrorWithPos(tok, "invalid datetime: %s", err)
 	}
 
+	// Get the kind from the original datetime
+	kind := getDatetimeKind(dt, env)
+
 	switch operator {
 	case "+":
 		// Add seconds to datetime (commutative)
 		newTime := time.Unix(unixTime+seconds.Value, 0).UTC()
-		return timeToDict(newTime, env)
+		return timeToDictWithKind(newTime, kind, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for integer and datetime: %s", operator)
 	}
@@ -5511,6 +5546,9 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 		return newErrorWithPos(tok, "invalid duration: %s", err)
 	}
 
+	// Get the kind from the original datetime
+	kind := getDatetimeKind(dt, env)
+
 	switch operator {
 	case "+":
 		// Add months first (using AddDate for proper month arithmetic)
@@ -5521,7 +5559,7 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 		if seconds != 0 {
 			t = t.Add(time.Duration(seconds) * time.Second)
 		}
-		return timeToDict(t, env)
+		return timeToDictWithKind(t, kind, env)
 	case "-":
 		// Subtract months first
 		if months != 0 {
@@ -5531,7 +5569,7 @@ func evalDatetimeDurationInfixExpression(tok lexer.Token, operator string, dt, d
 		if seconds != 0 {
 			t = t.Add(-time.Duration(seconds) * time.Second)
 		}
-		return timeToDict(t, env)
+		return timeToDictWithKind(t, kind, env)
 	default:
 		return newErrorWithPos(tok, "unknown operator for datetime and duration: %s", operator)
 	}

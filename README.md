@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.10
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.11
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -107,7 +107,9 @@ null                  // Null
 
 // Special types
 /\w+@\w+\.\w+/        // Regex
-@2024-12-25           // DateTime
+@2024-12-25           // Date
+@2024-12-25T14:30:00  // DateTime
+@12:30                // Time
 @1d2h30m              // Duration
 @./config.json        // Path
 @https://example.com  // URL

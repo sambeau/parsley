@@ -712,9 +712,36 @@ func (p *Parser) parseRegexLiteral() ast.Expression {
 
 func (p *Parser) parseDatetimeLiteral() ast.Expression {
 	// Token.Literal contains the ISO-8601 datetime string (without the @ prefix)
+	// Determine the kind based on the literal format:
+	// - Contains 'T' -> "datetime"
+	// - Starts with 4-digit year (YYYY-) -> "date"
+	// - Time HH:MM -> "time"
+	// - Time HH:MM:SS -> "time_seconds" (to preserve precision)
+	literal := p.curToken.Literal
+	kind := "datetime" // default
+
+	if len(literal) >= 5 && literal[4] == '-' {
+		// Starts with YYYY- (4 digits then dash)
+		if strings.Contains(literal, "T") {
+			kind = "datetime"
+		} else {
+			kind = "date"
+		}
+	} else if len(literal) >= 3 && strings.Contains(literal[:3], ":") {
+		// Time-only: starts with H: or HH:
+		// Check if seconds are present (HH:MM:SS has 8 chars)
+		colonCount := strings.Count(literal, ":")
+		if colonCount >= 2 {
+			kind = "time_seconds"
+		} else {
+			kind = "time"
+		}
+	}
+
 	return &ast.DatetimeLiteral{
 		Token: p.curToken,
 		Value: p.curToken.Literal,
+		Kind:  kind,
 	}
 }
 

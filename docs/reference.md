@@ -35,7 +35,9 @@ Complete reference for all Parsley types, methods, and operators.
 | Dictionary | `{x: 1, y: 2}` | Key-value pairs |
 | Function | `fn(x) { x * 2 }` | First-class functions |
 | Regex | `/pattern/flags` | Regular expressions |
-| Date/Time | `@2024-11-26` | Temporal values |
+| Date | `@2024-11-26` | Date only |
+| DateTime | `@2024-11-26T15:30:00` | Date and time |
+| Time | `@12:30`, `@12:30:45` | Time only (uses current date internally) |
 | Duration | `@1d`, `@2h30m` | Time spans |
 | Path | `@./file.pars` | File system paths |
 | URL | `@https://example.com` | Web addresses |
@@ -223,7 +225,7 @@ asin(x), acos(x), atan(x)
 
 ### Creation
 ```parsley
-now()                                    // Current time
+now()                                    // Current datetime
 time("2024-11-26")                       // Parse ISO date
 time("2024-11-26T15:30:00")              // With time
 time(1732579200)                         // Unix timestamp
@@ -231,9 +233,71 @@ time({year: 2024, month: 12, day: 25})   // From components
 ```
 
 ### Literals
+Parsley supports three kinds of datetime literals, each with its own display format:
+
 ```parsley
-@2024-11-26          // Date
-@2024-11-26T15:30    // DateTime
+@2024-11-26           // Date only
+@2024-11-26T15:30:00  // Full datetime
+@12:30                // Time only (HH:MM)
+@12:30:45             // Time only with seconds (HH:MM:SS)
+```
+
+### Literal Kinds
+Each datetime literal tracks its kind, which determines how it displays when converted to a string:
+
+| Literal | Kind | String Output |
+|---------|------|---------------|
+| `@2024-11-26` | `"date"` | `"2024-11-26"` |
+| `@2024-11-26T15:30:00` | `"datetime"` | `"2024-11-26T15:30:00Z"` |
+| `@12:30` | `"time"` | `"12:30"` |
+| `@12:30:45` | `"time_seconds"` | `"12:30:45"` |
+
+```parsley
+// Access the kind
+@2024-11-26.kind           // "date"
+@2024-11-26T15:30:00.kind  // "datetime"
+@12:30.kind                // "time"
+@12:30:45.kind             // "time_seconds"
+
+// String conversion respects kind
+toString(@2024-11-26)           // "2024-11-26"
+toString(@2024-11-26T15:30:00)  // "2024-11-26T15:30:00Z"
+toString(@12:30)                // "12:30"
+toString(@12:30:45)             // "12:30:45"
+```
+
+### Time-Only Literals
+Time-only literals (`@HH:MM` or `@HH:MM:SS`) use the current UTC date internally but display as time only:
+
+```parsley
+let meeting = @14:30
+meeting.hour     // 14
+meeting.minute   // 30
+meeting.kind     // "time"
+
+// Internal date is today (UTC)
+meeting.year     // Current year
+meeting.month    // Current month
+meeting.day      // Current day
+
+// But string output shows time only
+toString(meeting)  // "14:30"
+```
+
+### Kind Preservation
+The kind is preserved through arithmetic operations:
+
+```parsley
+// Date arithmetic stays date
+(@2024-12-25 + 86400).kind        // "date"
+(@2024-12-25 + @1d).kind          // "date"
+
+// Datetime arithmetic stays datetime
+(@2024-12-25T14:30:00 + 3600).kind  // "datetime"
+
+// Time arithmetic stays time
+(@12:30 + 3600).kind              // "time"
+(@12:30:45 + 60).kind             // "time_seconds"
 ```
 
 ### Properties
@@ -248,6 +312,7 @@ time({year: 2024, month: 12, day: 25})   // From components
 | `.weekday` | Day name ("Monday", etc.) |
 | `.iso` | ISO 8601 string |
 | `.unix` | Unix timestamp |
+| `.kind` | Literal kind ("date", "datetime", "time", "time_seconds") |
 | `.date` | Date only ("2024-11-26") |
 | `.time` | Time only ("15:30") |
 | `.dayOfYear` | Day number (1-366) |
@@ -259,9 +324,18 @@ time({year: 2024, month: 12, day: 25})   // From components
 | `.format()` | Default format | `dt.format()` → `"11/26/2024"` |
 | `.format(style)` | Style format | `dt.format("long")` → `"November 26, 2024"` |
 | `.format(style, locale)` | Localized | `dt.format("long","de-DE")` → `"26. November 2024"` |
-| `.toDict()` | Dictionary form | `dt.toDict()` → `{year: 2024, month: 11, ...}` |
+| `.toDict()` | Dictionary form | `dt.toDict()` → `{year: 2024, month: 11, kind: "datetime", ...}` |
 
 Style options: `"short"`, `"medium"`, `"long"`, `"full"`
+
+### Comparisons
+All datetime kinds can be compared:
+
+```parsley
+@12:30 < @14:00           // true
+@2024-12-25 > @2024-12-24 // true
+@12:30:45 == @12:30:45    // true
+```
 
 ---
 
