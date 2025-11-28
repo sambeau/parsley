@@ -48,17 +48,17 @@ go build -o pars .
 ```parsley
 let name = "World"
 
-let Page = fn({title, content}) {
+let Page = fn({title, contents}) {
     <!DOCTYPE html> + <html>
         <head><title>{title}</title></head>
         <body>
             <h1>{title}</h1>
-            {content}
+            {contents}
         </body>
     </html>
 }
 
-<Page title="Hello, {name}!">
+<Page title="Hello!">
     <p>Welcome to Parsley.</p>
     <p>Generated at {now().format("long")}</p>
 </Page>
@@ -147,15 +147,14 @@ nums.filter(fn(x) { x > 1 })  // [2, 3]
 let user = {
     name: "Sam",
     age: 57,
-    greet: fn() { "Hi, " + this.name }
+    city: "London"
 }
 
 user.name                     // "Sam"
 user["age"]                   // 57
-user.greet()                  // "Hi, Sam"
 
-user.keys()                   // ["name", "age", "greet"]
-user.values()                 // ["Sam", 57, fn]
+user.keys()                   // ["name", "age", "city"]
+user.values()                 // ["Sam", 57, "London"]
 user.has("name")              // true
 
 {a: 1} ++ {b: 2}              // {a: 1, b: 2}
@@ -223,10 +222,10 @@ for (key, value in dict) {
 <br/>
 
 // Components (uppercase)
-let Card = fn({title, children}) {
+let Card = fn({title, contents}) {
     <article class="card">
         <h2>{title}</h2>
-        <div class="body">{children}</div>
+        <div class="body">{contents}</div>
     </article>
 }
 
@@ -338,7 +337,7 @@ let PostCard = fn({post}) {
     </article>
 }
 
-let BlogPage = fn({title, children}) {
+let BlogPage = fn({title, contents}) {
     <!DOCTYPE html> + <html lang="en">
         <head>
             <meta charset="utf-8" />
@@ -351,15 +350,15 @@ let BlogPage = fn({title, children}) {
         </head>
         <body>
             <header><h1>{title}</h1></header>
-            <main>{children}</main>
+            <main>{contents}</main>
         </body>
     </html>
 }
 
 <BlogPage title="My Blog">
-    for (post in posts) {
-        <PostCard post="{post}" />
-    }
+    {for (post in posts) {
+        <PostCard post={post} />
+    }}
 </BlogPage>
 ```
 
@@ -368,7 +367,7 @@ let BlogPage = fn({title, children}) {
 ```parsley
 let {data, error} <== CSV(@./sales.csv)
 
-let Dashboard = fn({title, children}) {
+let Dashboard = fn({title, contents}) {
     <!DOCTYPE html> + <html>
         <head>
             <title>{title}</title>
@@ -380,7 +379,7 @@ let Dashboard = fn({title, children}) {
                 .error { color: red; padding: 1em; background: #fee; }
             </style>
         </head>
-        <body>{children}</body>
+        <body>{contents}</body>
     </html>
 }
 
@@ -566,11 +565,8 @@ let nav = <nav class="main">
 let userName = "Alice"
 let isAdmin = true
 
-let badge = <span class={isAdmin ? "admin" : "user"}>{userName}</span>
-
-// Spread attributes
-let attrs = { class: "btn", disabled: false }
-let button = <button ...attrs>"Click"</button>
+let cls = if (isAdmin) "admin" else "user"
+let badge = <span class={cls}>{userName}</span>
 ```
 
 ### Generating Lists
@@ -579,7 +575,7 @@ let button = <button ...attrs>"Click"</button>
 let items = ["Apple", "Banana", "Cherry"]
 
 let list = <ul>
-  {for item in items {
+  {for (item in items) {
     <li>{item}</li>
   }}
 </ul>
@@ -588,13 +584,13 @@ let list = <ul>
 ### Tag Factories
 
 ```parsley
-// Create named tags
-let Card = tag("div", { class: "card" })
-let card = <Card>"Content"</Card>
+// Create tags programmatically
+let card = tag("div", { class: "card" }, "Content")
+toString(card)  // <div class="card">Content</div>
 
 // SVG elements
 let svg = <svg viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="40" fill="blue">
+  <circle cx="50" cy="50" r="40" fill="blue" />
 </svg>
 ```
 
@@ -688,17 +684,17 @@ let site = {
 }
 
 let posts = [
-  { slug: "hello", title: "Hello World", date: "2025-01-15", content: "First post!" },
-  { slug: "update", title: "Big Update", date: "2025-01-20", content: "New features..." }
+  { slug: "hello", title: "Hello World", date: "2025-01-15", body: "First post!" },
+  { slug: "update", title: "Big Update", date: "2025-01-20", body: "New features..." }
 ]
 
 // Generate HTML page
-fn renderPage(title, content) {
+let renderPage = fn(title, pageContent) {
   <html lang="en">
     <head>
-      <meta charset="UTF-8">
+      <meta charset="UTF-8" />
       <title>{title} | {site.title}</title>
-      <link rel="stylesheet" href="/style.css">
+      <link rel="stylesheet" href="/style.css" />
     </head>
     <body>
       <header>
@@ -708,7 +704,7 @@ fn renderPage(title, content) {
           <a href="/posts">"Posts"</a>
         </nav>
       </header>
-      <main>{content}</main>
+      <main>{pageContent}</main>
       <footer>
         "© 2025 " {site.author}
       </footer>
@@ -717,22 +713,22 @@ fn renderPage(title, content) {
 }
 
 // Generate post page
-fn renderPost(post) {
-  let content = <article>
+let renderPost = fn(post) {
+  let pageContent = <article>
     <h1>{post.title}</h1>
     <time>{post.date}</time>
-    <div class="content">{post.content}</div>
+    <div class="body">{post.body}</div>
   </article>
   
-  renderPage(post.title, content)
+  renderPage(post.title, pageContent)
 }
 
 // Generate index page
-fn renderIndex() {
-  let content = <div>
+let renderIndex = fn() {
+  let pageContent = <div>
     <h1>"Recent Posts"</h1>
     <ul class="post-list">
-      {for post in posts {
+      {for (post in posts) {
         <li>
           <a href={"/posts/" ++ post.slug}>{post.title}</a>
           <time>{post.date}</time>
@@ -741,16 +737,10 @@ fn renderIndex() {
     </ul>
   </div>
   
-  renderPage("Home", content)
+  renderPage("Home", pageContent)
 }
 
-// Generate site (requires --allow-write flag when implemented)
-// renderIndex() ==> text(@./output/index.html)
-// for post in posts {
-//   renderPost(post) ==> text(@./output/posts/{post.slug}.html)
-// }
-
-// For now, just output to stdout
+// Output to stdout
 renderIndex()
 ```
 
