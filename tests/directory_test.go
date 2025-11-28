@@ -165,8 +165,8 @@ func TestDirFilesProperty(t *testing.T) {
 	}
 }
 
-// TestGlobBasic tests the glob() function
-func TestGlobBasic(t *testing.T) {
+// TestFilesBasic tests the files() function
+func TestFilesBasic(t *testing.T) {
 	// Create a temp directory
 	tempDir := t.TempDir()
 
@@ -182,28 +182,28 @@ func TestGlobBasic(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "glob matches txt files",
-			input:    `let files = glob("` + tempDir + `/*.txt"); files.length()`,
+			name:     "files matches txt files",
+			input:    `let f = files("` + tempDir + `/*.txt"); f.length()`,
 			expected: "2",
 		},
 		{
-			name:     "glob matches json files",
-			input:    `let files = glob("` + tempDir + `/*.json"); files.length()`,
+			name:     "files matches json files",
+			input:    `let f = files("` + tempDir + `/*.json"); f.length()`,
 			expected: "1",
 		},
 		{
-			name:     "glob matches all files",
-			input:    `let files = glob("` + tempDir + `/*"); files.length()`,
+			name:     "files matches all files",
+			input:    `let f = files("` + tempDir + `/*"); f.length()`,
 			expected: "4",
 		},
 		{
-			name:     "glob result has correct format",
-			input:    `let files = glob("` + tempDir + `/*.json"); files[0].format`,
+			name:     "files result has correct format",
+			input:    `let f = files("` + tempDir + `/*.json"); f[0].format`,
 			expected: "json",
 		},
 		{
-			name:     "glob no matches returns empty array",
-			input:    `let files = glob("` + tempDir + `/*.xyz"); files.length()`,
+			name:     "files no matches returns empty array",
+			input:    `let f = files("` + tempDir + `/*.xyz"); f.length()`,
 			expected: "0",
 		},
 	}
@@ -218,8 +218,8 @@ func TestGlobBasic(t *testing.T) {
 	}
 }
 
-// TestGlobWithDirs tests glob returning both files and directories
-func TestGlobWithDirs(t *testing.T) {
+// TestFilesWithDirs tests files() returning both files and directories
+func TestFilesWithDirs(t *testing.T) {
 	// Create a temp directory
 	tempDir := t.TempDir()
 
@@ -233,8 +233,8 @@ func TestGlobWithDirs(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "glob returns both files and dirs",
-			input:    `let items = glob("` + tempDir + `/*"); items.length()`,
+			name:     "files returns both files and dirs",
+			input:    `let items = files("` + tempDir + `/*"); items.length()`,
 			expected: "2",
 		},
 	}

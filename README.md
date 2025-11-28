@@ -287,7 +287,7 @@ records ==> CSV(@./export.csv)
 logEntry ==>> lines(@./app.log)
 ```
 
-#### Directories and Globs
+#### Directories and File Patterns
 
 ```parsley
 let d = dir(@./images)
@@ -299,8 +299,8 @@ for (f in files) {
     <p>{f.basename}: {f.size} bytes</p>
 }
 
-// Glob patterns
-let images = glob(@./images/*.jpg)
+// File patterns
+let images = files(@./images/*.jpg)
 for (img in images) {
     <img src="{img.path}" />
 }
@@ -423,7 +423,7 @@ if (error) {
 
 ```parsley
 // Generate pages from markdown files
-let pages = glob(@./content/*.md)
+let pages = files(@./content/*.md)
 
 for (page in pages) {
     let content <== text(page)

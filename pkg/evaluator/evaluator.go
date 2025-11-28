@@ -3062,11 +3062,11 @@ func getBuiltins() map[string]*Builtin {
 				return dirToDict(pathDict, env)
 			},
 		},
-		// Glob pattern matching for files
-		"glob": {
+		// File pattern matching (glob patterns)
+		"files": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 1 {
-					return newError("wrong number of arguments to `glob`. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `files`. got=%d, want=1", len(args))
 				}
 
 				var pattern string
@@ -3082,12 +3082,12 @@ func getBuiltins() map[string]*Builtin {
 						}
 						pattern = pathDictToString(arg)
 					} else {
-						return newError("argument to `glob` must be a path or string pattern, got dictionary")
+						return newError("argument to `files` must be a path or string pattern, got dictionary")
 					}
 				case *String:
 					pattern = arg.Value
 				default:
-					return newError("argument to `glob` must be a path or string pattern, got %s", args[0].Type())
+					return newError("argument to `files` must be a path or string pattern, got %s", args[0].Type())
 				}
 
 				// Expand home directory if needed
@@ -3101,7 +3101,7 @@ func getBuiltins() map[string]*Builtin {
 				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
 				matches, err := filepath.Glob(pattern)
 				if err != nil {
-					return newError("invalid glob pattern '%s': %s", pattern, err.Error())
+					return newError("invalid file pattern '%s': %s", pattern, err.Error())
 				}
 
 				// Convert matches to array of file handles

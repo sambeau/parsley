@@ -413,9 +413,9 @@ d.files       // Array of file handles
 // Read directory
 let files <== dir(@./images)
 
-// Glob patterns
-let images = glob(@./images/*.jpg)
-let sources = glob(@./src/**/*.pars)
+// File patterns
+let images = files(@./images/*.jpg)
+let sources = files(@./src/**/*.pars)
 ```
 
 ---
