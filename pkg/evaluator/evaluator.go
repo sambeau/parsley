@@ -1153,6 +1153,16 @@ func isUrlDict(dict *Dictionary) bool {
 	return false
 }
 
+// isFileDict checks if a dictionary is a file handle by looking for __type field
+func isFileDict(dict *Dictionary) bool {
+	if typeExpr, ok := dict.Pairs["__type"]; ok {
+		if strLit, ok := typeExpr.(*ast.StringLiteral); ok {
+			return strLit.Value == "file"
+		}
+	}
+	return false
+}
+
 // isTagDict checks if a dictionary is a tag by looking for __type field
 func isTagDict(dict *Dictionary) bool {
 	if typeExpr, ok := dict.Pairs["__type"]; ok {
@@ -1813,6 +1823,286 @@ func evalUrlComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 	return nil // Property doesn't exist
 }
 
+// fileToDict creates a file dictionary from a path and format
+// format can be: "json", "csv", "lines", "text", "bytes", or "" for auto-detect
+func fileToDict(pathDict *Dictionary, format string, options *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Add __type field
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "file"},
+		Value: "file",
+	}
+
+	// Add path field (the original path dictionary)
+	// Store the path components and absolute flag from the path dict
+	if compExpr, ok := pathDict.Pairs["components"]; ok {
+		pairs["_pathComponents"] = compExpr
+	}
+	if absExpr, ok := pathDict.Pairs["absolute"]; ok {
+		pairs["_pathAbsolute"] = absExpr
+	}
+
+	// Add format field
+	pairs["format"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: format},
+		Value: format,
+	}
+
+	// Add options field (if provided)
+	if options != nil {
+		// Copy options to ast expressions
+		optPairs := make(map[string]ast.Expression)
+		for k, v := range options.Pairs {
+			optPairs[k] = v
+		}
+		pairs["options"] = &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: optPairs,
+		}
+	} else {
+		// Empty options
+		pairs["options"] = &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: make(map[string]ast.Expression),
+		}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// getFilePathString extracts the filesystem path string from a file dictionary
+func getFilePathString(dict *Dictionary, env *Environment) string {
+	// Get path components
+	compExpr, ok := dict.Pairs["_pathComponents"]
+	if !ok {
+		return ""
+	}
+	compObj := Eval(compExpr, env)
+	arr, ok := compObj.(*Array)
+	if !ok {
+		return ""
+	}
+
+	// Get absolute flag
+	absExpr, ok := dict.Pairs["_pathAbsolute"]
+	isAbsolute := false
+	if ok {
+		absObj := Eval(absExpr, env)
+		if b, ok := absObj.(*Boolean); ok {
+			isAbsolute = b.Value
+		}
+	}
+
+	// Build path string
+	var result strings.Builder
+	for i, elem := range arr.Elements {
+		if str, ok := elem.(*String); ok {
+			if i == 0 && isAbsolute && str.Value == "" {
+				result.WriteString("/")
+			} else if str.Value == "." && i == 0 {
+				result.WriteString(".")
+			} else if str.Value == "~" && i == 0 {
+				// Expand home directory
+				home, err := os.UserHomeDir()
+				if err == nil {
+					result.WriteString(home)
+				} else {
+					result.WriteString("~")
+				}
+			} else if str.Value != "" {
+				if i > 0 && result.Len() > 0 && !strings.HasSuffix(result.String(), "/") {
+					result.WriteString("/")
+				}
+				result.WriteString(str.Value)
+			}
+		}
+	}
+
+	return result.String()
+}
+
+// inferFormatFromExtension guesses the file format from its extension
+func inferFormatFromExtension(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".json":
+		return "json"
+	case ".csv":
+		return "csv"
+	case ".txt", ".md", ".html", ".xml", ".pars":
+		return "text"
+	case ".log":
+		return "lines"
+	default:
+		return "text" // Default to text
+	}
+}
+
+// evalFileComputedProperty returns computed properties for file dictionaries
+// Returns nil if the property doesn't exist
+func evalFileComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	pathStr := getFilePathString(dict, env)
+
+	switch key {
+	case "path":
+		// Return the underlying path dictionary
+		compExpr, ok := dict.Pairs["_pathComponents"]
+		if !ok {
+			return NULL
+		}
+		compObj := Eval(compExpr, env)
+		arr, ok := compObj.(*Array)
+		if !ok {
+			return NULL
+		}
+
+		absExpr, ok := dict.Pairs["_pathAbsolute"]
+		isAbsolute := false
+		if ok {
+			absObj := Eval(absExpr, env)
+			if b, ok := absObj.(*Boolean); ok {
+				isAbsolute = b.Value
+			}
+		}
+
+		components := []string{}
+		for _, elem := range arr.Elements {
+			if str, ok := elem.(*String); ok {
+				components = append(components, str.Value)
+			}
+		}
+
+		return pathToDict(components, isAbsolute, env)
+
+	case "exists":
+		_, err := os.Stat(pathStr)
+		return nativeBoolToParsBoolean(err == nil)
+
+	case "size":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return &Integer{Value: 0}
+		}
+		return &Integer{Value: info.Size()}
+
+	case "modified":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return NULL
+		}
+		return timeToDatetimeDict(info.ModTime(), env)
+
+	case "isDir":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return FALSE
+		}
+		return nativeBoolToParsBoolean(info.IsDir())
+
+	case "isFile":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return FALSE
+		}
+		return nativeBoolToParsBoolean(!info.IsDir())
+
+	case "mode":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return &String{Value: ""}
+		}
+		return &String{Value: info.Mode().String()}
+
+	case "ext", "extension":
+		ext := filepath.Ext(pathStr)
+		if len(ext) > 0 && ext[0] == '.' {
+			ext = ext[1:]
+		}
+		return &String{Value: ext}
+
+	case "basename", "name":
+		return &String{Value: filepath.Base(pathStr)}
+
+	case "dirname", "parent":
+		dir := filepath.Dir(pathStr)
+		components, isAbsolute := parsePathString(dir)
+		return pathToDict(components, isAbsolute, env)
+
+	case "stem":
+		base := filepath.Base(pathStr)
+		ext := filepath.Ext(base)
+		return &String{Value: strings.TrimSuffix(base, ext)}
+	}
+
+	return nil // Property doesn't exist
+}
+
+// timeToDatetimeDict converts a time.Time to a datetime dictionary
+func timeToDatetimeDict(t time.Time, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "datetime"},
+		Value: "datetime",
+	}
+
+	pairs["year"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(t.Year())},
+		Value: int64(t.Year()),
+	}
+
+	pairs["month"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(int(t.Month()))},
+		Value: int64(t.Month()),
+	}
+
+	pairs["day"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(t.Day())},
+		Value: int64(t.Day()),
+	}
+
+	pairs["hour"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(t.Hour())},
+		Value: int64(t.Hour()),
+	}
+
+	pairs["minute"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(t.Minute())},
+		Value: int64(t.Minute()),
+	}
+
+	pairs["second"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(t.Second())},
+		Value: int64(t.Second()),
+	}
+
+	pairs["unix"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(t.Unix(), 10)},
+		Value: t.Unix(),
+	}
+
+	weekday := t.Weekday().String()
+	pairs["weekday"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: weekday},
+		Value: weekday,
+	}
+
+	iso := t.UTC().Format(time.RFC3339)
+	// Simplify to the format we use
+	if strings.HasSuffix(iso, "+00:00") || strings.HasSuffix(iso, "-00:00") {
+		iso = strings.TrimSuffix(iso, "+00:00")
+		iso = strings.TrimSuffix(iso, "-00:00")
+		iso = iso + "Z"
+	}
+	pairs["iso"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: iso},
+		Value: iso,
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
 // evalDatetimeComputedProperty returns computed properties for datetime dictionaries
 // Returns nil if the property doesn't exist
 func evalDatetimeComputedProperty(dict *Dictionary, key string, env *Environment) Object {
@@ -2377,6 +2667,220 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return urlDict
+			},
+		},
+		// File handle factories
+		"file": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `file`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `file` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `file` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Get the path string for format inference
+				pathStr := getFilePathString(&Dictionary{Pairs: map[string]ast.Expression{
+					"_pathComponents": pathDict.Pairs["components"],
+					"_pathAbsolute":   pathDict.Pairs["absolute"],
+				}, Env: env}, env)
+
+				// Auto-detect format from extension
+				format := inferFormatFromExtension(pathStr)
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, format, options, env)
+			},
+		},
+		"JSON": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `JSON`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `JSON` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `JSON` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "json", options, env)
+			},
+		},
+		"CSV": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `CSV`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `CSV` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `CSV` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict (e.g., {header: true})
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "csv", options, env)
+			},
+		},
+		"lines": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `lines`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `lines` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `lines` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "lines", options, env)
+			},
+		},
+		"text": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `text`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `text` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `text` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict (e.g., {encoding: "latin1"})
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "text", options, env)
+			},
+		},
+		"bytes": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `bytes`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `bytes` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `bytes` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "bytes", options, env)
 			},
 		},
 		// Locale-aware formatting functions
@@ -6006,6 +6510,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 	}
 	if isUrlDict(dict) {
 		if computed := evalUrlComputedProperty(dict, node.Key, env); computed != nil {
+			return computed
+		}
+	}
+	if isFileDict(dict) {
+		if computed := evalFileComputedProperty(dict, node.Key, env); computed != nil {
 			return computed
 		}
 	}
