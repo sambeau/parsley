@@ -2932,6 +2932,40 @@ func getBuiltins() map[string]*Builtin {
 				return fileToDict(pathDict, "json", options, env)
 			},
 		},
+		"YAML": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments to `YAML`. got=%d, want=1 or 2", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("first argument to `YAML` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("first argument to `YAML` must be a path or string, got %s", args[0].Type())
+				}
+
+				// Second argument is optional options dict
+				var options *Dictionary
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						options = optDict
+					}
+				}
+
+				return fileToDict(pathDict, "yaml", options, env)
+			},
+		},
 		"CSV": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
@@ -7200,6 +7234,11 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		content := string(data)
 		return parseJSON(content)
 
+	case "yaml":
+		// Parse YAML
+		content := string(data)
+		return parseYAML(content)
+
 	case "csv":
 		// Parse CSV with header
 		return parseCSV(data, true)
@@ -7230,6 +7269,15 @@ func parseJSON(content string) (Object, *Error) {
 		return nil, newError("failed to parse JSON: %s", err.Error())
 	}
 	return jsonToObject(data), nil
+}
+
+// parseYAML parses a YAML string into Parsley objects
+func parseYAML(content string) (Object, *Error) {
+	var data interface{}
+	if err := yaml.Unmarshal([]byte(content), &data); err != nil {
+		return nil, newError("failed to parse YAML: %s", err.Error())
+	}
+	return yamlToObject(data), nil
 }
 
 // parseMarkdown parses markdown content with optional YAML frontmatter
@@ -7294,6 +7342,9 @@ func yamlToObject(value interface{}) Object {
 			return &Integer{Value: int64(v)}
 		}
 		return &Float{Value: v}
+	case time.Time:
+		// YAML timestamps are parsed directly by yaml.v3
+		return timeToDatetimeDict(v, NewEnvironment())
 	case string:
 		// Try to parse as date if it looks like ISO format
 		if len(v) >= 10 && v[4] == '-' && v[7] == '-' {
@@ -7522,6 +7573,9 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	case "svg":
 		data, encodeErr = encodeSVG(value)
 
+	case "yaml":
+		data, encodeErr = encodeYAML(value)
+
 	default:
 		return newError("unsupported file format for writing: %s", formatStr.Value)
 	}
@@ -7664,6 +7718,12 @@ func encodeSVG(value Object) ([]byte, error) {
 		// Convert to string representation
 		return []byte(value.Inspect()), nil
 	}
+}
+
+// encodeYAML encodes a value as YAML
+func encodeYAML(value Object) ([]byte, error) {
+	goValue := objectToGo(value)
+	return yaml.Marshal(goValue)
 }
 
 // encodeCSV encodes a value as CSV

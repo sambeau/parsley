@@ -1,0 +1,40 @@
+// YAML Demo - demonstrates YAML file format support in Parsley
+
+// Create a sample configuration
+let config = {
+    app: {
+        name: "My App",
+        version: "2.0.0",
+        debug: false
+    },
+    server: {
+        host: "localhost",
+        port: 8080,
+        ssl: {
+            enabled: true,
+            cert: "/etc/ssl/cert.pem"
+        }
+    },
+    database: {
+        url: "postgres://localhost/mydb",
+        pool_size: 10,
+        timeout: 30
+    },
+    features: ["auth", "api", "admin"]
+}
+
+// Write config to YAML file
+config ==> YAML(@./temp/config.yaml)
+
+// Read it back
+let loaded <== YAML(@./temp/config.yaml)
+
+// Access nested values
+<article>
+    <h1>Configuration Loaded</h1>
+    <p>App: {loaded.app.name} v{loaded.app.version}</p>
+    <p>Server: {loaded.server.host}:{loaded.server.port}</p>
+    <p>SSL Enabled: {loaded.server.ssl.enabled}</p>
+    <p>Database Pool: {loaded.database.pool_size} connections</p>
+    <p>Features: {loaded.features[0]}, {loaded.features[1]}, {loaded.features[2]}</p>
+</article>

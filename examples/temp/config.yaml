@@ -1,0 +1,18 @@
+app:
+    debug: false
+    name: My App
+    version: 2.0.0
+database:
+    pool_size: 10
+    timeout: 30
+    url: postgres://localhost/mydb
+features:
+    - auth
+    - api
+    - admin
+server:
+    host: localhost
+    port: 8080
+    ssl:
+        cert: /etc/ssl/cert.pem
+        enabled: true
