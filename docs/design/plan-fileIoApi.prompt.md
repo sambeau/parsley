@@ -435,35 +435,35 @@ for (configFile in configs) {
 
 ## Implementation Phases
 
-### Phase 1: `??` Operator
+### Phase 1: `??` Operator ✅ (v0.9.9)
 - Add `NULLISH_COALESCE` token (`??`)
 - Parse as infix operator (low precedence, right-associative)
 - Evaluate: return left if not `*Null`, else evaluate right
 
-### Phase 2: File Handle Objects
+### Phase 2: File Handle Objects ✅ (v0.9.9)
 - Add `file()` builtin returning file dictionary
 - Add `isFileDict()` helper
 - Implement lazy property evaluation for metadata
 - Add format factories: `JSON()`, `CSV()`, `lines()`, `text()`, `bytes()`
 
-### Phase 3: Read Operator `<==`
+### Phase 3: Read Operator `<==` ✅ (v0.9.9)
 - Add `READ_FROM` token (`<==`)
 - Parse as special assignment: `let x <== expr` and `{pattern} <== expr`
 - Implement read with format decoding
 
-### Phase 4: Write Operators
+### Phase 4: Write Operators ✅ (v0.9.9)
 - Add `WRITE_TO` (`==>`) and `APPEND_TO` (`==>>`) tokens
 - Parse as expression statements
 - Implement write/append with format encoding
 
-### Phase 5: Directory Operations
+### Phase 5: Directory Operations ✅ (v0.9.9)
 - Add `dir()` factory
 - Add `glob()` factory
 - Return arrays of file handles
 
 ---
 
-## Security Model
+## Security Model (NOT YET IMPLEMENTED)
 
 ```bash
 # Default: no file access (safe)

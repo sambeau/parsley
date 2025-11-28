@@ -229,7 +229,7 @@ func TestReadOperatorErrors(t *testing.T) {
 			name:          "read without file handle",
 			code:          `let x <== "not a file"; x`,
 			shouldError:   true,
-			errorContains: "requires a file handle",
+			errorContains: "requires a file or directory handle",
 		},
 	}
 
@@ -304,4 +304,95 @@ func TestReadOperatorCSVNoHeader(t *testing.T) {
 // containsString checks if a string contains a substring
 func containsSubstr(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// TestReadOperatorErrorCapture tests the {data, error} pattern for capturing errors
+func TestReadOperatorErrorCapture(t *testing.T) {
+	// Create a temp directory for test files
+	tmpDir, err := os.MkdirTemp("", "parsley_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a test JSON file
+	jsonPath := filepath.Join(tmpDir, "test.json")
+	if err := os.WriteFile(jsonPath, []byte(`{"name": "Alice", "age": 30}`), 0644); err != nil {
+		t.Fatalf("Failed to write JSON file: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "error capture on missing file - error is string",
+			code:     `let {data, error} <== JSON("/nonexistent/file.json"); if (error) { "got error" } else { "no error" }`,
+			expected: "got error",
+		},
+		{
+			name:     "error capture on missing file - data is null",
+			code:     `let {data, error} <== JSON("/nonexistent/file.json"); if (data == null) { "data is null" } else { "data exists" }`,
+			expected: "data is null",
+		},
+		{
+			name:     "error capture on success - error is null",
+			code:     `let {data, error} <== JSON("` + jsonPath + `"); if (error == null) { "no error" } else { "got error" }`,
+			expected: "no error",
+		},
+		{
+			name:     "error capture on success - data is accessible",
+			code:     `let {data, error} <== JSON("` + jsonPath + `"); data.name`,
+			expected: "Alice",
+		},
+		{
+			name:     "error capture with underscore for unused",
+			code:     `let {data, error} <== JSON("/nonexistent/file.json"); let _ = data; if (error != null) { "captured" } else { "missed" }`,
+			expected: "captured",
+		},
+		{
+			name:     "error can be used in string concatenation",
+			code:     `let {data, error} <== JSON("/nonexistent/file.json"); "Error: " + error`,
+			expected: "Error: failed to read file '/nonexistent/file.json': open /nonexistent/file.json: no such file or directory",
+		},
+		{
+			name:     "successful read with nested data access",
+			code:     `let {data, error} <== JSON("` + jsonPath + `"); if (error == null) { data.name + " is " + data.age } else { "error" }`,
+			expected: "Alice is 30",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalReadOpString(tt.code)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestReadOperatorErrorCaptureDir tests error capture for directory operations
+func TestReadOperatorErrorCaptureDir(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "error capture on non-existent directory",
+			code:     `let {data, error} <== dir("/nonexistent/directory"); if (error) { "got error" } else { "no error" }`,
+			expected: "got error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := testEvalReadOpString(tt.code)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
 }

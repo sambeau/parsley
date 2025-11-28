@@ -12,10 +12,19 @@
 - ~~Regular expressions~~ ✅ (v0.6.0)
 - ~~Regular expression literals with /pattern/ syntax~~ ✅ (v0.6.0)
 - ~~i8n/Localisation~~ ✅ (v0.9.7)
-- File methods: read, write, append, delete
+- ~~Nullish coalescing operator (??)~~ ✅ (v0.9.9)
+- ~~File handle objects (file(), JSON(), CSV(), lines(), text(), bytes())~~ ✅ (v0.9.9)
+- ~~Read operator (<==)~~ ✅ (v0.9.9)
+- ~~Write operators (==>, ==>>)~~ ✅ (v0.9.9)
+- ~~Directory operations (dir(), glob())~~ ✅ (v0.9.9)
+- ~~File globbing to dictionary~~ ✅ (v0.9.9)
+- ~~Read JSON / write JSON~~ ✅ (v0.9.9)
+- ~~File I/O error capture ({data, error} <== file)~~ ✅ (v0.9.9)
+- css support
+- ~~$Decimal type for money?~~ ❌ invalidated by (v0.9.7)
+- File methods: delete
 - Dictionaries to props in tags
-- File globbing to dictionary
-- Read JSON / write JSON
+- Sort out what is and isn't a 'let'
 - Execute bash script
 - Pipe to bash script
 - Fetch from URL
@@ -23,8 +32,6 @@
 - Simple HTTP server
 	- routing
 	- cookies
-- css support
-- Sort out what is and isn't a 'let'
 - Add 'const'?
-- $Decimal type for money?
 - Optional Chaining (!.)
+- File I/O security sandbox (--allow-read, --allow-write flags)

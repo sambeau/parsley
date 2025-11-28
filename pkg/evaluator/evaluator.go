@@ -1873,6 +1873,156 @@ func fileToDict(pathDict *Dictionary, format string, options *Dictionary, env *E
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
+// dirToDict creates a directory dictionary from a path dictionary
+// Directory dictionaries have __type: "dir" and can be read to list contents
+func dirToDict(pathDict *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Add __type field
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "dir"},
+		Value: "dir",
+	}
+
+	// Store the path components and absolute flag from the path dict
+	if compExpr, ok := pathDict.Pairs["components"]; ok {
+		pairs["_pathComponents"] = compExpr
+	}
+	if absExpr, ok := pathDict.Pairs["absolute"]; ok {
+		pairs["_pathAbsolute"] = absExpr
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// isDirDict checks if a dictionary is a directory handle
+func isDirDict(dict *Dictionary) bool {
+	typeExpr, ok := dict.Pairs["__type"]
+	if !ok {
+		return false
+	}
+	if lit, ok := typeExpr.(*ast.StringLiteral); ok {
+		return lit.Value == "dir"
+	}
+	if ident, ok := typeExpr.(*ast.Identifier); ok {
+		return ident.Value == "dir"
+	}
+	return false
+}
+
+// evalDirComputedProperty returns computed properties for directory dictionaries
+func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Object {
+	pathStr := getFilePathString(dict, env)
+
+	switch key {
+	case "path":
+		// Return the underlying path dictionary
+		compExpr, ok := dict.Pairs["_pathComponents"]
+		if !ok {
+			return NULL
+		}
+		compObj := Eval(compExpr, env)
+		arr, ok := compObj.(*Array)
+		if !ok {
+			return NULL
+		}
+
+		absExpr, ok := dict.Pairs["_pathAbsolute"]
+		isAbsolute := false
+		if ok {
+			absObj := Eval(absExpr, env)
+			if b, ok := absObj.(*Boolean); ok {
+				isAbsolute = b.Value
+			}
+		}
+
+		components := []string{}
+		for _, elem := range arr.Elements {
+			if str, ok := elem.(*String); ok {
+				components = append(components, str.Value)
+			}
+		}
+
+		return pathToDict(components, isAbsolute, env)
+
+	case "exists":
+		info, err := os.Stat(pathStr)
+		return nativeBoolToParsBoolean(err == nil && info.IsDir())
+
+	case "isDir":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return FALSE
+		}
+		return nativeBoolToParsBoolean(info.IsDir())
+
+	case "isFile":
+		return FALSE // Directories are not files
+
+	case "name", "basename":
+		return &String{Value: filepath.Base(pathStr)}
+
+	case "parent", "dirname":
+		dir := filepath.Dir(pathStr)
+		components, isAbsolute := parsePathString(dir)
+		return pathToDict(components, isAbsolute, env)
+
+	case "mode":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return &String{Value: ""}
+		}
+		return &String{Value: info.Mode().String()}
+
+	case "modified":
+		info, err := os.Stat(pathStr)
+		if err != nil {
+			return NULL
+		}
+		return timeToDatetimeDict(info.ModTime(), env)
+
+	case "files":
+		// Return array of file handles in directory
+		return readDirContents(pathStr, env)
+
+	case "count":
+		// Return count of items in directory
+		entries, err := os.ReadDir(pathStr)
+		if err != nil {
+			return &Integer{Value: 0}
+		}
+		return &Integer{Value: int64(len(entries))}
+	}
+
+	return nil // Property doesn't exist
+}
+
+// readDirContents reads directory contents and returns array of file/dir handles
+func readDirContents(dirPath string, env *Environment) Object {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return newError("failed to read directory '%s': %s", dirPath, err.Error())
+	}
+
+	elements := make([]Object, 0, len(entries))
+	for _, entry := range entries {
+		entryPath := filepath.Join(dirPath, entry.Name())
+		components, isAbsolute := parsePathString(entryPath)
+		pathDict := pathToDict(components, isAbsolute, env)
+
+		var handle *Dictionary
+		if entry.IsDir() {
+			handle = dirToDict(pathDict, env)
+		} else {
+			format := inferFormatFromExtension(entryPath)
+			handle = fileToDict(pathDict, format, nil, env)
+		}
+		elements = append(elements, handle)
+	}
+
+	return &Array{Elements: elements}
+}
+
 // getFilePathString extracts the filesystem path string from a file dictionary
 func getFilePathString(dict *Dictionary, env *Environment) string {
 	// Get path components
@@ -2883,6 +3033,99 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				return fileToDict(pathDict, "bytes", options, env)
+			},
+		},
+		// Directory handle factory
+		"dir": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 1 {
+					return newError("wrong number of arguments to `dir`. got=%d, want=1", len(args))
+				}
+
+				// First argument must be a path dictionary or string
+				var pathDict *Dictionary
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isPathDict(arg) {
+						return newError("argument to `dir` must be a path, got dictionary")
+					}
+					pathDict = arg
+				case *String:
+					components, isAbsolute := parsePathString(arg.Value)
+					pathDict = pathToDict(components, isAbsolute, env)
+				default:
+					return newError("argument to `dir` must be a path or string, got %s", args[0].Type())
+				}
+
+				return dirToDict(pathDict, env)
+			},
+		},
+		// Glob pattern matching for files
+		"glob": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 1 {
+					return newError("wrong number of arguments to `glob`. got=%d, want=1", len(args))
+				}
+
+				var pattern string
+				env := NewEnvironment()
+
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if isPathDict(arg) {
+						// Convert path dict to string
+						// Ensure the dict has an env for evaluation
+						if arg.Env == nil {
+							arg.Env = env
+						}
+						pattern = pathDictToString(arg)
+					} else {
+						return newError("argument to `glob` must be a path or string pattern, got dictionary")
+					}
+				case *String:
+					pattern = arg.Value
+				default:
+					return newError("argument to `glob` must be a path or string pattern, got %s", args[0].Type())
+				}
+
+				// Expand home directory if needed
+				if strings.HasPrefix(pattern, "~/") {
+					home, err := os.UserHomeDir()
+					if err == nil {
+						pattern = filepath.Join(home, pattern[2:])
+					}
+				}
+
+				// Use doublestar for ** glob patterns, fallback to filepath.Glob for simple patterns
+				matches, err := filepath.Glob(pattern)
+				if err != nil {
+					return newError("invalid glob pattern '%s': %s", pattern, err.Error())
+				}
+
+				// Convert matches to array of file handles
+				elements := make([]Object, 0, len(matches))
+				for _, match := range matches {
+					info, statErr := os.Stat(match)
+					if statErr != nil {
+						continue
+					}
+
+					components, isAbsolute := parsePathString(match)
+					pathDict := pathToDict(components, isAbsolute, env)
+
+					var fileHandle *Dictionary
+					if info.IsDir() {
+						fileHandle = dirToDict(pathDict, env)
+					} else {
+						format := inferFormatFromExtension(match)
+						fileHandle = fileToDict(pathDict, format, nil, env)
+					}
+					elements = append(elements, fileHandle)
+				}
+
+				return &Array{Elements: elements}
 			},
 		},
 		// Locale-aware formatting functions
@@ -6526,6 +6769,11 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 			return computed
 		}
 	}
+	if isDirDict(dict) {
+		if computed := evalDirComputedProperty(dict, node.Key, env); computed != nil {
+			return computed
+		}
+	}
 	if isDatetimeDict(dict) {
 		if computed := evalDatetimeComputedProperty(dict, node.Key, env); computed != nil {
 			return computed
@@ -6600,26 +6848,81 @@ func evalDeleteStatement(node *ast.DeleteStatement, env *Environment) Object {
 
 // evalReadStatement evaluates the <== operator to read file content
 func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
-	// Evaluate the source expression (should be a file handle)
+	// Check if we're using dict pattern destructuring with error capture pattern
+	// Only use {data, error} wrapping if the pattern contains "data" or "error" keys
+	useErrorCapture := node.DictPattern != nil && isErrorCapturePattern(node.DictPattern)
+
+	// Evaluate the source expression (should be a file or dir handle)
 	source := Eval(node.Source, env)
 	if isError(source) {
+		if useErrorCapture {
+			// Wrap the error in {data: null, error: "message"} format
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeDataErrorDict(NULL, source.(*Error).Message, env), env, node.IsLet)
+		}
 		return source
 	}
 
-	// The source should be a file dictionary
-	fileDict, ok := source.(*Dictionary)
-	if !ok || !isFileDict(fileDict) {
-		return newError("read operator <== requires a file handle, got %s", source.Type())
+	// The source should be a file or directory dictionary
+	sourceDict, ok := source.(*Dictionary)
+	if !ok {
+		errMsg := fmt.Sprintf("read operator <== requires a file or directory handle, got %s", source.Type())
+		if useErrorCapture {
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet)
+		}
+		return newError(errMsg)
 	}
 
-	// Read the file content based on format
-	content, err := readFileContent(fileDict, env)
-	if err != nil {
-		return err
+	var content Object
+	var readErr *Error
+
+	if isDirDict(sourceDict) {
+		// Read directory contents
+		pathStr := getFilePathString(sourceDict, env)
+		if pathStr == "" {
+			errMsg := "directory handle has no valid path"
+			if useErrorCapture {
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeDataErrorDict(NULL, errMsg, env), env, node.IsLet)
+			}
+			return newError(errMsg)
+		}
+		content = readDirContents(pathStr, env)
+		if isError(content) {
+			if useErrorCapture {
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeDataErrorDict(NULL, content.(*Error).Message, env), env, node.IsLet)
+			}
+			return content
+		}
+	} else if isFileDict(sourceDict) {
+		// Read file content based on format
+		content, readErr = readFileContent(sourceDict, env)
+		if readErr != nil {
+			if useErrorCapture {
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeDataErrorDict(NULL, readErr.Message, env), env, node.IsLet)
+			}
+			return readErr
+		}
+	} else {
+		errMsg := "read operator <== requires a file or directory handle, got dictionary"
+		if useErrorCapture {
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeDataErrorDict(NULL, errMsg, env), env, node.IsLet)
+		}
+		return newError(errMsg)
 	}
 
 	// Assign to the target variable(s)
 	if node.DictPattern != nil {
+		if useErrorCapture {
+			// Wrap successful result in {data: ..., error: null} format
+			return evalDictDestructuringAssignment(node.DictPattern,
+				makeDataErrorDict(content, "", env), env, node.IsLet)
+		}
+		// Normal dict destructuring - extract keys directly from content
 		return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet)
 	}
 
@@ -6637,6 +6940,37 @@ func evalReadStatement(node *ast.ReadStatement, env *Environment) Object {
 	}
 
 	return content
+}
+
+// isErrorCapturePattern checks if a dict destructuring pattern contains "data" or "error" keys
+// which indicates the user wants to use the error capture pattern
+func isErrorCapturePattern(pattern *ast.DictDestructuringPattern) bool {
+	for _, key := range pattern.Keys {
+		if key.Key != nil {
+			keyName := key.Key.Value
+			if keyName == "data" || keyName == "error" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// makeDataErrorDict creates a {data: ..., error: ...} dictionary for error capture pattern
+func makeDataErrorDict(data Object, errorMsg string, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Set data field
+	pairs["data"] = &ast.ObjectLiteralExpression{Obj: data}
+
+	// Set error field
+	if errorMsg == "" {
+		pairs["error"] = &ast.ObjectLiteralExpression{Obj: NULL}
+	} else {
+		pairs["error"] = &ast.ObjectLiteralExpression{Obj: &String{Value: errorMsg}}
+	}
+
+	return &Dictionary{Pairs: pairs}
 }
 
 // readFileContent reads the content of a file based on its format
