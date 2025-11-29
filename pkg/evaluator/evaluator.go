@@ -2730,6 +2730,9 @@ func getFilePathString(dict *Dictionary, env *Environment) string {
 	if !ok {
 		return ""
 	}
+	if compExpr == nil {
+		return ""
+	}
 	compObj := Eval(compExpr, env)
 	arr, ok := compObj.(*Array)
 	if !ok {
@@ -2739,7 +2742,7 @@ func getFilePathString(dict *Dictionary, env *Environment) string {
 	// Get absolute flag
 	absExpr, ok := dict.Pairs["_pathAbsolute"]
 	isAbsolute := false
-	if ok {
+	if ok && absExpr != nil {
 		absObj := Eval(absExpr, env)
 		if b, ok := absObj.(*Boolean); ok {
 			isAbsolute = b.Value
@@ -10072,6 +10075,30 @@ func encodeCSV(value Object, hasHeader bool) ([]byte, error) {
 	}
 
 	return []byte(buf.String()), nil
+}
+
+// evalFileRemove removes/deletes a file from the filesystem
+func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
+	// Get the path from the file dictionary
+	pathStr := getFilePathString(fileDict, env)
+	if pathStr == "" {
+		return newError("file handle has no valid path")
+	}
+
+	// Resolve the path relative to the current file
+	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+	if pathErr != nil {
+		return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+	}
+
+	// Delete the file
+	err := os.Remove(absPath)
+	if err != nil {
+		return newError("failed to delete file '%s': %s", absPath, err.Error())
+	}
+
+	// Return a new null value instead of the global NULL
+	return &Null{}
 }
 
 // evalDictionaryIndexExpression handles dictionary access via dict["key"]

@@ -2,7 +2,7 @@
 
 ## APPROVED
 
-- File delete() methods: add a delete method to file pseudo-type
+~~- File delete() methods: add a delete method to file pseudo-type~~ (v0.9.17 - implemented as remove())
 
 ## IN DESIGN
 

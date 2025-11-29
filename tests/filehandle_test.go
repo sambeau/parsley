@@ -251,3 +251,88 @@ func TestFileBuiltinErrors(t *testing.T) {
 		}
 	}
 }
+
+// Test file remove() method
+func TestFileRemoveMethod(t *testing.T) {
+	// Create a temp directory and test file
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "remove_test.txt")
+	err := os.WriteFile(testFile, []byte("test content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Verify file exists
+	if _, err := os.Stat(testFile); os.IsNotExist(err) {
+		t.Fatalf("Test file was not created")
+	}
+
+	// Remove the file using Parsley (use string path instead of path literal)
+	input := `let f = file("` + testFile + `"); f.remove()`
+	result := testEvalFileHandle(input)
+	if result == nil {
+		t.Fatalf("evaluation returned nil")
+	}
+
+	// Check that remove() returns NULL on success
+	if result != evaluator.NULL {
+		if err, ok := result.(*evaluator.Error); ok {
+			t.Fatalf("remove() returned error: %s", err.Message)
+		} else {
+			t.Fatalf("expected NULL, got %T (%v)", result, result.Inspect())
+		}
+	}
+
+	// Verify file no longer exists
+	if _, err := os.Stat(testFile); !os.IsNotExist(err) {
+		t.Errorf("File still exists after remove()")
+	}
+}
+
+// Test file remove() method with non-existent file
+func TestFileRemoveNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "nonexistent.txt")
+
+	// Try to remove a file that doesn't exist (use string path)
+	input := `let f = file("` + testFile + `"); f.remove()`
+	result := testEvalFileHandle(input)
+	if result == nil {
+		t.Fatalf("evaluation returned nil")
+	}
+
+	// Should return an error
+	err, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected Error for non-existent file, got %T (%v)", result, result.Inspect())
+	}
+	if err.Message == "" {
+		t.Errorf("expected error message, got empty string")
+	}
+}
+
+// Test file remove() method with wrong number of arguments
+func TestFileRemoveWrongArgs(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.txt")
+	err := os.WriteFile(testFile, []byte("test"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Try to call remove with an argument (use string path)
+	input := `let f = file("` + testFile + `"); f.remove(true)`
+	result := testEvalFileHandle(input)
+	if result == nil {
+		t.Fatalf("evaluation returned nil")
+	}
+
+	// Should return an error
+	errObj, ok := result.(*evaluator.Error)
+	if !ok {
+		t.Fatalf("expected Error for wrong number of args, got %T (%v)", result, result.Inspect())
+	}
+	if errObj.Message == "" {
+		t.Errorf("expected error message, got empty string")
+	}
+}

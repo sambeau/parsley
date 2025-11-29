@@ -927,6 +927,13 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		}
 		return dict
 
+	case "remove":
+		// remove() - removes/deletes the file from filesystem
+		if len(args) != 0 {
+			return newError("wrong number of arguments for 'remove'. got=%d, want=0", len(args))
+		}
+		return evalFileRemove(dict, env)
+
 	default:
 		return newError("unknown method '%s' for file", method)
 	}

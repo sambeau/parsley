@@ -7,13 +7,16 @@ This is a Go project using standard Go practices and conventions.
 ## Code Style and Conventions
 
 - Follow standard Go formatting with `gofmt`
-- Use meaningful package names that are lowercase and concise
+- Write 'idiomatic' Go code that is easy to read and understand by other Go developers
 - Follow Go naming conventions (camelCase for private, PascalCase for public)
+- Use meaningful variable and function names
+- Use meaningful package names that are lowercase and concise
+- Keep functions small and focused on a single task
+- Use comments to explain the "why" behind complex logic, not the "what"
 - Use interfaces to define behavior contracts
 - Handle errors explicitly and appropriately
 - Write unit tests for all public functions
-- Use meaningful variable and function names
-- Use Go's std library functions, interfaces and types where possible
+- Use Go's std library functions, interfaces and types in preference to creating your own
 
 ## Project Structure
 
@@ -24,6 +27,10 @@ This is a Go project using standard Go practices and conventions.
   - `ast/` - Defines the Abstract Syntax Tree nodes
   - `evaluator/` - Evaluates the AST and executes the program
   - `repl/` - Read-Eval-Print Loop for interactive usage
+- `docs/` - Documentation and design documents
+  - `examples/` - Example scripts and usage
+  - `design/` - Language design documents
+- `tests/` - Unit and integration tests
 
 ## Dependencies
 
@@ -39,6 +46,7 @@ This is a Go project using standard Go practices and conventions.
 - Use `testify` for more complex assertions if needed
 
 ## Version Numbering
+
 - Use a `VERSION` file at the root of the repository to track the current version
 - Keep the version number in in the README.md file up to date
 - Increment minor version when major changes are made to the documentation
@@ -46,3 +54,28 @@ This is a Go project using standard Go practices and conventions.
 - Increment major version for breaking changes
 - Increment minor version for new features in a backward-compatible manner
 - Increment patch version for backward-compatible bug fixes
+
+## CHANGELOG.md
+
+- Maintain a `CHANGELOG.md` file at the root of the repository
+- Document all notable changes in the `CHANGELOG.md`
+- Follow the "Keep a Changelog" format for consistency
+- Link changelog entries to corresponding version numbers
+
+## Docs & README
+
+- Maintain a `README.md` file at the root of the repository
+- Keep the README with quick summary of language features, with short examples where needed
+- Keep the README up to date with installation, usage, and contribution instructions
+- Maintain a `docs/reference.md` file for language reference
+- Keep the reference documentation up to date with comprehensive list of language features
+- Maintain a `docs/` directory for design documents and specifications
+- Keep design documents up to date with the current implementation status
+- Document any deviations from the original design in the docs
+- Strikethrough completed items in design/TODO.md with version numbers where applicable
+
+## VS Code Extension
+
+- Maintain a `.vscode-extension/README.md` file for the VS Code extension
+- Keep the extension version aligned with the main project version
+- Document installation and usage instructions in the extension README

@@ -721,6 +721,23 @@ log(u)             // https://api.example.com/v1
 | `.basename` | Filename |
 | `.stem` | Name without extension |
 
+### File Handle Methods
+| Method | Description |
+|--------|-------------|
+| `.remove()` | Removes/deletes the file from the filesystem. Returns `null` on success, error on failure. |
+
+```parsley
+// Remove a file
+let f = file(@./temp.txt)
+f.remove()  // Deletes the file
+
+// With error handling
+let result = f.remove()
+if (result != null) {
+    log("Error:", result)
+}
+```
+
 ### Reading (`<==`)
 ```parsley
 let config <== JSON(@./config.json)

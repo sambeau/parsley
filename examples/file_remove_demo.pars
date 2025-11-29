@@ -1,0 +1,39 @@
+// File Remove Demo
+// Demonstrates the remove() method for file handles
+
+log("=== File Remove Demo ===\n")
+
+// Create a temporary file for testing
+let testFile = file("/tmp/parsley_remove_demo.txt")
+"This is a test file" ==> text("/tmp/parsley_remove_demo.txt")
+
+// Check that file exists
+log("File exists before remove:", testFile.exists)  // true
+log("File size:", testFile.size, "bytes")
+
+// Remove the file
+log("\nRemoving file...")
+let result = testFile.remove()
+log("Remove result:", result)  // null (success)
+
+// Verify file no longer exists
+let testFile2 = file("/tmp/parsley_remove_demo.txt")
+log("File exists after remove:", testFile2.exists)  // false
+
+// Try to remove a file that doesn't exist (will error)
+log("\n=== Error Handling ===")
+let nonExistent = file("/tmp/does_not_exist.txt")
+log("Attempting to remove non-existent file...")
+log("File exists:", nonExistent.exists)  // false
+log("Skipping remove since file doesn't exist")
+
+log("\n=== Practical Example ===")
+// Clean up old log files
+let logFile = file("/tmp/old_log.txt")
+"Old log data" ==> text("/tmp/old_log.txt")
+
+if (logFile.exists) {
+    log("Removing old log file...")
+    logFile.remove()
+    log("Log file removed")
+}

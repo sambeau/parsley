@@ -324,6 +324,19 @@ records ==> CSV(@./export.csv)
 logEntry ==>> lines(@./app.log)
 ```
 
+#### File Operations
+
+```parsley
+// Remove/delete files
+let f = file(@./temp.txt)
+f.remove()  // Returns null on success
+
+// With error handling
+if (f.exists) {
+    f.remove()
+}
+```
+
 #### Directories and File Patterns
 
 ```parsley
