@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -5255,8 +5257,458 @@ func getBuiltins() map[string]*Builtin {
 				return dict
 			},
 		},
+		"COMMAND": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 3 {
+					return newError("wrong number of arguments to `COMMAND`. got=%d, want=1-3", len(args))
+				}
+
+				env := NewEnvironment()
+
+				// First argument: binary name/path (string)
+				binary, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to `COMMAND` must be a string, got %s", args[0].Type())
+				}
+
+				// Second argument (optional): args array
+				var cmdArgs []string
+				if len(args) >= 2 {
+					if argsArray, ok := args[1].(*Array); ok {
+						cmdArgs = make([]string, len(argsArray.Elements))
+						for i, arg := range argsArray.Elements {
+							if str, ok := arg.(*String); ok {
+								cmdArgs[i] = str.Value
+							} else {
+								return newError("COMMAND arguments must be strings, got %s at index %d", arg.Type(), i)
+							}
+						}
+					} else {
+						return newError("second argument to `COMMAND` must be an array, got %s", args[1].Type())
+					}
+				}
+
+				// Third argument (optional): options dict
+				var options *Dictionary
+				if len(args) >= 3 {
+					if optDict, ok := args[2].(*Dictionary); ok {
+						options = optDict
+					} else {
+						return newError("third argument to `COMMAND` must be a dictionary, got %s", args[2].Type())
+					}
+				}
+
+				return createCommandHandle(binary.Value, cmdArgs, options, env)
+			},
+		},
+		"parseJSON": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("parseJSON() expects 1 argument, got=%d", len(args))
+				}
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("parseJSON() expects string argument, got %s", args[0].Type())
+				}
+
+				var result interface{}
+				if err := json.Unmarshal([]byte(str.Value), &result); err != nil {
+					return newError("parseJSON error: %s", err.Error())
+				}
+
+				return jsonToObject(result)
+			},
+		},
+		"stringifyJSON": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("stringifyJSON() expects 1 argument, got=%d", len(args))
+				}
+
+				jsonData := objectToGo(args[0])
+				jsonBytes, err := json.Marshal(jsonData)
+				if err != nil {
+					return newError("stringifyJSON error: %s", err.Error())
+				}
+
+				return &String{Value: string(jsonBytes)}
+			},
+		},
+		"parseCSV": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("parseCSV() expects 1-2 arguments, got=%d", len(args))
+				}
+				str, ok := args[0].(*String)
+				if !ok {
+					return newError("parseCSV() expects string argument, got %s", args[0].Type())
+				}
+
+				// Parse options if provided
+				hasHeader := false
+				if len(args) == 2 {
+					if optDict, ok := args[1].(*Dictionary); ok {
+						if headerExpr, exists := optDict.Pairs["header"]; exists {
+							headerObj := Eval(headerExpr, optDict.Env)
+							if headerBool, ok := headerObj.(*Boolean); ok {
+								hasHeader = headerBool.Value
+							}
+						}
+					}
+				}
+
+				reader := csv.NewReader(strings.NewReader(str.Value))
+				records, err := reader.ReadAll()
+				if err != nil {
+					return newError("parseCSV error: %s", err.Error())
+				}
+
+				if hasHeader && len(records) > 0 {
+					// Return array of dicts with headers as keys
+					headers := records[0]
+					rows := make([]Object, len(records)-1)
+					for i, record := range records[1:] {
+						dict := &Dictionary{
+							Pairs: make(map[string]ast.Expression),
+							Env:   NewEnvironment(),
+						}
+						for j, value := range record {
+							if j < len(headers) {
+								dict.Pairs[headers[j]] = &ast.StringLiteral{
+									Token: lexer.Token{Type: lexer.STRING, Literal: value},
+									Value: value,
+								}
+							}
+						}
+						rows[i] = dict
+					}
+					return &Array{Elements: rows}
+				}
+
+				// Return array of arrays
+				rows := make([]Object, len(records))
+				for i, record := range records {
+					row := make([]Object, len(record))
+					for j, value := range record {
+						row[j] = &String{Value: value}
+					}
+					rows[i] = &Array{Elements: row}
+				}
+				return &Array{Elements: rows}
+			},
+		},
+		"stringifyCSV": {
+			Fn: func(args ...Object) Object {
+				if len(args) != 1 {
+					return newError("stringifyCSV() expects 1 argument, got=%d", len(args))
+				}
+
+				arr, ok := args[0].(*Array)
+				if !ok {
+					return newError("stringifyCSV() expects array argument, got %s", args[0].Type())
+				}
+
+				var buf bytes.Buffer
+				writer := csv.NewWriter(&buf)
+
+				for _, elem := range arr.Elements {
+					if row, ok := elem.(*Array); ok {
+						record := make([]string, len(row.Elements))
+						for i, cell := range row.Elements {
+							record[i] = cell.Inspect()
+						}
+						if err := writer.Write(record); err != nil {
+							return newError("stringifyCSV error: %s", err.Error())
+						}
+					} else {
+						return newError("stringifyCSV expects array of arrays, got element of type %s", elem.Type())
+					}
+				}
+
+				writer.Flush()
+				if err := writer.Error(); err != nil {
+					return newError("stringifyCSV error: %s", err.Error())
+				}
+
+				return &String{Value: buf.String()}
+			},
+		},
 	}
-} // Helper function to evaluate a statement
+}
+
+// createCommandHandle creates a command handle dictionary
+func createCommandHandle(binary string, args []string, options *Dictionary, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Add __type field
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "command"},
+		Value: "command",
+	}
+
+	// Add binary field
+	pairs["binary"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: binary},
+		Value: binary,
+	}
+
+	// Add args field
+	argElements := make([]ast.Expression, len(args))
+	for i, arg := range args {
+		argElements[i] = &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: arg},
+			Value: arg,
+		}
+	}
+	pairs["args"] = &ast.ArrayLiteral{
+		Token:    lexer.Token{Type: lexer.LBRACKET, Literal: "["},
+		Elements: argElements,
+	}
+
+	// Add options field
+	if options != nil {
+		// Copy options to ast expressions
+		optPairs := make(map[string]ast.Expression)
+		for k, v := range options.Pairs {
+			optPairs[k] = v
+		}
+		pairs["options"] = &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: optPairs,
+		}
+	} else {
+		// Empty options
+		pairs["options"] = &ast.DictionaryLiteral{
+			Token: lexer.Token{Type: lexer.LBRACE, Literal: "{"},
+			Pairs: make(map[string]ast.Expression),
+		}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// isCommandHandle checks if a dictionary is a command handle
+func isCommandHandle(dict *Dictionary) bool {
+	typeExpr, ok := dict.Pairs["__type"]
+	if !ok {
+		return false
+	}
+	typeLit, ok := typeExpr.(*ast.StringLiteral)
+	if !ok {
+		return false
+	}
+	return typeLit.Value == "command"
+}
+
+// executeCommand executes a command handle with input and returns result dictionary
+func executeCommand(cmdDict *Dictionary, input Object, env *Environment) Object {
+	// Extract binary
+	binaryExpr, ok := cmdDict.Pairs["binary"]
+	if !ok {
+		return newError("command handle missing binary field")
+	}
+	binaryLit, ok := binaryExpr.(*ast.StringLiteral)
+	if !ok {
+		return newError("command binary must be a string")
+	}
+	binary := binaryLit.Value
+
+	// Resolve command path
+	var resolvedPath string
+	if strings.Contains(binary, "/") {
+		// Relative or absolute path
+		resolvedPath = binary
+	} else {
+		// Look in PATH
+		path, err := exec.LookPath(binary)
+		if err != nil {
+			return createErrorResult("command not found: "+binary, -1)
+		}
+		resolvedPath = path
+	}
+
+	// Security check
+	if env.Security != nil {
+		if err := env.checkPathAccess(resolvedPath, "execute"); err != nil {
+			return createErrorResult("security: "+err.Error(), -1)
+		}
+	}
+
+	// Extract args
+	argsExpr, ok := cmdDict.Pairs["args"]
+	if !ok {
+		return newError("command handle missing args field")
+	}
+	argsLit, ok := argsExpr.(*ast.ArrayLiteral)
+	if !ok {
+		return newError("command args must be an array")
+	}
+
+	args := make([]string, len(argsLit.Elements))
+	for i, argExpr := range argsLit.Elements {
+		argLit, ok := argExpr.(*ast.StringLiteral)
+		if !ok {
+			return newError("command arguments must be strings")
+		}
+		args[i] = argLit.Value
+	}
+
+	// Extract options
+	optsExpr, ok := cmdDict.Pairs["options"]
+	if !ok {
+		return newError("command handle missing options field")
+	}
+	optsLit, ok := optsExpr.(*ast.DictionaryLiteral)
+	if !ok {
+		return newError("command options must be a dictionary")
+	}
+
+	// Build exec.Command
+	cmd := exec.Command(resolvedPath, args...)
+
+	// Apply options
+	applyCommandOptions(cmd, optsLit, env)
+
+	// Set stdin if provided
+	if input != nil && input.Type() != NULL_OBJ {
+		if str, ok := input.(*String); ok {
+			cmd.Stdin = strings.NewReader(str.Value)
+		} else {
+			return newError("command input must be a string or null, got %s", input.Type())
+		}
+	}
+
+	// Execute and capture
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	// Build result dict
+	return createResultDict(stdout.String(), stderr.String(), err)
+}
+
+// applyCommandOptions applies options to the exec.Cmd
+func applyCommandOptions(cmd *exec.Cmd, optsLit *ast.DictionaryLiteral, env *Environment) {
+	// env option
+	if envExpr, ok := optsLit.Pairs["env"]; ok {
+		envObj := Eval(envExpr, env)
+		if envDict, ok := envObj.(*Dictionary); ok {
+			var envVars []string
+			for key, valExpr := range envDict.Pairs {
+				valObj := Eval(valExpr, env)
+				if str, ok := valObj.(*String); ok {
+					envVars = append(envVars, key+"="+str.Value)
+				}
+			}
+			cmd.Env = envVars
+		}
+	}
+
+	// dir option
+	if dirExpr, ok := optsLit.Pairs["dir"]; ok {
+		dirObj := Eval(dirExpr, env)
+		if pathDict, ok := dirObj.(*Dictionary); ok {
+			if isPathDict(pathDict) {
+				pathStr := pathDictToString(pathDict)
+				cmd.Dir = pathStr
+			}
+		}
+	}
+
+	// timeout option
+	if timeoutExpr, ok := optsLit.Pairs["timeout"]; ok {
+		timeoutObj := Eval(timeoutExpr, env)
+		if durDict, ok := timeoutObj.(*Dictionary); ok {
+			if isDurationDict(durDict) {
+				_, seconds, err := getDurationComponents(durDict, env)
+				if err == nil {
+					timeout := time.Duration(seconds) * time.Second
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					defer cancel()
+
+					// Replace cmd with CommandContext
+					*cmd = *exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
+				}
+			}
+		}
+	}
+}
+
+// createResultDict creates a result dictionary from command output
+func createResultDict(stdout, stderr string, err error) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// stdout
+	pairs["stdout"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: stdout},
+		Value: stdout,
+	}
+
+	// stderr
+	pairs["stderr"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: stderr},
+		Value: stderr,
+	}
+
+	// exitCode and error
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Non-zero exit
+			pairs["exitCode"] = &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: strconv.Itoa(exitErr.ExitCode())},
+				Value: int64(exitErr.ExitCode()),
+			}
+			pairs["error"] = &ast.Identifier{Token: lexer.Token{Type: lexer.IDENT, Literal: "null"}, Value: "null"}
+		} else {
+			// Execution failed
+			pairs["exitCode"] = &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: "-1"},
+				Value: -1,
+			}
+			pairs["error"] = &ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: err.Error()},
+				Value: err.Error(),
+			}
+		}
+	} else {
+		// Success
+		pairs["exitCode"] = &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: "0"},
+			Value: 0,
+		}
+		pairs["error"] = &ast.Identifier{Token: lexer.Token{Type: lexer.IDENT, Literal: "null"}, Value: "null"}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
+// createErrorResult creates a result dictionary for errors
+func createErrorResult(errMsg string, exitCode int64) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	pairs["stdout"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: ""},
+		Value: "",
+	}
+	pairs["stderr"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: ""},
+		Value: "",
+	}
+	pairs["exitCode"] = &ast.IntegerLiteral{
+		Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(exitCode, 10)},
+		Value: exitCode,
+	}
+	pairs["error"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: errMsg},
+		Value: errMsg,
+	}
+
+	return &Dictionary{Pairs: pairs, Env: NewEnvironment()}
+}
+
+// Helper function to evaluate a statement
 func evalStatement(stmt ast.Statement, env *Environment) Object {
 	switch stmt := stmt.(type) {
 	case *ast.ExpressionStatement:
@@ -5536,6 +5988,32 @@ func Eval(node ast.Node, env *Environment) Object {
 			return right
 		}
 		return evalInfixExpression(node.Token, node.Operator, left, right)
+
+	case *ast.ExecuteExpression:
+		// Evaluate command handle
+		cmdObj := Eval(node.Command, env)
+		if isError(cmdObj) {
+			return cmdObj
+		}
+
+		// Verify it's a command handle
+		cmdDict, ok := cmdObj.(*Dictionary)
+		if !ok {
+			return newError("left operand of <=#=> must be command handle, got %s", cmdObj.Type())
+		}
+
+		if !isCommandHandle(cmdDict) {
+			return newError("left operand of <=#=> must be command handle")
+		}
+
+		// Evaluate input
+		inputObj := Eval(node.Input, env)
+		if isError(inputObj) {
+			return inputObj
+		}
+
+		// Execute the command
+		return executeCommand(cmdDict, inputObj, env)
 
 	case *ast.IfExpression:
 		return evalIfExpression(node, env)

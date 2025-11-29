@@ -1,0 +1,100 @@
+// Process Execution Demo
+// Demonstrates the COMMAND() builtin and <=#=> operator
+
+log("=== Basic Command Execution ===")
+
+// Simple echo command
+let result1 = COMMAND("echo", ["Hello, World!"]) <=#=> null
+log("Output:", result1.stdout)
+log("Exit code:", result1.exitCode)
+log("Error:", result1.error)
+
+log("\n=== Command with Multiple Arguments ===")
+
+// List files
+let result2 = COMMAND("ls", ["-la"]) <=#=> null
+log("Directory listing:")
+log(result2.stdout)
+
+log("\n=== Command with Environment Variables ===")
+
+// Command with custom environment
+let cmd = COMMAND("printenv", ["MY_VAR"], {
+	env: {MY_VAR: "custom value"}
+})
+let result3 = cmd <=#=> null
+log("Environment variable output:", result3.stdout)
+
+log("\n=== Command with Working Directory ===")
+
+// Run command in specific directory
+let result4 = COMMAND("pwd", [], {dir: "/tmp"}) <=#=> null
+log("Current directory:", result4.stdout)
+
+log("\n=== JSON Format Conversion ===")
+
+// Parse JSON
+let jsonStr = "{\"name\":\"Alice\",\"age\":30,\"city\":\"NYC\"}"
+let parsed = parseJSON(jsonStr)
+log("Parsed JSON:", parsed)
+log("Name:", parsed.name)
+
+// Stringify to JSON
+let obj = {
+	title: "Example",
+	count: 42,
+	tags: ["demo", "process", "json"]
+}
+let jsonOutput = stringifyJSON(obj)
+log("JSON output:", jsonOutput)
+
+log("\n=== CSV Format Conversion ===")
+
+// Parse CSV with header
+let csvWithHeader = "name,age,city\nAlice,30,NYC\nBob,25,LA"
+let people = parseCSV(csvWithHeader, {header: true})
+log("Parsed CSV (with header):")
+for (person in people) {
+	log("  ", person.name, "(", person.age, ") from", person.city)
+}
+
+// Parse CSV without header
+let csvData = "apple,red,sweet\nbanana,yellow,soft"
+let rows = parseCSV(csvData)
+log("\nParsed CSV (no header):")
+for (row in rows) {
+	log(" ", row)
+}
+
+// Stringify CSV
+let data = [
+	["Product", "Color", "Price"],
+	["Apple", "Red", "1.50"],
+	["Banana", "Yellow", "0.75"]
+]
+let csvOutput = stringifyCSV(data)
+log("\nCSV output:")
+log(csvOutput)
+
+log("\n=== Practical Example: Process JSON API Response ===")
+
+// Simulate fetching data and processing it
+let apiData = parseJSON("{\"users\":[{\"id\":1,\"name\":\"Alice\"},{\"id\":2,\"name\":\"Bob\"}]}")
+log("API Users:")
+for (user in apiData.users) {
+	log("  User #", user.id, ":", user.name)
+}
+
+log("\n=== Error Handling ===")
+
+// Command that doesn't exist
+let result5 = COMMAND("nonexistent_command_xyz", []) <=#=> null
+if (result5.error != null) {
+	log("Error occurred:", result5.error)
+}
+
+// Invalid JSON
+let badJson = parseJSON("{invalid}")
+if (badJson.__type == "error") {
+	log("JSON parse error (expected)")
+}

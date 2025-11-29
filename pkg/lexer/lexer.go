@@ -64,6 +64,9 @@ const (
 	QUERY_MANY // <=??=>
 	EXECUTE    // <=!=>
 
+	// Process execution operator
+	EXECUTE_WITH // <=#=>
+
 	// Delimiters
 	COMMA     // ,
 	SEMICOLON // ;
@@ -199,6 +202,8 @@ func (tt TokenType) String() string {
 		return "QUERY_MANY"
 	case EXECUTE:
 		return "EXECUTE"
+	case EXECUTE_WITH:
+		return "EXECUTE_WITH"
 	case COMMA:
 		return "COMMA"
 	case SEMICOLON:
@@ -502,6 +507,15 @@ func (l *Lexer) NextToken() Token {
 			l.readChar() // consume '='
 			l.readChar() // consume '>'
 			tok = Token{Type: EXECUTE, Literal: "<=!=>", Line: line, Column: col}
+		} else if l.peekChar() == '=' && l.peekCharN(2) == '#' && l.peekCharN(3) == '=' && l.peekCharN(4) == '>' {
+			// <=#=> (execute command with input)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '='
+			l.readChar() // consume '#'
+			l.readChar() // consume '='
+			l.readChar() // consume '>'
+			tok = Token{Type: EXECUTE_WITH, Literal: "<=#=>", Line: line, Column: col}
 		} else if l.peekChar() == '=' && l.peekCharN(2) == '/' && l.peekCharN(3) == '=' {
 			// <=/= (fetch from URL)
 			line := l.line

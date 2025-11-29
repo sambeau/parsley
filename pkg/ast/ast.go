@@ -681,6 +681,27 @@ func (de *DotExpression) String() string {
 	return out.String()
 }
 
+// ExecuteExpression represents command execution like: COMMAND("ls") <=#=> null
+type ExecuteExpression struct {
+	Token   lexer.Token // the '<=#=>' token
+	Command Expression  // the command handle
+	Input   Expression  // the input data (or null)
+}
+
+func (ee *ExecuteExpression) expressionNode()      {}
+func (ee *ExecuteExpression) TokenLiteral() string { return ee.Token.Literal }
+func (ee *ExecuteExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(ee.Command.String())
+	out.WriteString(" <=#=> ")
+	out.WriteString(ee.Input.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // DeleteStatement represents delete dict.key or delete dict["key"]
 type DeleteStatement struct {
 	Token  lexer.Token // the 'delete' token

@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.11.0] - 2025-11-30
+
+### Added
+- **Process Execution**: Execute external commands and capture output
+  - `COMMAND(binary, args?, options?)` - Create command handle
+  - `<=#=>` operator - Execute command with optional input
+  - Command options support: `env` (environment variables), `dir` (working directory), `timeout` (duration)
+  - Result dictionary with: `stdout`, `stderr`, `exitCode`, `error`
+  - Security integration with `--allow-execute` flags
+- **JSON Format Functions**: Parse and stringify JSON data
+  - `parseJSON(string)` - Parse JSON string to Parsley objects
+  - `stringifyJSON(object)` - Convert Parsley objects to JSON string
+  - Supports objects, arrays, strings, numbers, booleans, and null
+- **CSV Format Functions**: Parse and stringify CSV data
+  - `parseCSV(string, options?)` - Parse CSV string to array of arrays or dictionaries
+  - `stringifyCSV(array)` - Convert array of arrays to CSV string
+  - Options: `header: true` parses first row as column names
+- Comprehensive test suite for process execution and format conversion
+- Example script: `examples/process_demo.pars`
+
+### Changed
+- Added new lexer token `EXECUTE_WITH` for `<=#=>` operator
+- Extended AST with `ExecuteExpression` node type
+- Parser supports process execution syntax at EQUALS precedence level
+
+### Documentation
+- Updated reference.md with process execution documentation
+- Added format conversion function examples
+
+---
+
 ## [0.10.0] - 2025-11-29
 
 ### Added

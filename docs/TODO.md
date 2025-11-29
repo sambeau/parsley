@@ -3,17 +3,15 @@
 ## APPROVED
 
 ~~- File delete() methods: add a delete method to file pseudo-type~~ ✅ (v0.9.17 - implemented as remove())
+~~- File I/O security sandbox: --no-read, --no-write flags~~ ✅ (v0.10.0)
 ~~- chroots for write: limit writes to one or more directories and their children~~ ✅ (v0.10.0)
 ~~- chroots for read: limit reads to one or more directories and their children~~ ✅ (v0.10.0)
 ~~- chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin~~ ✅ (v0.10.0)
+~~- run scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
+~~- pipe scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
 
 ## IN PLANNING
 
-## IN DESIGN
-
-- run scripts: Execute external commands/scripts/tools with command line imputs/options, receive exit status + optional output as result
-- pipe scripts: Execute external commands/scripts/tools with command line imputs/options, receive exit status + optional output as result
-- File I/O security sandbox: --no-read, --no-write flags
 - SFTP Support: Read/Write files from FTP server - useful for static site generation
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands

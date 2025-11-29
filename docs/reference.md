@@ -15,6 +15,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Path Methods](#path-methods)
 - [URL Methods](#url-methods)
 - [File I/O](#file-io)
+- [Process Execution](#process-execution)
 - [Database](#database)
 - [Regex](#regex)
 - [Modules](#modules)
@@ -208,6 +209,11 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `<==` | Read from file | `let data <== JSON(@./file.json)` |
 | `==>` | Write to file | `data ==> JSON(@./out.json)` |
 | `==>>` | Append to file | `line ==>> lines(@./log.txt)` |
+
+### Process Execution
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `<=#=>` | Execute command with input | `let result = COMMAND("ls") <=#=> null` |
 
 ### Database
 | Operator | Description | Example |
@@ -1082,6 +1088,127 @@ db.close()
 
 ---
 
+## Process Execution
+
+Execute external commands and capture their output.
+
+### Creating a Command
+
+Use `COMMAND()` to create a command handle:
+
+```parsley
+// Simple command
+let cmd = COMMAND("echo")
+
+// Command with arguments
+let cmd = COMMAND("ls", ["-la", "/tmp"])
+
+// Command with options
+let cmd = COMMAND("node", ["script.js"], {
+    env: {NODE_ENV: "production"},
+    dir: "/path/to/project",
+    timeout: @30s
+})
+```
+
+### Command Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `env` | Dictionary | Environment variables (merged with system env) |
+| `dir` | String/Path | Working directory for command execution |
+| `timeout` | Duration | Maximum execution time (process killed if exceeded) |
+
+### Executing Commands
+
+Use the `<=#=>` operator to execute a command:
+
+```parsley
+// Execute without input
+let result = COMMAND("echo", ["hello"]) <=#=> null
+
+// Command can also have input data (passed to stdin)
+let result = COMMAND("cat") <=#=> "input data"
+```
+
+### Result Structure
+
+Execution returns a dictionary with:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stdout` | String | Standard output from command |
+| `stderr` | String | Standard error from command |
+| `exitCode` | Integer | Exit code (0 for success) |
+| `error` | String/Null | Error message if execution failed, `null` otherwise |
+
+### Examples
+
+```parsley
+// Basic command
+let result = COMMAND("date") <=#=> null
+log("Current date:", result.stdout)
+log("Exit code:", result.exitCode)
+
+// Command with arguments
+let result = COMMAND("ls", ["-la", "/tmp"]) <=#=> null
+if (result.exitCode == 0) {
+    log("Files:")
+    log(result.stdout)
+}
+
+// Command with custom environment
+let cmd = COMMAND("printenv", ["MY_VAR"], {
+    env: {MY_VAR: "custom value"}
+})
+let result = cmd <=#=> null
+log("Environment variable:", result.stdout)
+
+// Command with working directory
+let result = COMMAND("pwd", [], {dir: "/tmp"}) <=#=> null
+log("Current directory:", result.stdout)
+
+// Command with timeout
+let result = COMMAND("sleep", ["60"], {timeout: @5s}) <=#=> null
+if (result.error != null) {
+    log("Command timed out or failed:", result.error)
+}
+```
+
+### Security
+
+Process execution requires explicit permission via command-line flags:
+
+```bash
+# Allow all process execution
+./pars --allow-execute-all script.pars
+./pars -x script.pars
+
+# Allow execution from specific directories
+./pars --allow-execute=/usr/bin,/bin script.pars
+```
+
+Without these flags, `COMMAND()` will return a security error.
+
+### Error Handling
+
+```parsley
+// Command doesn't exist
+let result = COMMAND("nonexistent_cmd") <=#=> null
+if (result.error != null) {
+    log("Error:", result.error)
+}
+
+// Non-zero exit code
+let result = COMMAND("ls", ["/nonexistent"]) <=#=> null
+if (result.exitCode != 0) {
+    log("Command failed with code:", result.exitCode)
+    log("Error output:", result.stderr)
+}
+```
+
+---
+
 ## Modules
 
 ### Creating a Module
@@ -1199,6 +1326,127 @@ All pseudo-types support a `.toDict()` method that returns their internal dictio
 @1h30m.toDict()         // {__type: "duration", hours: 1, minutes: 30, ...}
 /\d+/g.toDict()         // {__type: "regex", pattern: "\\d+", flags: "g"}
 @./config.json.toDict() // {__type: "path", path: "./config.json", ...}
+```
+
+### Format Conversion Functions
+
+#### JSON Functions
+
+**`parseJSON(string)`**
+Parse a JSON string into Parsley objects:
+
+```parsley
+let jsonStr = "{\"name\":\"Alice\",\"age\":30}"
+let obj = parseJSON(jsonStr)
+log(obj.name)  // Alice
+log(obj.age)   // 30
+
+// Arrays
+let arr = parseJSON("[1, 2, 3]")
+log(arr[0])    // 1
+
+// Nested structures
+let data = parseJSON("{\"users\":[{\"id\":1,\"name\":\"Bob\"}]}")
+log(data.users[0].name)  // Bob
+```
+
+**`stringifyJSON(object)`**
+Convert Parsley objects to JSON string:
+
+```parsley
+let obj = {name: "Alice", age: 30, active: true}
+let json = stringifyJSON(obj)
+log(json)  // {"active":true,"age":30,"name":"Alice"}
+
+// Arrays
+let arr = [1, 2, 3]
+log(stringifyJSON(arr))  // [1,2,3]
+
+// Nested objects
+let data = {user: {id: 1, name: "Bob"}, tags: ["a", "b"]}
+log(stringifyJSON(data))
+```
+
+Supported types: dictionaries, arrays, strings, integers, floats, booleans, null.
+
+#### CSV Functions
+
+**`parseCSV(string, options?)`**
+Parse CSV string into array of arrays or dictionaries:
+
+```parsley
+// Basic parsing (array of arrays)
+let csv = "a,b,c\n1,2,3\n4,5,6"
+let rows = parseCSV(csv)
+log(rows)  // [["a","b","c"], ["1","2","3"], ["4","5","6"]]
+
+// Parse with header (array of dictionaries)
+let csv = "name,age,city\nAlice,30,NYC\nBob,25,LA"
+let people = parseCSV(csv, {header: true})
+log(people[0].name)   // Alice
+log(people[1].city)   // LA
+
+for (person in people) {
+    log("{person.name} is {person.age} years old")
+}
+```
+
+**`stringifyCSV(array)`**
+Convert array of arrays to CSV string:
+
+```parsley
+let data = [
+    ["Name", "Age", "City"],
+    ["Alice", "30", "NYC"],
+    ["Bob", "25", "LA"]
+]
+let csv = stringifyCSV(data)
+log(csv)
+// Output:
+// Name,Age,City
+// Alice,30,NYC
+// Bob,25,LA
+```
+
+#### Practical Examples
+
+**JSON API Response Processing:**
+```parsley
+// Simulate fetching JSON from API
+let response = parseJSON("{\"users\":[{\"id\":1,\"name\":\"Alice\"}]}")
+for (user in response.users) {
+    log("User #{user.id}: {user.name}")
+}
+
+// Create JSON for API request
+let request = {
+    method: "POST",
+    data: {username: "alice", email: "alice@example.com"}
+}
+let jsonRequest = stringifyJSON(request)
+```
+
+**CSV Data Processing:**
+```parsley
+// Read CSV with header
+let csvData = "product,price,quantity\nApple,1.50,100\nBanana,0.75,200"
+let inventory = parseCSV(csvData, {header: true})
+
+// Calculate total value
+let total = 0
+for (item in inventory) {
+    let value = parseFloat(item.price) * parseInt(item.quantity)
+    total = total + value
+}
+log("Total inventory value: ${total}")
+
+// Export to CSV
+let report = [
+    ["Product", "Value"],
+    ["Apple", "150.00"],
+    ["Banana", "150.00"]
+]
+let csvOutput = stringifyCSV(report)
 ```
 
 ---

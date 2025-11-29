@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.10.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.11.0
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -21,6 +21,7 @@ A minimalist language for generating HTML/XML with first-class file I/O.
   - [HTML/XML Tags](#htmlxml-tags)
   - [File I/O](#file-io)
   - [Database](#database)
+  - [Process Execution](#process-execution)
   - [Modules](#modules)
 - [Examples](#examples)
 - [Development](#development)
@@ -386,6 +387,38 @@ db.close()     // Close connection
 ```
 
 See [examples/database_demo.pars](examples/database_demo.pars) for a complete working example.
+
+### Process Execution
+
+Execute external commands and process their output:
+
+```parsley
+// Simple command execution
+let result = COMMAND("ls", ["-la"]) <=#=> null
+log(result.stdout)    // Command output
+log(result.exitCode)  // 0 for success
+
+// Command with options
+let result = COMMAND("node", ["script.js"], {
+    env: {NODE_ENV: "production"},
+    dir: "/path/to/project",
+    timeout: @30s
+}) <=#=> null
+
+// Format conversion helpers
+let data = parseJSON("{\"name\":\"Alice\"}")
+log(data.name)  // "Alice"
+
+let json = stringifyJSON({x: 1, y: 2})
+log(json)  // {"x":1,"y":2}
+
+let rows = parseCSV("a,b,c\n1,2,3", {header: true})
+log(rows[0].a)  // "1"
+```
+
+**Security**: Process execution requires `--allow-execute-all` or `--allow-execute=PATHS` flag.
+
+See [examples/process_demo.pars](examples/process_demo.pars) for complete examples.
 
 ### Modules
 

@@ -28,31 +28,32 @@ const (
 
 // precedences maps tokens to their precedence
 var precedences = map[lexer.TokenType]int{
-	lexer.COMMA:      COMMA_PREC,
-	lexer.OR:         LOGIC_OR,
-	lexer.NULLISH:    LOGIC_OR,
-	lexer.AND:        LOGIC_AND,
-	lexer.EQ:         EQUALS,
-	lexer.NOT_EQ:     EQUALS,
-	lexer.MATCH:      EQUALS,
-	lexer.NOT_MATCH:  EQUALS,
-	lexer.LT:         LESSGREATER,
-	lexer.GT:         LESSGREATER,
-	lexer.LTE:        LESSGREATER,
-	lexer.GTE:        LESSGREATER,
-	lexer.PLUS:       SUM,
-	lexer.MINUS:      SUM,
-	lexer.RANGE:      SUM,
-	lexer.PLUSPLUS:   CONCAT,
-	lexer.SLASH:      PRODUCT,
-	lexer.ASTERISK:   PRODUCT,
-	lexer.PERCENT:    PRODUCT,
-	lexer.LBRACKET:   INDEX,
-	lexer.DOT:        INDEX,
-	lexer.LPAREN:     CALL,
-	lexer.QUERY_ONE:  EQUALS, // Database query operators
-	lexer.QUERY_MANY: EQUALS,
-	lexer.EXECUTE:    EQUALS,
+	lexer.COMMA:        COMMA_PREC,
+	lexer.OR:           LOGIC_OR,
+	lexer.NULLISH:      LOGIC_OR,
+	lexer.AND:          LOGIC_AND,
+	lexer.EQ:           EQUALS,
+	lexer.NOT_EQ:       EQUALS,
+	lexer.MATCH:        EQUALS,
+	lexer.NOT_MATCH:    EQUALS,
+	lexer.LT:           LESSGREATER,
+	lexer.GT:           LESSGREATER,
+	lexer.LTE:          LESSGREATER,
+	lexer.GTE:          LESSGREATER,
+	lexer.PLUS:         SUM,
+	lexer.MINUS:        SUM,
+	lexer.RANGE:        SUM,
+	lexer.PLUSPLUS:     CONCAT,
+	lexer.SLASH:        PRODUCT,
+	lexer.ASTERISK:     PRODUCT,
+	lexer.PERCENT:      PRODUCT,
+	lexer.LBRACKET:     INDEX,
+	lexer.DOT:          INDEX,
+	lexer.LPAREN:       CALL,
+	lexer.QUERY_ONE:    EQUALS, // Database query operators
+	lexer.QUERY_MANY:   EQUALS,
+	lexer.EXECUTE:      EQUALS,
+	lexer.EXECUTE_WITH: EQUALS, // Process execution operator
 }
 
 // Parser represents the parser
@@ -129,9 +130,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
 	p.registerInfix(lexer.RANGE, p.parseInfixExpression)
-	p.registerInfix(lexer.QUERY_ONE, p.parseInfixExpression)  // Database operators
-	p.registerInfix(lexer.QUERY_MANY, p.parseInfixExpression) // Database operators
-	p.registerInfix(lexer.EXECUTE, p.parseInfixExpression)    // Database operators
+	p.registerInfix(lexer.QUERY_ONE, p.parseInfixExpression)      // Database operators
+	p.registerInfix(lexer.QUERY_MANY, p.parseInfixExpression)     // Database operators
+	p.registerInfix(lexer.EXECUTE, p.parseInfixExpression)        // Database operators
+	p.registerInfix(lexer.EXECUTE_WITH, p.parseExecuteExpression) // Process execution operator
 	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 	p.registerInfix(lexer.LBRACKET, p.parseIndexOrSliceExpression)
@@ -944,6 +946,19 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	precedence := p.curPrecedence()
 	p.nextToken()
 	expression.Right = p.parseExpression(precedence)
+
+	return expression
+}
+
+func (p *Parser) parseExecuteExpression(left ast.Expression) ast.Expression {
+	expression := &ast.ExecuteExpression{
+		Token:   p.curToken,
+		Command: left,
+	}
+
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expression.Input = p.parseExpression(precedence)
 
 	return expression
 }
