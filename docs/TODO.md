@@ -13,9 +13,25 @@
 
 ## IN PLANNING
 
+### For V1.0 ALPHA
+
 - SFTP Support: Read/Write files from FTP server - useful for static site generation
+- Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)
+- Look at consistency of API one more time
+- Check everything is working
+- Build something big to see how it works in practice
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands
+
+### For V1.0 BETA
+- Performance checks
+- Code quality checks
+
+### For V1.0 RELEASE
+- Rewrite README
+
+### For After V1.0 RELEASE
+
 - Parsley Server: Simple, minimal HTTP(S) server that outputs raw HTML files and runs Parsley scripts
 	- Ceate Plan
 		- Read https://grafana.com/blog/2024/02/09/how-i-write-http-services-in-go-after-13-years/
@@ -24,14 +40,16 @@
 	- Import environment
 	- Config file? vs Web-based admin
 		- HTAccess?
-	- HTML/HTTP features for Parsley
+	- HTML/HTTP features for Parsley HTTP Server-to-language API 
 		- Investigate in interface/api/environment/context between HTTP and Parsley
 		- Request to dictionary
 		- dictionary to Response 
 		- Cookies
 		- Multi-part data
 
-
+### For After V2.0 RELEASE
+	- Website for Parsley hosted with Parsley
+	
 ## CONSIDERING
 
 - Parsley-based static site generator: a small, simple, opinionated site generator
