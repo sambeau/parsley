@@ -84,8 +84,8 @@ Complete reference for all Parsley types, methods, and operators.
 | `&&` | Boolean AND | `true && false` → `false` |
 | `&&` | Array intersection | `[1,2,3] && [2,3,4]` → `[2, 3]` |
 | `&&` | Dictionary intersection | `{a:1, b:2} && {b:3, c:4}` → `{b: 2}` |
-| `||` | Boolean OR | `true || false` → `true` |
-| `||` | Array union | `[1,2] || [2,3]` → `[1, 2, 3]` |
+| `\|\|` | Boolean OR | `true \|\| false` → `true` |
+| `\|\|` | Array union | `[1,2] \|\| [2,3]` → `[1, 2, 3]` |
 | `!` | NOT | `!true` → `false` |
 
 ### Set Operations
