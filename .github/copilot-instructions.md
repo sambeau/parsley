@@ -40,6 +40,7 @@ This is a Go project using standard Go practices and conventions.
 
 ## Testing
 
+- Refer to docs/CHEATSHEET.md for notes about Parsley language features
 - Write table-driven tests when appropriate
 - Use the standard `testing` package
 - Aim for high test coverage on critical paths
@@ -85,8 +86,13 @@ This is a Go project using standard Go practices and conventions.
 
 - use `docs/Pre-flight for Git Commit.md` as a checklist to prepare for git commit
 
+## Planning and Design
+- Refer to docs/CHEATSHEET.md for notes about Parsley language features
+- Adhere to Parsley's core design philosophy when planning to add new features or make changes. (see docs/design/Design Philosophy.md)
+
 ## Planning and design documents
 
+- Refer to docs/CHEATSHEET.md for notes about Parsley language features
 - Don't put documents in the root folder
 - Store planning and design documents in `docs/design`
 - Keep design documents up to date with implementation status
@@ -100,8 +106,3 @@ This is a Go project using standard Go practices and conventions.
 ## Verification documents
 - Don't put documents in the root folder
 - Store verification plans and test cases in `docs/verification`
-
-## Design Philosophy
-
-- Adhere to Parsley's core design philosophy when planning to add new features or make changes. (see docs/design/Design Philosophy.md)
-
