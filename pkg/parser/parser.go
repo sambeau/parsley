@@ -828,7 +828,7 @@ func (p *Parser) parseTagPair() ast.Expression {
 	// Current token should be TAG_END
 	if !p.curTokenIs(lexer.TAG_END) {
 		p.errors = append(p.errors, fmt.Sprintf("expected closing tag, got %s at line %d, column %d",
-			p.curToken.Type, p.curToken.Line, p.curToken.Column))
+			tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
@@ -891,7 +891,7 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 		default:
 			// Unexpected token
 			p.errors = append(p.errors, fmt.Sprintf("unexpected token in tag contents: %s at line %d, column %d",
-				p.curToken.Type, p.curToken.Line, p.curToken.Column))
+				tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
 			p.nextToken()
 		}
 	}
@@ -1466,6 +1466,7 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 // tokenTypeToReadableName converts token types to human-readable names
 func tokenTypeToReadableName(t lexer.TokenType) string {
 	switch t {
+	// Identifiers and literals
 	case lexer.IDENT:
 		return "identifier"
 	case lexer.INT:
@@ -1475,7 +1476,33 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 	case lexer.STRING:
 		return "string"
 	case lexer.TEMPLATE:
-		return "template literal"
+		return "string"
+	case lexer.REGEX:
+		return "regex"
+	case lexer.DATETIME_LITERAL:
+		return "datetime"
+	case lexer.DURATION_LITERAL:
+		return "duration"
+	case lexer.PATH_LITERAL:
+		return "path"
+	case lexer.URL_LITERAL:
+		return "URL"
+	case lexer.PATH_TEMPLATE:
+		return "path"
+	case lexer.URL_TEMPLATE:
+		return "URL"
+	case lexer.DATETIME_TEMPLATE:
+		return "datetime"
+	case lexer.TAG:
+		return "tag"
+	case lexer.TAG_START:
+		return "opening tag"
+	case lexer.TAG_END:
+		return "closing tag"
+	case lexer.TAG_TEXT:
+		return "text"
+
+	// Operators
 	case lexer.ASSIGN:
 		return "'='"
 	case lexer.PLUS:
@@ -1494,16 +1521,56 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'<'"
 	case lexer.GT:
 		return "'>'"
+	case lexer.LTE:
+		return "'<='"
+	case lexer.GTE:
+		return "'>='"
 	case lexer.EQ:
 		return "'=='"
 	case lexer.NOT_EQ:
 		return "'!='"
+	case lexer.AND:
+		return "'&'"
+	case lexer.OR:
+		return "'|'"
+	case lexer.NULLISH:
+		return "'??'"
+	case lexer.MATCH:
+		return "'~'"
+	case lexer.NOT_MATCH:
+		return "'!~'"
+
+	// File I/O operators
+	case lexer.READ_FROM:
+		return "'<=='"
+	case lexer.FETCH_FROM:
+		return "'<=/='"
+	case lexer.WRITE_TO:
+		return "'==>'"
+	case lexer.APPEND_TO:
+		return "'==>>'"
+
+	// Database operators
+	case lexer.QUERY_ONE:
+		return "'<=?=>'"
+	case lexer.QUERY_MANY:
+		return "'<=??=>'"
+	case lexer.EXECUTE:
+		return "'<=!=>'"
+	case lexer.EXECUTE_WITH:
+		return "'<=#=>'"
+
+	// Delimiters
 	case lexer.COMMA:
 		return "','"
 	case lexer.SEMICOLON:
 		return "';'"
 	case lexer.COLON:
 		return "':'"
+	case lexer.DOT:
+		return "'.'"
+	case lexer.DOTDOTDOT:
+		return "'...'"
 	case lexer.LPAREN:
 		return "'('"
 	case lexer.RPAREN:
@@ -1516,6 +1583,12 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'['"
 	case lexer.RBRACKET:
 		return "']'"
+	case lexer.PLUSPLUS:
+		return "'++'"
+	case lexer.RANGE:
+		return "'..'"
+
+	// Keywords
 	case lexer.FUNCTION:
 		return "'fn'"
 	case lexer.LET:
@@ -1534,6 +1607,12 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'for'"
 	case lexer.IN:
 		return "'in'"
+	case lexer.AS:
+		return "'as'"
+	case lexer.DELETE:
+		return "'delete'"
+	case lexer.EXPORT:
+		return "'export'"
 	case lexer.EOF:
 		return "end of file"
 	case lexer.ILLEGAL:
@@ -1575,7 +1654,7 @@ func (p *Parser) parseDictionaryLiteral() ast.Expression {
 		// Key must be an identifier
 		if !p.curTokenIs(lexer.IDENT) {
 			p.errors = append(p.errors, fmt.Sprintf("expected identifier as dictionary key, got %s at line %d, column %d",
-				p.curToken.Type, p.curToken.Line, p.curToken.Column))
+				tokenTypeToReadableName(p.curToken.Type), p.curToken.Line, p.curToken.Column))
 			return nil
 		}
 		key := p.curToken.Literal

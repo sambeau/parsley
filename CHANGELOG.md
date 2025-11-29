@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.13.1] - 2025-11-29
+
+### Improved
+
+- **Human-readable error messages** - Error messages now display Parsley type names (`STRING`, `INTEGER`, `FLOAT`, etc.) instead of internal Go types
+- **Consistent error formatting** - All builtin function errors now include the function name in backticks for clarity
+- **Better parser errors** - Parser errors now show human-readable token names (e.g., "string" instead of "TEMPLATE")
+
+### Fixed
+
+- Parser token type messages now consistently use readable names throughout
+
+---
+
 ## [0.13.0] - 2025-11-29
 
 ### BREAKING CHANGES

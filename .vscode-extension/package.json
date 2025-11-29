@@ -2,7 +2,7 @@
   "name": "parsley-language",
   "displayName": "Parsley Language Support",
   "description": "Syntax highlighting and language support for the Parsley programming language",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "publisher": "sambeau",
   "engines": {
     "vscode": "^1.80.0"

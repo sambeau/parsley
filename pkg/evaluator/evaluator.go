@@ -3394,7 +3394,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: path literal
 				pathStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to SQLITE must be a path, got %T", args[0])
+					return newError("first argument to `SQLITE` must be a path, got %s", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -3402,7 +3402,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to SQLITE must be a dictionary, got %T", args[1])
+						return newError("second argument to `SQLITE` must be a dictionary, got %s", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -3470,7 +3470,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: URL literal
 				urlStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to POSTGRES must be a URL, got %T", args[0])
+					return newError("first argument to POSTGRES must be a URL, got %s", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -3478,7 +3478,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to POSTGRES must be a dictionary, got %T", args[1])
+						return newError("second argument to POSTGRES must be a dictionary, got %s", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -3545,7 +3545,7 @@ func getBuiltins() map[string]*Builtin {
 				// First arg: URL literal
 				urlStr, ok := args[0].(*String)
 				if !ok {
-					return newError("first argument to MYSQL must be a URL, got %T", args[0])
+					return newError("first argument to MYSQL must be a URL, got %s", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -3553,7 +3553,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to MYSQL must be a dictionary, got %T", args[1])
+						return newError("second argument to MYSQL must be a dictionary, got %s", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -3635,7 +3635,7 @@ func getBuiltins() map[string]*Builtin {
 				case *String:
 					urlStr = arg.Value
 				default:
-					return newError("first argument to SFTP must be a URL, got %T", args[0])
+					return newError("first argument to SFTP must be a URL, got %s", args[0].Type())
 				}
 
 				// Optional second arg: options dictionary
@@ -3643,7 +3643,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					dict, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to SFTP must be a dictionary, got %T", args[1])
+						return newError("second argument to SFTP must be a dictionary, got %s", args[1].Type())
 					}
 					options = make(map[string]Object)
 					for key := range dict.Pairs {
@@ -3854,7 +3854,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Sin(arg.Value)}
 				default:
-					return newError("argument to `sin` not supported, got %T", arg)
+					return newError("argument to `sin` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3871,7 +3871,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Cos(arg.Value)}
 				default:
-					return newError("argument to `cos` not supported, got %T", arg)
+					return newError("argument to `cos` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3888,7 +3888,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Tan(arg.Value)}
 				default:
-					return newError("argument to `tan` not supported, got %T", arg)
+					return newError("argument to `tan` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3905,7 +3905,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Asin(arg.Value)}
 				default:
-					return newError("argument to `asin` not supported, got %T", arg)
+					return newError("argument to `asin` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3922,7 +3922,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Acos(arg.Value)}
 				default:
-					return newError("argument to `acos` not supported, got %T", arg)
+					return newError("argument to `acos` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3939,7 +3939,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Atan(arg.Value)}
 				default:
-					return newError("argument to `atan` not supported, got %T", arg)
+					return newError("argument to `atan` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3956,7 +3956,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Float{Value: math.Sqrt(arg.Value)}
 				default:
-					return newError("argument to `sqrt` not supported, got %T", arg)
+					return newError("argument to `sqrt` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3973,7 +3973,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					return &Integer{Value: int64(math.Round(arg.Value))}
 				default:
-					return newError("argument to `round` not supported, got %T", arg)
+					return newError("argument to `round` not supported, got %s", arg.Type())
 				}
 			},
 		},
@@ -3994,7 +3994,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					baseVal = base.Value
 				default:
-					return newError("first argument to `pow` not supported, got %T", base)
+					return newError("first argument to `pow` not supported, got %s", base.Type())
 				}
 
 				switch exp := exp.(type) {
@@ -4003,7 +4003,7 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					expVal = exp.Value
 				default:
-					return newError("second argument to `pow` not supported, got %T", exp)
+					return newError("second argument to `pow` not supported, got %s", exp.Type())
 				}
 
 				return &Float{Value: math.Pow(baseVal, expVal)}
@@ -6960,7 +6960,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case *Float:
 		leftVal = left.Value
 	default:
-		return newError("unsupported type for mixed arithmetic: %T", left)
+		return newError("unsupported type for mixed arithmetic: %s", left.Type())
 	}
 
 	switch right := right.(type) {
@@ -6969,7 +6969,7 @@ func evalMixedInfixExpression(tok lexer.Token, operator string, left, right Obje
 	case *Float:
 		rightVal = right.Value
 	default:
-		return newError("unsupported type for mixed arithmetic: %T", right)
+		return newError("unsupported type for mixed arithmetic: %s", right.Type())
 	}
 
 	switch operator {
@@ -7444,7 +7444,7 @@ func applyFunction(fn Object, args []Object) Object {
 	case *Builtin:
 		return fn.Fn(args...)
 	default:
-		return newError("not a function: %T", fn)
+		return newError("not a function: %s", fn.Type())
 	}
 }
 
@@ -7483,7 +7483,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		case *String:
 			pathStr = arg.Value
 		default:
-			return newError("argument to SFTP connection must be a path, got %T", arg)
+			return newError("argument to SFTP connection must be a path, got %s", arg.Type())
 		}
 
 		// Return SFTP file handle
@@ -7494,7 +7494,7 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 			Options:    nil,
 		}
 	default:
-		return newError("not a function: %T", fn)
+		return newError("not a function: %s", fn.Type())
 	}
 }
 

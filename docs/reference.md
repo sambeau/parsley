@@ -2223,3 +2223,32 @@ Hello, Parsley!
 Goodbye!
 ```
 
+---
+
+## Error Messages
+
+Parsley provides clear, human-readable error messages. Type errors display Parsley type names:
+
+| Type | Display |
+|------|---------|
+| String | `STRING` |
+| Integer | `INTEGER` |
+| Float | `FLOAT` |
+| Boolean | `BOOLEAN` |
+| Array | `ARRAY` |
+| Dictionary | `DICTIONARY` |
+| Function | `FUNCTION` |
+| Null | `NULL` |
+
+### Example Errors
+
+```parsley
+sin("hello")
+// ERROR: argument to `sin` not supported, got STRING
+
+pow("a", 2)
+// ERROR: first argument to `pow` not supported, got STRING
+
+SQLITE(123)
+// ERROR: first argument to `SQLITE` must be a path, got INTEGER
+```

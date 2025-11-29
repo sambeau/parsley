@@ -27,9 +27,12 @@
 	- Setup database and sftp environments for integration testing
 	- run integration tests
 - Better errors
+	- ~~Human-readable type names in error messages~~ ✅ (v0.13.1)
+	- ~~Consistent function name formatting in errors~~ ✅ (v0.13.1)
 - Build something big to see how it works in practice
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands
+- POSTGRES support
 
 ### For V1.0 BETA
 - Performance checks
