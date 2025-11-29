@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -24,11 +26,18 @@ import (
 	"github.com/sambeau/parsley/pkg/parser"
 	"github.com/yuin/goldmark"
 	"gopkg.in/yaml.v3"
+	_ "modernc.org/sqlite"
 
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"golang.org/x/text/number"
+)
+
+// Database connection cache
+var (
+	dbConnectionsMu sync.RWMutex
+	dbConnections   = make(map[string]*sql.DB)
 )
 
 // ObjectType represents the type of objects in our language
@@ -46,6 +55,7 @@ const (
 	BUILTIN_OBJ    = "BUILTIN"
 	ARRAY_OBJ      = "ARRAY"
 	DICTIONARY_OBJ = "DICTIONARY"
+	DB_CONNECTION_OBJ = "DB_CONNECTION"
 )
 
 // Object represents all values in our language
@@ -197,6 +207,20 @@ func (d *Dictionary) Inspect() string {
 	out.WriteString(strings.Join(pairs, ", "))
 	out.WriteString("}")
 	return out.String()
+}
+
+// DBConnection represents a database connection
+type DBConnection struct {
+	DB            *sql.DB
+	Driver        string // "sqlite", "postgres", "mysql"
+	DSN           string // Data Source Name
+	InTransaction bool
+	LastError     string
+}
+
+func (dbc *DBConnection) Type() ObjectType { return DB_CONNECTION_OBJ }
+func (dbc *DBConnection) Inspect() string {
+	return fmt.Sprintf("<DBConnection driver=%s>", dbc.Driver)
 }
 
 // Environment represents the environment for variable bindings
@@ -1866,38 +1890,106 @@ func evalMatchExpression(tok lexer.Token, text string, regexDict *Dictionary, en
 	return &Array{Elements: elements}
 }
 
+// cleanPathComponents implements Rob Pike's cleanname algorithm from Plan 9
+// to canonicalize path components. This ensures paths always present clean file names.
+// See: https://9p.io/sys/doc/lexnames.html
+//
+// Rules:
+// 1. Reduce multiple slashes to a single slash (handled by parsePathString)
+// 2. Eliminate . path name elements (the current directory)
+// 3. Eliminate .. elements and the non-. non-.. element that precedes them
+// 4. Eliminate .. elements that begin a rooted path (replace /.. by /)
+// 5. Leave intact .. elements that begin a non-rooted path
+//
+// Note: For absolute paths, we prepend an empty string to represent the root.
+// This is the traditional Unix convention: /usr/local → ["", "usr", "local"]
+func cleanPathComponents(components []string, isAbsolute bool) []string {
+	var result []string
+
+	for _, comp := range components {
+		switch comp {
+		case "":
+			// Skip empty components (multiple slashes already handled)
+			continue
+		case ".":
+			// Rule 2: Eliminate . (current directory)
+			continue
+		case "..":
+			if len(result) > 0 && result[len(result)-1] != ".." {
+				// Rule 3: Eliminate .. and the preceding element
+				result = result[:len(result)-1]
+			} else if isAbsolute {
+				// Rule 4: Eliminate .. at the beginning of rooted paths
+				// (do nothing, effectively replacing /.. with /)
+			} else {
+				// Rule 5: Leave .. intact at the beginning of non-rooted paths
+				result = append(result, comp)
+			}
+		default:
+			result = append(result, comp)
+		}
+	}
+
+	// For absolute paths, prepend empty string to represent root
+	// This is the traditional Unix convention: /usr/local → ["", "usr", "local"]
+	if isAbsolute {
+		result = append([]string{""}, result...)
+	}
+
+	// If result is empty for relative path, return current directory
+	if len(result) == 0 {
+		return []string{"."} // Current directory
+	}
+
+	return result
+}
+
 // parsePathString parses a file path string into components
 // Returns components array and whether path is absolute
+// The path is cleaned using Rob Pike's cleanname algorithm
 func parsePathString(pathStr string) ([]string, bool) {
 	if pathStr == "" {
-		return []string{}, false
+		return []string{"."}, false
 	}
 
 	// Detect absolute vs relative
 	isAbsolute := false
+	hasLeadingDot := false
 	if pathStr[0] == '/' {
 		isAbsolute = true
 	} else if len(pathStr) >= 2 && pathStr[1] == ':' {
 		// Windows drive letter (C:, D:, etc.)
 		isAbsolute = true
+	} else if pathStr[0] == '.' && (len(pathStr) == 1 || pathStr[1] == '/') {
+		// Starts with ./ - remember this for output
+		hasLeadingDot = true
+	} else if pathStr[0] == '~' {
+		// Home directory reference - treat specially
+		hasLeadingDot = false
 	}
 
 	// Split on forward slashes (handle both Unix and Windows)
 	pathStr = strings.ReplaceAll(pathStr, "\\", "/")
 	parts := strings.Split(pathStr, "/")
 
-	// Filter empty strings except for leading slash
+	// Collect raw components
 	components := []string{}
-	for i, part := range parts {
-		if part == "" && i == 0 && isAbsolute {
-			// Keep leading empty string to indicate absolute path
-			components = append(components, "")
-		} else if part != "" {
+	for _, part := range parts {
+		if part != "" {
 			components = append(components, part)
 		}
 	}
 
-	return components, isAbsolute
+	// Clean the path components
+	cleaned := cleanPathComponents(components, isAbsolute)
+
+	// For relative paths that originally started with ./, preserve that style
+	// unless the cleaned result already starts with . or ..
+	if hasLeadingDot && len(cleaned) > 0 && cleaned[0] != "." && cleaned[0] != ".." {
+		cleaned = append([]string{"."}, cleaned...)
+	}
+
+	return cleaned, isAbsolute
 }
 
 // pathToDict creates a path dictionary from components
@@ -3010,33 +3102,24 @@ func pathDictToString(dict *Dictionary) string {
 		return ""
 	}
 
-	// Check if absolute
-	absoluteExpr, ok := dict.Pairs["absolute"]
-	isAbsolute := false
-	if ok {
-		absoluteObj := Eval(absoluteExpr, dict.Env)
-		if b, ok := absoluteObj.(*Boolean); ok {
-			isAbsolute = b.Value
-		}
-	}
-
-	// Build path string
-	var result strings.Builder
-	for i, elem := range arr.Elements {
+	// Build path string - first element being empty indicates absolute path
+	var parts []string
+	for _, elem := range arr.Elements {
 		if str, ok := elem.(*String); ok {
-			if str.Value == "" && i == 0 && isAbsolute {
-				// Leading empty string means absolute path
-				result.WriteString("/")
-			} else {
-				if i > 0 && (i > 1 || !isAbsolute) {
-					result.WriteString("/")
-				}
-				result.WriteString(str.Value)
-			}
+			parts = append(parts, str.Value)
 		}
 	}
 
-	return result.String()
+	if len(parts) == 0 {
+		return "."
+	}
+
+	// Join with "/" - if first element is empty, this creates a leading /
+	result := strings.Join(parts, "/")
+	if result == "" {
+		return "."
+	}
+	return result
 }
 
 // urlDictToString converts a URL dictionary back to a string
@@ -3149,6 +3232,232 @@ func urlDictToString(dict *Dictionary) string {
 // getBuiltins returns the map of built-in functions
 func getBuiltins() map[string]*Builtin {
 	return map[string]*Builtin{
+		"SQLITE": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+				}
+
+				// First arg: path literal
+				pathStr, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to SQLITE must be a path, got %T", args[0])
+				}
+
+				// Optional second arg: options dictionary
+				var options map[string]Object
+				if len(args) == 2 {
+					dict, ok := args[1].(*Dictionary)
+					if !ok {
+						return newError("second argument to SQLITE must be a dictionary, got %T", args[1])
+					}
+					options = make(map[string]Object)
+					for key := range dict.Pairs {
+						options[key] = Eval(dict.Pairs[key], dict.Env)
+					}
+				}
+
+				// Create DSN (SQLite just uses the path, with special handling for :memory:)
+				dsn := pathStr.Value
+				
+				// Check cache
+				cacheKey := "sqlite:" + dsn
+				dbConnectionsMu.RLock()
+				db, exists := dbConnections[cacheKey]
+				dbConnectionsMu.RUnlock()
+
+				if !exists {
+					var err error
+					db, err = sql.Open("sqlite", dsn)
+					if err != nil {
+						return newError("failed to open SQLite database: %s", err.Error())
+					}
+
+					// Apply connection options if provided
+					if options != nil {
+						if maxOpen, ok := options["maxOpenConns"]; ok {
+							if maxOpenInt, ok := maxOpen.(*Integer); ok {
+								db.SetMaxOpenConns(int(maxOpenInt.Value))
+							}
+						}
+						if maxIdle, ok := options["maxIdleConns"]; ok {
+							if maxIdleInt, ok := maxIdle.(*Integer); ok {
+								db.SetMaxIdleConns(int(maxIdleInt.Value))
+							}
+						}
+					}
+
+					// Test connection
+					if err := db.Ping(); err != nil {
+						db.Close()
+						return newError("failed to ping SQLite database: %s", err.Error())
+					}
+
+					// Cache connection
+					dbConnectionsMu.Lock()
+					dbConnections[cacheKey] = db
+					dbConnectionsMu.Unlock()
+				}
+
+				return &DBConnection{
+					DB:            db,
+					Driver:        "sqlite",
+					DSN:           dsn,
+					InTransaction: false,
+					LastError:     "",
+				}
+			},
+		},
+		"POSTGRES": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+				}
+
+				// First arg: URL literal
+				urlStr, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to POSTGRES must be a URL, got %T", args[0])
+				}
+
+				// Optional second arg: options dictionary
+				var options map[string]Object
+				if len(args) == 2 {
+					dict, ok := args[1].(*Dictionary)
+					if !ok {
+						return newError("second argument to POSTGRES must be a dictionary, got %T", args[1])
+					}
+					options = make(map[string]Object)
+					for key := range dict.Pairs {
+						options[key] = Eval(dict.Pairs[key], dict.Env)
+					}
+				}
+
+				dsn := urlStr.Value
+				
+				// Check cache
+				cacheKey := "postgres:" + dsn
+				dbConnectionsMu.RLock()
+				db, exists := dbConnections[cacheKey]
+				dbConnectionsMu.RUnlock()
+
+				if !exists {
+					var err error
+					db, err = sql.Open("postgres", dsn)
+					if err != nil {
+						return newError("failed to open PostgreSQL database: %s", err.Error())
+					}
+
+					// Apply connection options if provided
+					if options != nil {
+						if maxOpen, ok := options["maxOpenConns"]; ok {
+							if maxOpenInt, ok := maxOpen.(*Integer); ok {
+								db.SetMaxOpenConns(int(maxOpenInt.Value))
+							}
+						}
+						if maxIdle, ok := options["maxIdleConns"]; ok {
+							if maxIdleInt, ok := maxIdle.(*Integer); ok {
+								db.SetMaxIdleConns(int(maxIdleInt.Value))
+							}
+						}
+					}
+
+					// Test connection
+					if err := db.Ping(); err != nil {
+						db.Close()
+						return newError("failed to ping PostgreSQL database: %s", err.Error())
+					}
+
+					// Cache connection
+					dbConnectionsMu.Lock()
+					dbConnections[cacheKey] = db
+					dbConnectionsMu.Unlock()
+				}
+
+				return &DBConnection{
+					DB:            db,
+					Driver:        "postgres",
+					DSN:           dsn,
+					InTransaction: false,
+					LastError:     "",
+				}
+			},
+		},
+		"MYSQL": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+				}
+
+				// First arg: URL literal
+				urlStr, ok := args[0].(*String)
+				if !ok {
+					return newError("first argument to MYSQL must be a URL, got %T", args[0])
+				}
+
+				// Optional second arg: options dictionary
+				var options map[string]Object
+				if len(args) == 2 {
+					dict, ok := args[1].(*Dictionary)
+					if !ok {
+						return newError("second argument to MYSQL must be a dictionary, got %T", args[1])
+					}
+					options = make(map[string]Object)
+					for key := range dict.Pairs {
+						options[key] = Eval(dict.Pairs[key], dict.Env)
+					}
+				}
+
+				dsn := urlStr.Value
+				
+				// Check cache
+				cacheKey := "mysql:" + dsn
+				dbConnectionsMu.RLock()
+				db, exists := dbConnections[cacheKey]
+				dbConnectionsMu.RUnlock()
+
+				if !exists {
+					var err error
+					db, err = sql.Open("mysql", dsn)
+					if err != nil {
+						return newError("failed to open MySQL database: %s", err.Error())
+					}
+
+					// Apply connection options if provided
+					if options != nil {
+						if maxOpen, ok := options["maxOpenConns"]; ok {
+							if maxOpenInt, ok := maxOpen.(*Integer); ok {
+								db.SetMaxOpenConns(int(maxOpenInt.Value))
+							}
+						}
+						if maxIdle, ok := options["maxIdleConns"]; ok {
+							if maxIdleInt, ok := maxIdle.(*Integer); ok {
+								db.SetMaxIdleConns(int(maxIdleInt.Value))
+							}
+						}
+					}
+
+					// Test connection
+					if err := db.Ping(); err != nil {
+						db.Close()
+						return newError("failed to ping MySQL database: %s", err.Error())
+					}
+
+					// Cache connection
+					dbConnectionsMu.Lock()
+					dbConnections[cacheKey] = db
+					dbConnectionsMu.Unlock()
+				}
+
+				return &DBConnection{
+					DB:            db,
+					Driver:        "mysql",
+					DSN:           dsn,
+					InTransaction: false,
+					LastError:     "",
+				}
+			},
+		},
 		"import": {
 			Fn: func(args ...Object) Object {
 				// This is a placeholder - actual implementation happens in CallExpression
@@ -4855,6 +5164,72 @@ func evalStatement(stmt ast.Statement, env *Environment) Object {
 	}
 }
 
+// evalDBConnectionMethod handles method calls on database connections
+func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "begin":
+		if len(args) != 0 {
+			return newError("begin() takes no arguments, got=%d", len(args))
+		}
+		if conn.InTransaction {
+			return newError("connection is already in a transaction")
+		}
+		conn.InTransaction = true
+		return &Boolean{Value: true}
+
+	case "commit":
+		if len(args) != 0 {
+			return newError("commit() takes no arguments, got=%d", len(args))
+		}
+		if !conn.InTransaction {
+			return newError("no transaction in progress")
+		}
+		// For now, just mark transaction as complete
+		// Real transaction support will be added with actual query execution
+		conn.InTransaction = false
+		return &Boolean{Value: true}
+
+	case "rollback":
+		if len(args) != 0 {
+			return newError("rollback() takes no arguments, got=%d", len(args))
+		}
+		if !conn.InTransaction {
+			return newError("no transaction in progress")
+		}
+		conn.InTransaction = false
+		return &Boolean{Value: true}
+
+	case "close":
+		if len(args) != 0 {
+			return newError("close() takes no arguments, got=%d", len(args))
+		}
+		// Remove from cache and close
+		cacheKey := conn.Driver + ":" + conn.DSN
+		dbConnectionsMu.Lock()
+		delete(dbConnections, cacheKey)
+		dbConnectionsMu.Unlock()
+		
+		if err := conn.DB.Close(); err != nil {
+			conn.LastError = err.Error()
+			return newError("failed to close connection: %s", err.Error())
+		}
+		return NULL
+
+	case "ping":
+		if len(args) != 0 {
+			return newError("ping() takes no arguments, got=%d", len(args))
+		}
+		if err := conn.DB.Ping(); err != nil {
+			conn.LastError = err.Error()
+			return &Boolean{Value: false}
+		}
+		return &Boolean{Value: true}
+
+	default:
+		return newError("unknown method for database connection: %s", method)
+	}
+}
+
 // Eval evaluates AST nodes and returns objects
 func Eval(node ast.Node, env *Environment) Object {
 	switch node := node.(type) {
@@ -5098,6 +5473,8 @@ func Eval(node ast.Node, env *Environment) Object {
 
 			// Dispatch based on receiver type
 			switch receiver := left.(type) {
+			case *DBConnection:
+				return evalDBConnectionMethod(receiver, method, args, env)
 			case *String:
 				return evalStringMethod(receiver, method, args)
 			case *Array:

@@ -808,6 +808,123 @@ func (ws *WriteStatement) String() string {
 	return out.String()
 }
 
+// QueryOneStatement represents query-one-row statements like 'let user = db <=?=> <GetUser id={1} />'
+type QueryOneStatement struct {
+	Token      lexer.Token  // the <=?=> token
+	Names      []*Identifier // the variable names (can be identifiers or destructuring patterns)
+	Connection Expression   // the database connection
+	Query      Expression   // the query expression (component returning <SQL>)
+	IsLet      bool         // true if this is a let statement
+	Export     bool         // true if this should be exported
+}
+
+func (qos *QueryOneStatement) statementNode()       {}
+func (qos *QueryOneStatement) TokenLiteral() string { return qos.Token.Literal }
+func (qos *QueryOneStatement) String() string {
+	var out bytes.Buffer
+
+	if qos.IsLet {
+		out.WriteString("let ")
+	}
+
+	for i, name := range qos.Names {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(name.String())
+	}
+
+	out.WriteString(" ")
+	if qos.Connection != nil {
+		out.WriteString(qos.Connection.String())
+	}
+	out.WriteString(" <=?=> ")
+	if qos.Query != nil {
+		out.WriteString(qos.Query.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
+// QueryManyStatement represents query-many-rows statements like 'let users = db <=??=> <SearchUsers />'
+type QueryManyStatement struct {
+	Token      lexer.Token  // the <=??=> token
+	Names      []*Identifier // the variable names (can be identifiers or destructuring patterns)
+	Connection Expression   // the database connection
+	Query      Expression   // the query expression (component returning <SQL>)
+	IsLet      bool         // true if this is a let statement
+	Export     bool         // true if this should be exported
+}
+
+func (qms *QueryManyStatement) statementNode()       {}
+func (qms *QueryManyStatement) TokenLiteral() string { return qms.Token.Literal }
+func (qms *QueryManyStatement) String() string {
+	var out bytes.Buffer
+
+	if qms.IsLet {
+		out.WriteString("let ")
+	}
+
+	for i, name := range qms.Names {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(name.String())
+	}
+
+	out.WriteString(" ")
+	if qms.Connection != nil {
+		out.WriteString(qms.Connection.String())
+	}
+	out.WriteString(" <=??=> ")
+	if qms.Query != nil {
+		out.WriteString(qms.Query.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
+// ExecuteStatement represents database mutation statements like 'let {affected} = db <=!=> <CreateUser />'
+type ExecuteStatement struct {
+	Token      lexer.Token  // the <=!=> token
+	Names      []*Identifier // the variable names (can be identifiers or destructuring patterns)
+	Connection Expression   // the database connection
+	Query      Expression   // the query expression (component returning <SQL>)
+	IsLet      bool         // true if this is a let statement
+	Export     bool         // true if this should be exported
+}
+
+func (es *ExecuteStatement) statementNode()       {}
+func (es *ExecuteStatement) TokenLiteral() string { return es.Token.Literal }
+func (es *ExecuteStatement) String() string {
+	var out bytes.Buffer
+
+	if es.IsLet {
+		out.WriteString("let ")
+	}
+
+	for i, name := range es.Names {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(name.String())
+	}
+
+	out.WriteString(" ")
+	if es.Connection != nil {
+		out.WriteString(es.Connection.String())
+	}
+	out.WriteString(" <=!=> ")
+	if es.Query != nil {
+		out.WriteString(es.Query.String())
+	}
+
+	out.WriteString(";")
+	return out.String()
+}
+
 // DictDestructuringPattern represents a dictionary destructuring pattern like {a, b as c, ...rest}
 type DictDestructuringPattern struct {
 	Token lexer.Token             // the '{' token

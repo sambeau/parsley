@@ -59,6 +59,11 @@ const (
 	WRITE_TO   // ==>
 	APPEND_TO  // ==>>
 
+	// Database operators
+	QUERY_ONE  // <=?=>
+	QUERY_MANY // <=??=>
+	EXECUTE    // <=!=>
+
 	// Delimiters
 	COMMA     // ,
 	SEMICOLON // ;
@@ -187,6 +192,12 @@ func (tt TokenType) String() string {
 		return "WRITE_TO"
 	case APPEND_TO:
 		return "APPEND_TO"
+	case QUERY_ONE:
+		return "QUERY_ONE"
+	case QUERY_MANY:
+		return "QUERY_MANY"
+	case EXECUTE:
+		return "EXECUTE"
 	case COMMA:
 		return "COMMA"
 	case SEMICOLON:
@@ -460,7 +471,35 @@ func (l *Lexer) NextToken() Token {
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
 	case '<':
-		if l.peekChar() == '=' && l.peekCharN(2) == '/' && l.peekCharN(3) == '=' {
+		if l.peekChar() == '=' && l.peekCharN(2) == '?' && l.peekCharN(3) == '?' && l.peekCharN(4) == '=' && l.peekCharN(5) == '>' {
+			// <=??=> (query many from database)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '='
+			l.readChar() // consume first '?'
+			l.readChar() // consume second '?'
+			l.readChar() // consume '='
+			l.readChar() // consume '>'
+			tok = Token{Type: QUERY_MANY, Literal: "<=??=>", Line: line, Column: col}
+		} else if l.peekChar() == '=' && l.peekCharN(2) == '?' && l.peekCharN(3) == '=' && l.peekCharN(4) == '>' {
+			// <=?=> (query one from database)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '='
+			l.readChar() // consume '?'
+			l.readChar() // consume '='
+			l.readChar() // consume '>'
+			tok = Token{Type: QUERY_ONE, Literal: "<=?=>", Line: line, Column: col}
+		} else if l.peekChar() == '=' && l.peekCharN(2) == '!' && l.peekCharN(3) == '=' && l.peekCharN(4) == '>' {
+			// <=!=> (execute database mutation)
+			line := l.line
+			col := l.column
+			l.readChar() // consume '='
+			l.readChar() // consume '!'
+			l.readChar() // consume '='
+			l.readChar() // consume '>'
+			tok = Token{Type: EXECUTE, Literal: "<=!=>", Line: line, Column: col}
+		} else if l.peekChar() == '=' && l.peekCharN(2) == '/' && l.peekCharN(3) == '=' {
 			// <=/= (fetch from URL)
 			line := l.line
 			col := l.column

@@ -430,6 +430,21 @@ daysUntil.format()  // "in 4 weeks"
 path("some/path")    // Dynamic path
 ```
 
+### Path Cleaning
+Paths are automatically cleaned when created, following [Rob Pike's cleanname algorithm](https://9p.io/sys/doc/lexnames.html):
+- `.` (current directory) elements are eliminated
+- `..` elements eliminate the preceding component
+- `..` at the start of absolute paths is eliminated (`/../foo` → `/foo`)
+- `..` at the start of relative paths is preserved (`../foo` stays as is)
+
+```parsley
+let p = @/foo/../bar
+p.string  // "/bar"
+
+let p = @./a/b/../../c
+p.string  // "./c"
+```
+
 ### Interpolated Path Templates
 Use `@(...)` syntax for paths with embedded expressions:
 ```parsley
