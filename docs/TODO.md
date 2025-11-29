@@ -26,6 +26,7 @@
 - ~~Sort out what is and isn't a 'let'~~ 🤷‍♂️ turns out they all are so added export instead
 - ~~SQL and databases {user} = [$GetUser userID={userId}] <=/=> SQL()~~ ✅ (0.9.15)
 - ~~Fetch from URL~~ ✅ (0.9.11)
+- ~~1 ++ [2,3,4,5] , [1,2,3,4] ++ 5~~ ✅ (0.9.16)
 - File methods: delete
 - Dictionaries to props in tags
 - Execute bash script
@@ -36,4 +37,3 @@
 - Add 'const'?
 - Optional Chaining (!.)
 - File I/O security sandbox (--allow-read, --allow-write flags)
-- 1 ++ [2,3,4,5] , [1,2,3,4] ++ 5

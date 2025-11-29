@@ -5806,6 +5806,8 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		return nativeBoolToParsBoolean(isTruthy(left) || isTruthy(right))
 	case operator == "++":
 		return evalConcatExpression(left, right)
+	case operator == "..":
+		return evalRangeExpression(tok, left, right)
 	// Path and URL operators with strings (must come before general string concatenation)
 	case left.Type() == DICTIONARY_OBJ && right.Type() == STRING_OBJ:
 		if dict := left.(*Dictionary); isPathDict(dict) {
@@ -10316,6 +10318,40 @@ func evalArrayRepetition(array *Array, count *Integer) Object {
 	}
 
 	return &Array{Elements: result}
+}
+
+// evalRangeExpression creates an inclusive range from start to end
+func evalRangeExpression(tok lexer.Token, left, right Object) Object {
+	if left.Type() != INTEGER_OBJ {
+		return newErrorWithPos(tok, "range start must be an integer, got %s", left.Type())
+	}
+	if right.Type() != INTEGER_OBJ {
+		return newErrorWithPos(tok, "range end must be an integer, got %s", right.Type())
+	}
+
+	start := left.(*Integer).Value
+	end := right.(*Integer).Value
+
+	// Calculate size and direction
+	var size int64
+	var step int64
+	if start <= end {
+		size = end - start + 1
+		step = 1
+	} else {
+		size = start - end + 1
+		step = -1
+	}
+
+	// Pre-allocate array
+	elements := make([]Object, size)
+	val := start
+	for i := int64(0); i < size; i++ {
+		elements[i] = &Integer{Value: val}
+		val += step
+	}
+
+	return &Array{Elements: elements}
 }
 
 // ============================================================================

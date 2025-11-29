@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.16
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.17
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -143,6 +143,9 @@ nums.length()                 // 3
 nums.sort()                   // [1, 2, 3]
 nums.map(fn(x) { x * 2 })     // [2, 4, 6]
 nums.filter(fn(x) { x > 1 })  // [2, 3]
+
+let range = 1..10             // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+for (i in 1..5) { log(i) }    // Loop from 1 to 5
 
 [1, 2] ++ [3, 4]              // [1, 2, 3, 4]
 [1, 2, 3] && [2, 3, 4]        // [2, 3] (intersection)

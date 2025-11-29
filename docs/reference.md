@@ -65,6 +65,7 @@ Complete reference for all Parsley types, methods, and operators.
 | `++` | Concatenation | `[1] ++ [2]` → `[1, 2]` |
 | `++` | Scalar to array | `1 ++ [2,3]` → `[1, 2, 3]` |
 | `++` | Array to scalar | `[1,2] ++ 3` → `[1, 2, 3]` |
+| `..` | Range (inclusive) | `1..5` → `[1, 2, 3, 4, 5]` |
 
 ### Comparison
 | Operator | Description |
@@ -150,6 +151,36 @@ Complete reference for all Parsley types, methods, and operators.
 [1, 2, 3] ++ 4            // [1, 2, 3, 4]
 1 ++ 2 ++ 3               // [1, 2, 3]
 "a" ++ ["b", "c"]         // ["a", "b", "c"]
+```
+
+### Range Operator
+
+**Range** (`..`): Creates inclusive integer ranges from start to end.
+```parsley
+1..5                      // [1, 2, 3, 4, 5]
+0..10                     // [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+5..1                      // [5, 4, 3, 2, 1] (reverse)
+-2..2                     // [-2, -1, 0, 1, 2]
+10..10                    // [10] (single element)
+```
+
+**Common Use Cases:**
+```parsley
+// Loop over a range
+for (i in 1..10) { log(i) }
+
+// Generate sequences
+let evens = (1..10).filter(fn(x) { x % 2 == 0 })  // [2, 4, 6, 8, 10]
+let squares = (1..5).map(fn(x) { x * x })         // [1, 4, 9, 16, 25]
+
+// Array indexing
+let first10 = data[0..9]
+let countdown = (10..1).join(", ")  // "10, 9, 8, 7, 6, 5, 4, 3, 2, 1"
+
+// With variables
+let start = 5
+let end = 15
+let range = start..end
 ```
 
 ### Pattern Matching

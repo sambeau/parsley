@@ -77,6 +77,7 @@ const (
 	LBRACKET  // [
 	RBRACKET  // ]
 	PLUSPLUS  // ++
+	RANGE     // ..
 
 	// Keywords
 	FUNCTION // "fn"
@@ -222,6 +223,8 @@ func (tt TokenType) String() string {
 		return "RBRACKET"
 	case PLUSPLUS:
 		return "PLUSPLUS"
+	case RANGE:
+		return "RANGE"
 	case FUNCTION:
 		return "FUNCTION"
 	case LET:
@@ -641,13 +644,22 @@ func (l *Lexer) NextToken() Token {
 	case ':':
 		tok = newToken(COLON, l.ch, l.line, l.column)
 	case '.':
-		// Check for "..." (spread/rest operator)
-		if l.peekChar() == '.' && l.readPosition+1 < len(l.input) && l.input[l.readPosition+1] == '.' {
-			line := l.line
-			col := l.column
-			l.readChar() // consume second '.'
-			l.readChar() // consume third '.'
-			tok = Token{Type: DOTDOTDOT, Literal: "...", Line: line, Column: col}
+		// Check for "..." (spread/rest operator) or ".." (range)
+		if l.peekChar() == '.' {
+			if l.readPosition+1 < len(l.input) && l.input[l.readPosition+1] == '.' {
+				// Three dots: ...
+				line := l.line
+				col := l.column
+				l.readChar() // consume second '.'
+				l.readChar() // consume third '.'
+				tok = Token{Type: DOTDOTDOT, Literal: "...", Line: line, Column: col}
+			} else {
+				// Two dots: ..
+				line := l.line
+				col := l.column
+				l.readChar() // consume second '.'
+				tok = Token{Type: RANGE, Literal: "..", Line: line, Column: col}
+			}
 		} else {
 			tok = newToken(DOT, l.ch, l.line, l.column)
 		}
