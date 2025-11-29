@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,11 +23,14 @@ import (
 	"unicode"
 
 	"github.com/goodsign/monday"
+	"github.com/pkg/sftp"
 	"github.com/sambeau/parsley/pkg/ast"
 	"github.com/sambeau/parsley/pkg/lexer"
 	"github.com/sambeau/parsley/pkg/locale"
 	"github.com/sambeau/parsley/pkg/parser"
 	"github.com/yuin/goldmark"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"gopkg.in/yaml.v3"
 	_ "modernc.org/sqlite"
 
@@ -42,22 +46,30 @@ var (
 	dbConnections   = make(map[string]*sql.DB)
 )
 
+// SFTP connection cache
+var (
+	sftpConnectionsMu sync.RWMutex
+	sftpConnections   = make(map[string]*SFTPConnection)
+)
+
 // ObjectType represents the type of objects in our language
 type ObjectType string
 
 const (
-	INTEGER_OBJ       = "INTEGER"
-	FLOAT_OBJ         = "FLOAT"
-	BOOLEAN_OBJ       = "BOOLEAN"
-	STRING_OBJ        = "STRING"
-	NULL_OBJ          = "NULL"
-	RETURN_OBJ        = "RETURN_VALUE"
-	ERROR_OBJ         = "ERROR"
-	FUNCTION_OBJ      = "FUNCTION"
-	BUILTIN_OBJ       = "BUILTIN"
-	ARRAY_OBJ         = "ARRAY"
-	DICTIONARY_OBJ    = "DICTIONARY"
-	DB_CONNECTION_OBJ = "DB_CONNECTION"
+	INTEGER_OBJ          = "INTEGER"
+	FLOAT_OBJ            = "FLOAT"
+	BOOLEAN_OBJ          = "BOOLEAN"
+	STRING_OBJ           = "STRING"
+	NULL_OBJ             = "NULL"
+	RETURN_OBJ           = "RETURN_VALUE"
+	ERROR_OBJ            = "ERROR"
+	FUNCTION_OBJ         = "FUNCTION"
+	BUILTIN_OBJ          = "BUILTIN"
+	ARRAY_OBJ            = "ARRAY"
+	DICTIONARY_OBJ       = "DICTIONARY"
+	DB_CONNECTION_OBJ    = "DB_CONNECTION"
+	SFTP_CONNECTION_OBJ  = "SFTP_CONNECTION"
+	SFTP_FILE_HANDLE_OBJ = "SFTP_FILE_HANDLE"
 )
 
 // Object represents all values in our language
@@ -225,6 +237,44 @@ type DBConnection struct {
 func (dbc *DBConnection) Type() ObjectType { return DB_CONNECTION_OBJ }
 func (dbc *DBConnection) Inspect() string {
 	return fmt.Sprintf("<DBConnection driver=%s>", dbc.Driver)
+}
+
+// SFTPConnection represents an SFTP connection
+type SFTPConnection struct {
+	Client    *sftp.Client
+	SSHClient *ssh.Client
+	Host      string
+	Port      int
+	User      string
+	Connected bool
+	LastError string
+}
+
+func (sc *SFTPConnection) Type() ObjectType { return SFTP_CONNECTION_OBJ }
+func (sc *SFTPConnection) Inspect() string {
+	status := "connected"
+	if !sc.Connected {
+		status = "disconnected"
+	}
+	return fmt.Sprintf("SFTP(%s@%s:%d) [%s]", sc.User, sc.Host, sc.Port, status)
+}
+
+// SFTPFileHandle represents a remote file handle via SFTP
+type SFTPFileHandle struct {
+	Connection *SFTPConnection
+	Path       string
+	Format     string // "json", "csv", "text", "lines", "bytes", "" (defaults to "text")
+	Options    *Dictionary
+}
+
+func (sfh *SFTPFileHandle) Type() ObjectType { return SFTP_FILE_HANDLE_OBJ }
+func (sfh *SFTPFileHandle) Inspect() string {
+	format := sfh.Format
+	if format == "" {
+		format = "text"
+	}
+	return fmt.Sprintf("SFTPFileHandle(%s@%s:%s).%s",
+		sfh.Connection.User, sfh.Connection.Host, sfh.Path, format)
 }
 
 // SecurityPolicy defines file system access restrictions
@@ -3568,6 +3618,229 @@ func getBuiltins() map[string]*Builtin {
 				}
 			},
 		},
+		"SFTP": {
+			Fn: func(args ...Object) Object {
+				if len(args) < 1 || len(args) > 2 {
+					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+				}
+
+				// First arg: URL (can be dictionary or string)
+				var urlStr string
+				switch arg := args[0].(type) {
+				case *Dictionary:
+					if !isUrlDict(arg) {
+						return newError("first argument to SFTP must be a URL, got dictionary")
+					}
+					// Extract URL string from dictionary
+					if schemeExpr, ok := arg.Pairs["scheme"]; ok {
+						scheme := Eval(schemeExpr, arg.Env)
+						if schemeVal, ok := scheme.(*String); ok && schemeVal.Value != "sftp" {
+							return newError("SFTP requires sftp:// URL scheme, got %s://", schemeVal.Value)
+						}
+					}
+					urlStr = urlDictToString(arg)
+				case *String:
+					urlStr = arg.Value
+				default:
+					return newError("first argument to SFTP must be a URL, got %T", args[0])
+				}
+
+				// Optional second arg: options dictionary
+				var options map[string]Object
+				if len(args) == 2 {
+					dict, ok := args[1].(*Dictionary)
+					if !ok {
+						return newError("second argument to SFTP must be a dictionary, got %T", args[1])
+					}
+					options = make(map[string]Object)
+					for key := range dict.Pairs {
+						options[key] = Eval(dict.Pairs[key], dict.Env)
+					}
+				}
+
+				// Parse SFTP URL
+				if !strings.HasPrefix(urlStr, "sftp://") {
+					return newError("SFTP URL must start with sftp://")
+				}
+
+				// Parse URL components
+				parsedURL := urlStr[7:] // Remove "sftp://"
+				var user, password, host string
+				port := 22
+
+				// Extract user@host:port
+				atIndex := strings.Index(parsedURL, "@")
+				if atIndex >= 0 {
+					userPass := parsedURL[:atIndex]
+					parsedURL = parsedURL[atIndex+1:]
+
+					// Check for password in user:pass format
+					colonIndex := strings.Index(userPass, ":")
+					if colonIndex >= 0 {
+						user = userPass[:colonIndex]
+						password = userPass[colonIndex+1:]
+					} else {
+						user = userPass
+					}
+				} else {
+					user = "anonymous"
+				}
+
+				// Extract host and port
+				slashIndex := strings.Index(parsedURL, "/")
+				hostPort := parsedURL
+				if slashIndex >= 0 {
+					hostPort = parsedURL[:slashIndex]
+				}
+
+				colonIndex := strings.LastIndex(hostPort, ":")
+				if colonIndex >= 0 {
+					host = hostPort[:colonIndex]
+					portStr := hostPort[colonIndex+1:]
+					if p, err := strconv.Atoi(portStr); err == nil {
+						port = p
+					}
+				} else {
+					host = hostPort
+				}
+
+				// Check cache
+				cacheKey := fmt.Sprintf("sftp:%s@%s:%d", user, host, port)
+				sftpConnectionsMu.RLock()
+				conn, exists := sftpConnections[cacheKey]
+				sftpConnectionsMu.RUnlock()
+
+				if exists && conn.Connected {
+					return conn
+				}
+
+				// Create new SFTP connection
+				var authMethods []ssh.AuthMethod
+
+				// Check for SSH key authentication
+				if options != nil {
+					if keyFileObj, ok := options["keyFile"]; ok {
+						var keyPath string
+						if keyDict, ok := keyFileObj.(*Dictionary); ok && isPathDict(keyDict) {
+							keyPath = pathDictToString(keyDict)
+						} else if keyStr, ok := keyFileObj.(*String); ok {
+							keyPath = keyStr.Value
+						}
+
+						if keyPath != "" {
+							keyData, err := os.ReadFile(keyPath)
+							if err != nil {
+								return newError("failed to read SSH key file: %s", err.Error())
+							}
+
+							var signer ssh.Signer
+							var signerErr error
+
+							// Check if key has passphrase
+							if passphraseObj, ok := options["passphrase"]; ok {
+								if passphraseStr, ok := passphraseObj.(*String); ok {
+									signer, signerErr = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(passphraseStr.Value))
+								}
+							} else {
+								signer, signerErr = ssh.ParsePrivateKey(keyData)
+							}
+
+							if signerErr != nil {
+								return newError("failed to parse SSH key: %s", signerErr.Error())
+							}
+
+							authMethods = append(authMethods, ssh.PublicKeys(signer))
+						}
+					}
+
+					// Check for password from options
+					if passwordObj, ok := options["password"]; ok {
+						if passwordStr, ok := passwordObj.(*String); ok {
+							password = passwordStr.Value
+						}
+					}
+				}
+
+				// Add password auth if password provided
+				if password != "" {
+					authMethods = append(authMethods, ssh.Password(password))
+				}
+
+				if len(authMethods) == 0 {
+					return newError("SFTP requires authentication: provide keyFile or password in options")
+				}
+
+				// Configure SSH client
+				config := &ssh.ClientConfig{
+					User:            user,
+					Auth:            authMethods,
+					HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Default to accept any (user can override)
+					Timeout:         30 * time.Second,
+				}
+
+				// Check for known_hosts file
+				if options != nil {
+					if knownHostsObj, ok := options["knownHostsFile"]; ok {
+						var knownHostsPath string
+						if khDict, ok := knownHostsObj.(*Dictionary); ok && isPathDict(khDict) {
+							knownHostsPath = pathDictToString(khDict)
+						} else if khStr, ok := knownHostsObj.(*String); ok {
+							knownHostsPath = khStr.Value
+						}
+
+						if knownHostsPath != "" {
+							callback, err := knownhosts.New(knownHostsPath)
+							if err != nil {
+								return newError("failed to load known_hosts: %s", err.Error())
+							}
+							config.HostKeyCallback = callback
+						}
+					}
+
+					// Check for timeout
+					if timeoutObj, ok := options["timeout"]; ok {
+						if timeoutDict, ok := timeoutObj.(*Dictionary); ok && isDurationDict(timeoutDict) {
+							tempEnv := NewEnvironment()
+							_, seconds, err := getDurationComponents(timeoutDict, tempEnv)
+							if err == nil {
+								config.Timeout = time.Duration(seconds) * time.Second
+							}
+						}
+					}
+				}
+
+				// Connect to SSH server
+				sshClient, err := ssh.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)), config)
+				if err != nil {
+					return newError("failed to connect to SSH server: %s", err.Error())
+				}
+
+				// Create SFTP client
+				sftpClient, err := sftp.NewClient(sshClient)
+				if err != nil {
+					sshClient.Close()
+					return newError("failed to create SFTP client: %s", err.Error())
+				}
+
+				// Create connection object
+				newConn := &SFTPConnection{
+					Client:    sftpClient,
+					SSHClient: sshClient,
+					Host:      host,
+					Port:      port,
+					User:      user,
+					Connected: true,
+					LastError: "",
+				}
+
+				// Cache connection
+				sftpConnectionsMu.Lock()
+				sftpConnections[cacheKey] = newConn
+				sftpConnectionsMu.Unlock()
+
+				return newConn
+			},
+		},
 		"import": {
 			Fn: func(args ...Object) Object {
 				// This is a placeholder - actual implementation happens in CallExpression
@@ -5790,6 +6063,110 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 	}
 }
 
+// evalSFTPConnectionMethod handles method calls on SFTP connections
+func evalSFTPConnectionMethod(conn *SFTPConnection, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "close":
+		if len(args) != 0 {
+			return newError("close() takes no arguments, got=%d", len(args))
+		}
+
+		// Remove from cache
+		cacheKey := fmt.Sprintf("sftp:%s@%s:%d", conn.User, conn.Host, conn.Port)
+		sftpConnectionsMu.Lock()
+		delete(sftpConnections, cacheKey)
+		sftpConnectionsMu.Unlock()
+
+		// Close SFTP and SSH clients
+		if conn.Client != nil {
+			conn.Client.Close()
+		}
+		if conn.SSHClient != nil {
+			conn.SSHClient.Close()
+		}
+		conn.Connected = false
+		return NULL
+
+	default:
+		return newError("unknown method for SFTP connection: %s", method)
+	}
+}
+
+// evalSFTPFileHandleMethod handles method calls on SFTP file handles
+func evalSFTPFileHandleMethod(handle *SFTPFileHandle, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "mkdir":
+		// Create directory
+		var recursive bool
+		if len(args) > 0 {
+			if optDict, ok := args[0].(*Dictionary); ok {
+				if parentsExpr, ok := optDict.Pairs["parents"]; ok {
+					if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
+						if boolVal, ok := parentsVal.(*Boolean); ok {
+							recursive = boolVal.Value
+						}
+					}
+				}
+			}
+		}
+
+		var err error
+		if recursive {
+			err = handle.Connection.Client.MkdirAll(handle.Path)
+		} else {
+			err = handle.Connection.Client.Mkdir(handle.Path)
+		}
+
+		if err != nil {
+			return newError("failed to create directory: %s", err.Error())
+		}
+		return NULL
+
+	case "rmdir":
+		// Remove directory
+		var recursive bool
+		if len(args) > 0 {
+			if optDict, ok := args[0].(*Dictionary); ok {
+				if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
+					if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
+						if boolVal, ok := recursiveVal.(*Boolean); ok {
+							recursive = boolVal.Value
+						}
+					}
+				}
+			}
+		}
+
+		var err error
+		if recursive {
+			// Recursively remove directory and contents
+			err = handle.Connection.Client.RemoveDirectory(handle.Path)
+		} else {
+			// Remove empty directory only
+			err = handle.Connection.Client.RemoveDirectory(handle.Path)
+		}
+
+		if err != nil {
+			return newError("failed to remove directory: %s", err.Error())
+		}
+		return NULL
+
+	case "remove":
+		// Remove file
+		if len(args) != 0 {
+			return newError("remove() takes no arguments, got=%d", len(args))
+		}
+
+		if err := handle.Connection.Client.Remove(handle.Path); err != nil {
+			return newError("failed to remove file: %s", err.Error())
+		}
+		return NULL
+
+	default:
+		return newError("unknown method for SFTP file handle: %s", method)
+	}
+}
+
 // Eval evaluates AST nodes and returns objects
 func Eval(node ast.Node, env *Environment) Object {
 	switch node := node.(type) {
@@ -6091,6 +6468,10 @@ func Eval(node ast.Node, env *Environment) Object {
 			switch receiver := left.(type) {
 			case *DBConnection:
 				return evalDBConnectionMethod(receiver, method, args, env)
+			case *SFTPConnection:
+				return evalSFTPConnectionMethod(receiver, method, args, env)
+			case *SFTPFileHandle:
+				return evalSFTPFileHandleMethod(receiver, method, args, env)
 			case *String:
 				return evalStringMethod(receiver, method, args)
 			case *Array:
@@ -7095,6 +7476,33 @@ func applyFunctionWithEnv(fn Object, args []Object, env *Environment) Object {
 		return unwrapReturnValue(evaluated)
 	case *Builtin:
 		return fn.Fn(args...)
+	case *SFTPConnection:
+		// SFTP connection is callable: conn(@/path) returns SFTP file handle
+		if len(args) != 1 {
+			return newError("SFTP connection takes exactly 1 argument (path), got=%d", len(args))
+		}
+
+		// Extract path from argument
+		var pathStr string
+		switch arg := args[0].(type) {
+		case *Dictionary:
+			if !isPathDict(arg) {
+				return newError("argument to SFTP connection must be a path, got dictionary")
+			}
+			pathStr = pathDictToString(arg)
+		case *String:
+			pathStr = arg.Value
+		default:
+			return newError("argument to SFTP connection must be a path, got %T", arg)
+		}
+
+		// Return SFTP file handle
+		return &SFTPFileHandle{
+			Connection: fn,
+			Path:       pathStr,
+			Format:     "", // Will default to "text"
+			Options:    nil,
+		}
 	default:
 		return newError("not a function: %T", fn)
 	}
@@ -8843,6 +9251,35 @@ func evalDotExpression(node *ast.DotExpression, env *Environment) Object {
 		return NULL
 	}
 
+	// Handle SFTP file handles for format accessors
+	if sftpHandle, ok := left.(*SFTPFileHandle); ok {
+		// Format accessors: .json, .text, .csv, .lines, .bytes, .file
+		validFormats := map[string]bool{
+			"json": true, "text": true, "csv": true,
+			"lines": true, "bytes": true, "file": true,
+		}
+		if validFormats[node.Key] {
+			return &SFTPFileHandle{
+				Connection: sftpHandle.Connection,
+				Path:       sftpHandle.Path,
+				Format:     node.Key,
+				Options:    sftpHandle.Options,
+			}
+		}
+		// Check for directory accessor
+		if node.Key == "dir" {
+			// Return a special dict representing dir accessor
+			// This will be handled by evalSFTPFileHandleMethod
+			return &SFTPFileHandle{
+				Connection: sftpHandle.Connection,
+				Path:       sftpHandle.Path,
+				Format:     "dir",
+				Options:    sftpHandle.Options,
+			}
+		}
+		return newErrorWithPos(node.Token, "unknown property for SFTP file handle: %s", node.Key)
+	}
+
 	// Handle Dictionary (including special types like datetime, path, url)
 	dict, ok := left.(*Dictionary)
 	if !ok {
@@ -9043,7 +9480,7 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 	// Check if we're using dict pattern destructuring with error capture pattern
 	useErrorCapture := node.DictPattern != nil && isErrorCapturePattern(node.DictPattern)
 
-	// Evaluate the source expression (should be a request handle or URL)
+	// Evaluate the source expression (should be a request handle, URL, or SFTP file handle)
 	source := Eval(node.Source, env)
 	if isError(source) {
 		if useErrorCapture {
@@ -9051,6 +9488,36 @@ func evalFetchStatement(node *ast.FetchStatement, env *Environment) Object {
 				makeFetchResponseDict(NULL, source.(*Error).Message, 0, nil, env), env, node.IsLet, false)
 		}
 		return source
+	}
+
+	// Check if it's an SFTP file handle
+	if sftpHandle, ok := source.(*SFTPFileHandle); ok {
+		content, err := evalSFTPRead(sftpHandle, env)
+		if err != nil {
+			if useErrorCapture {
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeSFTPResponseDict(NULL, err.(*Error).Message, env), env, node.IsLet, false)
+			}
+			return err
+		}
+
+		// Assign to the target variable(s)
+		if node.DictPattern != nil {
+			if useErrorCapture {
+				// Wrap successful result in {data: ..., error: null} format
+				return evalDictDestructuringAssignment(node.DictPattern,
+					makeSFTPResponseDict(content, "", env), env, node.IsLet, false)
+			}
+			// Regular dict destructuring
+			return evalDictDestructuringAssignment(node.DictPattern, content, env, node.IsLet, false)
+		}
+
+		// Simple assignment
+		if len(node.Names) > 0 {
+			return evalDestructuringAssignment(node.Names, content, env, node.IsLet, false)
+		}
+
+		return content
 	}
 
 	// The source should be a request dictionary (from JSON(@url), etc.) or a URL dictionary
@@ -9860,10 +10327,19 @@ func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
 		return value
 	}
 
-	// Evaluate the target expression (should be a file handle)
+	// Evaluate the target expression (should be a file handle or SFTP file handle)
 	target := Eval(node.Target, env)
 	if isError(target) {
 		return target
+	}
+
+	// Check if it's an SFTP file handle
+	if sftpHandle, ok := target.(*SFTPFileHandle); ok {
+		err := evalSFTPWrite(sftpHandle, value, node.Append, env)
+		if err != nil {
+			return err
+		}
+		return NULL
 	}
 
 	// The target should be a file dictionary
@@ -9876,6 +10352,196 @@ func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
 	err := writeFileContent(fileDict, value, node.Append, env)
 	if err != nil {
 		return err
+	}
+
+	return NULL
+}
+
+// makeSFTPResponseDict creates a response dictionary for SFTP operations with error capture
+func makeSFTPResponseDict(data Object, errMsg string, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	if errMsg != "" {
+		pairs["data"] = &ast.ObjectLiteralExpression{Obj: NULL}
+		pairs["error"] = &ast.ObjectLiteralExpression{Obj: &String{Value: errMsg}}
+	} else {
+		// Store data directly as an expression
+		pairs["data"] = &ast.ObjectLiteralExpression{Obj: data}
+		pairs["error"] = &ast.ObjectLiteralExpression{Obj: NULL}
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// evalSFTPRead reads content from an SFTP file handle
+func evalSFTPRead(handle *SFTPFileHandle, env *Environment) (Object, Object) {
+	if !handle.Connection.Connected {
+		return nil, newError("SFTP connection is not connected")
+	}
+
+	// Handle directory listing
+	if handle.Format == "dir" {
+		entries, err := handle.Connection.Client.ReadDir(handle.Path)
+		if err != nil {
+			return nil, newError("failed to list directory: %s", err.Error())
+		}
+
+		files := make([]Object, 0, len(entries))
+		for _, entry := range entries {
+			fileInfo := make(map[string]ast.Expression)
+			fileInfo["name"] = &ast.StringLiteral{Value: entry.Name()}
+			fileInfo["path"] = &ast.StringLiteral{Value: filepath.Join(handle.Path, entry.Name())}
+			fileInfo["size"] = &ast.IntegerLiteral{Value: entry.Size()}
+			fileInfo["isDir"] = &ast.ObjectLiteralExpression{Obj: &Boolean{Value: entry.IsDir()}}
+			fileInfo["isFile"] = &ast.ObjectLiteralExpression{Obj: &Boolean{Value: !entry.IsDir()}}
+			fileInfo["mode"] = &ast.StringLiteral{Value: entry.Mode().String()}
+			fileInfo["modified"] = &ast.ObjectLiteralExpression{Obj: timeToDict(entry.ModTime(), env)}
+
+			files = append(files, &Dictionary{Pairs: fileInfo, Env: env})
+		}
+
+		return &Array{Elements: files}, nil
+	}
+
+	// Open remote file
+	file, err := handle.Connection.Client.Open(handle.Path)
+	if err != nil {
+		return nil, newError("SFTP read failed: %s", err.Error())
+	}
+	defer file.Close()
+
+	// Read content
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, newError("SFTP read failed: %s", err.Error())
+	}
+
+	// Parse based on format
+	format := handle.Format
+	if format == "" {
+		format = "text"
+	}
+
+	switch format {
+	case "json":
+		return parseJSON(string(data))
+	case "text":
+		return &String{Value: string(data)}, nil
+	case "lines":
+		lines := strings.Split(string(data), "\n")
+		// Remove trailing empty line if present
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		elements := make([]Object, len(lines))
+		for i, line := range lines {
+			elements[i] = &String{Value: line}
+		}
+		return &Array{Elements: elements}, nil
+	case "csv":
+		return parseCSV(data, true) // Assume CSV has headers by default
+	case "bytes":
+		elements := make([]Object, len(data))
+		for i, b := range data {
+			elements[i] = &Integer{Value: int64(b)}
+		}
+		return &Array{Elements: elements}, nil
+	case "file":
+		// Auto-detect from extension
+		ext := filepath.Ext(handle.Path)
+		switch ext {
+		case ".json":
+			return parseJSON(string(data))
+		case ".csv":
+			return parseCSV(data, true)
+		default:
+			return &String{Value: string(data)}, nil
+		}
+	default:
+		return nil, newError("unknown format: %s", format)
+	}
+}
+
+// evalSFTPWrite writes content to an SFTP file handle
+func evalSFTPWrite(handle *SFTPFileHandle, value Object, append bool, env *Environment) Object {
+	if !handle.Connection.Connected {
+		return newError("SFTP connection is not connected")
+	}
+
+	// Determine open flags
+	flags := os.O_WRONLY | os.O_CREATE
+	if append {
+		flags |= os.O_APPEND // SSH_FXF_APPEND (0x00000004)
+	} else {
+		flags |= os.O_TRUNC
+	}
+
+	// Encode based on format
+	format := handle.Format
+	if format == "" {
+		format = "text"
+	}
+
+	var content string
+	switch format {
+	case "json":
+		jsonBytes, err := encodeJSON(value)
+		if err != nil {
+			handle.Connection.Client.Close()
+			return makeSFTPResponseDict(NULL, fmt.Sprintf("JSON encoding failed: %s", err.Error()), env)
+		}
+		content = string(jsonBytes)
+	case "text":
+		if str, ok := value.(*String); ok {
+			content = str.Value
+		} else {
+			return newError("text format requires string value, got %s", value.Type())
+		}
+	case "lines":
+		if arr, ok := value.(*Array); ok {
+			lines := make([]string, len(arr.Elements))
+			for i, elem := range arr.Elements {
+				if str, ok := elem.(*String); ok {
+					lines[i] = str.Value
+				} else {
+					return newError("lines format requires array of strings, got %s at index %d", elem.Type(), i)
+				}
+			}
+			content = strings.Join(lines, "\n") + "\n"
+		} else {
+			return newError("lines format requires array, got %s", value.Type())
+		}
+	case "csv":
+		return newError("CSV write not yet implemented for SFTP")
+	case "bytes":
+		if arr, ok := value.(*Array); ok {
+			bytes := make([]byte, len(arr.Elements))
+			for i, elem := range arr.Elements {
+				if intVal, ok := elem.(*Integer); ok {
+					bytes[i] = byte(intVal.Value)
+				} else {
+					return newError("bytes format requires array of integers, got %s at index %d", elem.Type(), i)
+				}
+			}
+			content = string(bytes)
+		} else {
+			return newError("bytes format requires array, got %s", value.Type())
+		}
+	default:
+		return newError("unknown format: %s", format)
+	}
+
+	// Open remote file via SFTP with appropriate flags
+	file, err := handle.Connection.Client.OpenFile(handle.Path, flags)
+	if err != nil {
+		return newError("SFTP write failed: %s", err.Error())
+	}
+	defer file.Close()
+
+	// Write content
+	_, err = file.Write([]byte(content))
+	if err != nil {
+		return newError("SFTP write failed: %s", err.Error())
 	}
 
 	return NULL

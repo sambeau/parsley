@@ -7,7 +7,8 @@ If you haven't already done it, can you:
  - make minor updates to the README.md 
  - make comprehensive changes to the docs/reference.md
  - update CHANGELOG.md
- - If matching task in docs/TODO.md, strikethrough, add tick and version 
+ - If matching task in docs/TODO.md, strikethrough, add tick and version
+ - If this is a major grammar change, update the .vscode-extension
  - suggest suitable, short, succinct, one-line summary for git commit summary
 
 ### Prepare for minor git commit:

@@ -1,0 +1,48 @@
+Add SFTP support with SSH authentication and network operators (v0.12.0)
+
+This release adds comprehensive SFTP (SSH File Transfer Protocol) support for
+secure remote file operations using Parsley's existing network I/O operators.
+
+Key Features:
+• SFTP() builtin factory creates persistent SSH connections with caching
+• SSH key authentication (preferred) and password authentication support
+• Network operators: <=/= (read), =/=> (write), =/=>> (append)
+• All format accessors work over SFTP: .json, .text, .csv, .lines, .bytes, .file, .dir
+• Directory operations: .mkdir(), .rmdir(), .remove() with recursive options
+• Path-first syntax matches local file I/O: conn(@/path).format
+• Error capture pattern: {data, error} <=/= conn(@/file).json
+• Connection lifecycle management with .close() method
+• known_hosts verification for security
+• Configurable timeouts and connection options
+
+Implementation:
+• Added SFTPConnection and SFTPFileHandle types with connection pooling
+• Integrated SFTP into evalFetchStatement() and evalWriteStatement()
+• Connection caching by user@host:port for efficiency
+• Support for SSH_FXF_APPEND flag for append operations
+• Directory listing returns file metadata (name, size, modified, isDir)
+
+Dependencies:
+• Added github.com/pkg/sftp v1.13.10
+• Upgraded golang.org/x/crypto to v0.45.0
+
+Testing:
+• 12 comprehensive test suites in sftp_test.go
+• Syntax verification for all SFTP operations
+• Coverage for authentication, formats, operators, and directory ops
+
+Documentation:
+• Complete SFTP section in docs/reference.md (250+ lines)
+• Full demo script: examples/sftp_demo.pars
+• README.md updated with SFTP quick start
+• CHANGELOG.md entry with implementation notes
+• Design plan and verification documents
+
+Security Model:
+• No special security flags (aligns with HTTP/Fetch pattern)
+• SFTP operates on remote resources, not local filesystem
+• SSH keys read from standard ~/.ssh/ location
+
+This implementation follows the connection-based pattern (like databases) rather
+than stateless requests (like HTTP) because SSH sessions are expensive to create
+and SFTP requires maintained state for directory operations.

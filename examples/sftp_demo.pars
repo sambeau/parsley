@@ -1,0 +1,257 @@
+// SFTP Support Demo for Parsley v0.12.0
+// Demonstrates SFTP file operations using network operators
+
+log("=== SFTP Connection Management ===")
+
+// Create SFTP connection with password authentication
+let conn1 = SFTP("sftp://user:password@example.com/")
+
+// Create SFTP connection with SSH key authentication
+let conn2 = SFTP("sftp://user@example.com/", {
+    key: @~/.ssh/id_rsa,
+    passphrase: "key-passphrase"  // Optional, if key is encrypted
+})
+
+// Create SFTP connection with timeout
+let conn3 = SFTP("sftp://user:password@example.com:2222/", {
+    timeout: @10s
+})
+
+// Connection is cached by user@host:port
+let conn4 = SFTP("sftp://user:password@example.com/")  // Reuses conn1
+log("Connection caching enabled for same host:port:user")
+
+log("\n=== SFTP File Reading ===")
+
+// Read JSON file using network read operator
+{data, error} <=/= conn1(@/data/config.json).json
+
+if (error) {
+    log("Failed to read JSON:", error)
+} else {
+    log("Config loaded:", data.name, "version", data.version)
+}
+
+// Read text file
+{content, readErr} <=/= conn1(@/logs/app.log).text
+if (!readErr) {
+    log("Log file size:", content.length())
+}
+
+// Read CSV file
+{rows, csvErr} <=/= conn1(@/data/export.csv).csv
+if (!csvErr) {
+    log("CSV rows:", rows.length())
+}
+
+// Read file as lines
+{lines, linesErr} <=/= conn1(@/data/list.txt).lines
+if (!linesErr) {
+    for (line in lines) {
+        log("Line:", line)
+    }
+}
+
+// Read binary file as bytes
+{bytes, bytesErr} <=/= conn1(@/images/icon.png).bytes
+if (!bytesErr) {
+    log("Image size:", bytes.length(), "bytes")
+}
+
+// Auto-detect file format
+{fileData, fileErr} <=/= conn1(@/data/unknown.json).file
+if (!fileErr) {
+    log("Auto-detected and parsed:", fileData)
+}
+
+log("\n=== SFTP File Writing ===")
+
+// Write JSON file using network write operator
+let config = {
+    app: "MyApp",
+    version: "1.0.0",
+    settings: {
+        debug: false,
+        port: 8080
+    }
+}
+
+writeErr = config =/=> conn1(@/config/app.json).json
+if (writeErr) {
+    log("Failed to write:", writeErr)
+} else {
+    log("Config saved successfully")
+}
+
+// Write text file
+textErr = "Hello, SFTP World!" =/=> conn1(@/messages/hello.txt).text
+if (!textErr) {
+    log("Text file written")
+}
+
+// Write lines to file
+let logLines = [
+    "Application started",
+    "Connected to database",
+    "Server listening on port 8080"
+]
+linesWriteErr = logLines =/=> conn1(@/logs/startup.log).lines
+if (!linesWriteErr) {
+    log("Log lines written")
+}
+
+// Write bytes to binary file
+let imageBytes = [137, 80, 78, 71, 13, 10, 26, 10]  // PNG signature
+bytesWriteErr = imageBytes =/=> conn1(@/images/test.png).bytes
+if (!bytesWriteErr) {
+    log("Binary file written")
+}
+
+log("\n=== SFTP File Appending ===")
+
+// Append to text file using append operator
+appendErr = "New log entry\n" =/=>> conn1(@/logs/app.log).text
+if (!appendErr) {
+    log("Log entry appended")
+}
+
+// Append line to file
+lineAppendErr = "Additional line" =/=>> conn1(@/data/list.txt).lines
+if (!lineAppendErr) {
+    log("Line appended")
+}
+
+log("\n=== Directory Operations ===")
+
+// List directory contents
+{files, dirErr} <=/= conn1(@/uploads).dir
+if (!dirErr) {
+    log("Directory listing:")
+    for (file in files) {
+        let type = if (file.isDir) { "DIR " } else { "FILE" }
+        log("  ", type, file.name, "(", file.size, "bytes)")
+    }
+}
+
+// Create directory
+mkdirErr = conn1(@/data/archive).mkdir()
+if (!mkdirErr) {
+    log("Directory created")
+}
+
+// Create directory with specific permissions
+mkdirErr2 = conn1(@/data/secure).mkdir({mode: 0700})
+if (!mkdirErr2) {
+    log("Secure directory created (mode 0700)")
+}
+
+// Remove directory
+rmdirErr = conn1(@/data/temp).rmdir()
+if (!rmdirErr) {
+    log("Directory removed")
+}
+
+// Remove file
+removeErr = conn1(@/data/old-file.txt).remove()
+if (!removeErr) {
+    log("File removed")
+}
+
+log("\n=== Working with Multiple Files ===")
+
+// Read, process, and write back
+{users, readUsersErr} <=/= conn1(@/data/users.json).json
+if (!readUsersErr) {
+    // Transform data
+    let activeUsers = users.filter(fn(u) { u.active })
+    let processed = activeUsers.map(fn(u) {
+        {
+            id: u.id,
+            name: u.name.upper(),
+            lastSeen: @now
+        }
+    })
+    
+    // Write processed data
+    writeProcessedErr = processed =/=> conn1(@/data/active-users.json).json
+    if (!writeProcessedErr) {
+        log("Processed", processed.length(), "active users")
+    }
+}
+
+log("\n=== Error Handling Patterns ===")
+
+// Pattern 1: Check error after operation
+error = someData =/=> conn1(@/protected/file.txt).text
+if (error) {
+    log("Write failed:", error)
+}
+
+// Pattern 2: Destructuring with error capture
+{result, err} <=/= conn1(@/data/important.json).json
+if (err) {
+    log("Read failed:", err)
+} else {
+    log("Data loaded:", result)
+}
+
+// Pattern 3: Default value on error
+{data, fetchErr} <=/= conn1(@/config/optional.json).json
+let settings = if (fetchErr) { {defaults: true} } else { data }
+log("Using settings:", settings)
+
+log("\n=== Connection Lifecycle ===")
+
+// Close connection when done
+conn1.close()
+log("Connection closed")
+
+// Attempting to use closed connection returns error
+{data, useErr} <=/= conn1(@/file.txt).text
+if (useErr) {
+    log("Cannot use closed connection (expected):", useErr)
+}
+
+log("\n=== Advanced Patterns ===")
+
+// Create connection factory function
+fn sftpConn(host, user, password) {
+    SFTP("sftp://{user}:{password}@{host}/")
+}
+
+// Upload multiple files
+let uploads = [
+    {name: "file1.txt", content: "Data 1"},
+    {name: "file2.txt", content: "Data 2"},
+    {name: "file3.txt", content: "Data 3"}
+]
+
+let uploadConn = sftpConn("example.com", "uploader", "secret")
+for (file in uploads) {
+    let err = file.content =/=> uploadConn(@/uploads/{file.name}).text
+    if (!err) {
+        log("Uploaded:", file.name)
+    }
+}
+uploadConn.close()
+
+// Download and process CSV data
+let dataConn = SFTP("sftp://analyst:pass@dataserver.com/")
+{csvData, csvReadErr} <=/= dataConn(@/reports/sales.csv).csv
+if (!csvReadErr) {
+    // Process CSV rows
+    let total = 0
+    for (row in csvData) {
+        if (row.length() >= 2) {
+            total = total + parseInt(row[1])
+        }
+    }
+    log("Total sales:", total)
+    
+    // Write summary
+    summary = {total: total, date: @now}
+    dataConn(@/reports/summary.json).json <== summary
+}
+dataConn.close()
+
+log("\n=== SFTP Demo Complete ===")

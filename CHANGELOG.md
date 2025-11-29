@@ -6,6 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.12.0] - 2025-12-01
+
+### Added
+- **SFTP Support**: Full SFTP file operations with network operators
+  - `SFTP(url, options?)` - Create SFTP connection with authentication
+  - SSH key authentication (preferred) and password authentication
+  - Connection caching by user@host:port for efficiency
+  - `known_hosts` verification for security
+  - Connection timeout support via options
+- **SFTP Network Operators**: Use existing network syntax for SFTP
+  - `<=/=` - Read from SFTP (e.g., `data <=/= conn(@/file.json).json`)
+  - `=/=>` - Write to SFTP (e.g., `data =/=> conn(@/file.json).json`)
+  - `=/=>>` - Append to SFTP file
+- **SFTP Format Support**: All file formats work over SFTP
+  - `.json` - JSON data
+  - `.text` - Plain text
+  - `.csv` - CSV data
+  - `.lines` - Line-separated data
+  - `.bytes` - Binary data (array of integers)
+  - `.file` - Auto-detect format
+  - `.dir` - Directory listing with metadata
+- **SFTP Directory Operations**: Manage remote directories
+  - `.mkdir(options?)` - Create directory
+  - `.rmdir()` - Remove empty directory
+  - `.remove()` - Delete file
+- **SFTP Connection Management**:
+  - `.close()` - Close connection and free resources
+  - Callable syntax: `conn(@/path)` returns file handle
+  - Error capture pattern: `{data, error} <=/= conn(@/file).json`
+- **Dependencies**:
+  - Added `github.com/pkg/sftp v1.13.10`
+  - Upgraded `golang.org/x/crypto` to `v0.45.0`
+- Comprehensive test suite: `sftp_test.go` with 11 test suites
+- Example script: `examples/sftp_demo.pars`
+
+### Implementation Notes
+- SFTP follows same pattern as database connections (connection-based)
+- Path-first syntax matches local file I/O: `conn(@/path).format`
+- No special security flags (aligns with HTTP/Fetch pattern)
+- SSH keys stored in `~/.ssh/` directory (standard location)
+- Connection errors returned via error capture pattern
+
+---
+
 ## [0.11.0] - 2025-11-30
 
 ### Added

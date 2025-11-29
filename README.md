@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.11.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.12.0
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -20,7 +20,9 @@ A minimalist language for generating HTML/XML with first-class file I/O.
   - [Control Flow](#control-flow)
   - [HTML/XML Tags](#htmlxml-tags)
   - [File I/O](#file-io)
+  - [SFTP](#sftp)
   - [Database](#database)
+  - [HTTP Requests](#http-requests)
   - [Process Execution](#process-execution)
   - [Modules](#modules)
 - [Examples](#examples)
@@ -356,6 +358,56 @@ for (img in images) {
     <img src="{img.path}" />
 }
 ```
+
+### SFTP
+
+Transfer files securely over SSH using SFTP with the same intuitive syntax as local file I/O.
+
+```parsley
+// Connect with SSH key (recommended)
+let conn = SFTP(@sftp://user@example.com, {
+    keyFile: @~/.ssh/id_rsa,
+    timeout: @10s
+})
+
+// Or with password
+let conn = SFTP(@sftp://user:password@example.com)
+
+// Read remote files
+let {config, error} <=/= conn(@/remote/config.json).json
+if (!error) {
+    log("Config loaded:", config.name)
+}
+
+let {logs, err} <=/= conn(@/var/log/app.log).lines
+
+// Write remote files
+myData =/=> conn(@/remote/output.json).json
+"Hello SFTP" =/=> conn(@/messages/greeting.txt).text
+
+// Append to remote files
+logEntry =/=>> conn(@/var/log/app.log).lines
+
+// Directory operations
+let {files, dirErr} <=/= conn(@/uploads).dir
+if (!dirErr) {
+    for (file in files) {
+        log(file.name, "-", file.size, "bytes")
+    }
+}
+
+conn(@/data/archive).mkdir({parents: true})
+conn(@/temp/old-file.txt).remove()
+
+// Close when done
+conn.close()
+```
+
+**Supported formats**: `.json`, `.text`, `.csv`, `.lines`, `.bytes`, `.file`, `.dir`  
+**Authentication**: SSH keys (preferred), passwords  
+**Features**: Connection caching, timeout support, error capture pattern
+
+See [examples/sftp_demo.pars](examples/sftp_demo.pars) for complete examples.
 
 ### Database
 

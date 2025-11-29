@@ -807,6 +807,253 @@ let sources = files(@./src/**/*.pars)
 
 ---
 
+## SFTP (Network File Operations)
+
+### SFTP Connection
+
+Create SFTP connections for secure file transfer over SSH.
+
+```parsley
+// Password authentication
+let conn = SFTP("sftp://user:password@example.com/")
+
+// SSH key authentication (preferred)
+let conn = SFTP("sftp://user@example.com/", {
+    key: @~/.ssh/id_rsa,
+    passphrase: "optional-key-passphrase"
+})
+
+// Custom port and timeout
+let conn = SFTP("sftp://user:password@example.com:2222/", {
+    timeout: @10s
+})
+```
+
+**Connection Features:**
+- Connection caching by `user@host:port` for efficiency
+- `known_hosts` verification for security (~/.ssh/known_hosts)
+- Supports SSH keys (recommended) and password authentication
+- Automatic reconnection on network errors
+- `.close()` method to free resources
+
+### SFTP File Operations
+
+SFTP uses the same network operators as HTTP/database operations:
+
+| Operator | Purpose | Example |
+|----------|---------|---------|
+| `<=/=` | Read from SFTP | `data <=/= conn(@/file.json).json` |
+| `=/=>` | Write to SFTP | `data =/=> conn(@/file.json).json` |
+| `=/=>>` | Append to SFTP | `line =/=>> conn(@/log.txt).lines` |
+
+**Callable Syntax:**
+```parsley
+let conn = SFTP("sftp://user:pass@host/")
+let handle = conn(@/path/to/file.txt)  // Returns file handle
+```
+
+### Format Support
+
+All file formats work over SFTP:
+
+| Format | Accessor | Read Returns | Write Accepts |
+|--------|----------|--------------|---------------|
+| JSON | `.json` | Dict/Array | Dict/Array |
+| Text | `.text` | String | String |
+| CSV | `.csv` | Array | Array |
+| Lines | `.lines` | Array[String] | Array[String] |
+| Bytes | `.bytes` | Array[Int] | Array[Int] |
+| Auto | `.file` | Auto-detect | String |
+| Directory | `.dir` | Array[FileInfo] | N/A |
+
+### Reading from SFTP
+
+```parsley
+let conn = SFTP("sftp://user:password@example.com/")
+
+// Read JSON file
+{data, error} <=/= conn(@/data/config.json).json
+if (!error) {
+    log("Config:", data.name, data.version)
+}
+
+// Read text file
+{content, readErr} <=/= conn(@/logs/app.log).text
+if (!readErr) {
+    log("Log size:", content.length())
+}
+
+// Read CSV
+{rows, csvErr} <=/= conn(@/reports/sales.csv).csv
+if (!csvErr) {
+    for (row in rows) {
+        log("Row:", row)
+    }
+}
+
+// Read as lines
+{lines, linesErr} <=/= conn(@/data/list.txt).lines
+if (!linesErr) {
+    for (line in lines) {
+        log(line)
+    }
+}
+
+// Read binary file
+{bytes, bytesErr} <=/= conn(@/images/icon.png).bytes
+if (!bytesErr) {
+    log("Image size:", bytes.length(), "bytes")
+}
+
+// Auto-detect format
+{fileData, fileErr} <=/= conn(@/data/unknown.json).file
+```
+
+### Writing to SFTP
+
+```parsley
+let conn = SFTP("sftp://user:password@example.com/")
+
+// Write JSON
+let config = {app: "MyApp", version: "1.0.0"}
+writeErr = config =/=> conn(@/config/app.json).json
+if (!writeErr) {
+    log("Config saved")
+}
+
+// Write text
+textErr = "Hello, SFTP!" =/=> conn(@/messages/hello.txt).text
+
+// Write lines
+let logs = ["Line 1", "Line 2", "Line 3"]
+linesErr = logs =/=> conn(@/logs/output.log).lines
+
+// Write bytes
+let data = [137, 80, 78, 71, 13, 10, 26, 10]  // PNG signature
+bytesErr = data =/=> conn(@/images/test.png).bytes
+```
+
+### Appending to SFTP Files
+
+```parsley
+let conn = SFTP("sftp://user:password@example.com/")
+
+// Append text
+appendErr = "New log entry\n" =/=>> conn(@/logs/app.log).text
+if (!appendErr) {
+    log("Entry appended")
+}
+
+// Append line
+lineErr = "Additional line" =/=>> conn(@/data/list.txt).lines
+```
+
+### Directory Operations
+
+```parsley
+let conn = SFTP("sftp://user:password@example.com/")
+
+// List directory with file metadata
+{files, dirErr} <=/= conn(@/uploads).dir
+if (!dirErr) {
+    for (file in files) {
+        log(file.name, "-", file.size, "bytes")
+        log("  Modified:", file.modified)
+        log("  Is directory:", file.isDir)
+    }
+}
+
+// Create directory
+mkdirErr = conn(@/data/archive).mkdir()
+if (!mkdirErr) {
+    log("Directory created")
+}
+
+// Create directory with permissions
+mkdirErr = conn(@/data/secure).mkdir({mode: 0700})
+
+// Remove empty directory
+rmdirErr = conn(@/data/temp).rmdir()
+
+// Delete file
+removeErr = conn(@/data/old.txt).remove()
+```
+
+### Error Handling
+
+```parsley
+let conn = SFTP("sftp://user:password@example.com/")
+
+// Pattern 1: Check error after operation
+error = data =/=> conn(@/file.txt).text
+if (error) {
+    log("Write failed:", error)
+}
+
+// Pattern 2: Destructuring with error capture
+{result, err} <=/= conn(@/data.json).json
+if (err) {
+    log("Read failed:", err)
+} else {
+    log("Data loaded:", result)
+}
+
+// Pattern 3: Default value on error
+{data, fetchErr} <=/= conn(@/config.json).json
+let settings = if (fetchErr) { {defaults: true} } else { data }
+```
+
+### Connection Management
+
+```parsley
+let conn = SFTP("sftp://user:password@example.com/")
+
+// Perform operations...
+data <=/= conn(@/file.json).json
+
+// Close when done
+conn.close()
+
+// Attempting to use closed connection returns error
+{data, err} <=/= conn(@/file.txt).text
+// err will be set (connection not connected)
+```
+
+### Complete Example
+
+```parsley
+// Connect to SFTP server
+let conn = SFTP("sftp://user@example.com/", {
+    key: @~/.ssh/id_rsa,
+    timeout: @10s
+})
+
+// Read and process data
+{users, readErr} <=/= conn(@/data/users.json).json
+if (!readErr) {
+    // Transform data
+    let activeUsers = users.filter(fn(u) { u.active })
+    let processed = activeUsers.map(fn(u) {
+        {
+            id: u.id,
+            name: u.name.upper(),
+            lastSeen: @now
+        }
+    })
+    
+    // Write back to server
+    writeErr = processed =/=> conn(@/data/active-users.json).json
+    if (!writeErr) {
+        log("Processed", processed.length(), "users")
+    }
+}
+
+// Clean up
+conn.close()
+```
+
+---
+
 ## Regex
 
 ### Literals

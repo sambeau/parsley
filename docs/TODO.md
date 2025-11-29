@@ -10,15 +10,18 @@
 ~~- run scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
 ~~- pipe scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
 ~~- Fetch support for format objects~~ ✅ (v0.9.11 - documented in v0.11.0)
+~~- SFTP Support: Read/Write files from FTP server - useful for static site generation~~ ✅ (v0.12.0)
 
 ## IN PLANNING
 
 ### For V1.0 ALPHA
 
-- SFTP Support: Read/Write files from FTP server - useful for static site generation
 - Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)
 - Look at consistency of API one more time
+	- Remove deprecated features
 - Check everything is working
+	- Setup database and sftp environments for integration testing
+	- run integration tests
 - Build something big to see how it works in practice
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands
