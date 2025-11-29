@@ -54,10 +54,17 @@ Complete reference for all Parsley types, methods, and operators.
 |----------|-------------|---------|
 | `+` | Addition | `2 + 3` → `5` |
 | `-` | Subtraction | `5 - 2` → `3` |
+| `-` | Array subtraction | `[1,2,3] - [2]` → `[1, 3]` |
+| `-` | Dictionary subtraction | `{a:1, b:2} - {b:0}` → `{a: 1}` |
 | `*` | Multiplication | `4 * 3` → `12` |
+| `*` | String repetition | `"ab" * 3` → `"ababab"` |
+| `*` | Array repetition | `[1,2] * 3` → `[1, 2, 1, 2, 1, 2]` |
 | `/` | Division | `10 / 4` → `2.5` |
+| `/` | Array chunking | `[1,2,3,4] / 2` → `[[1, 2], [3, 4]]` |
 | `%` | Modulo | `10 % 3` → `1` |
 | `++` | Concatenation | `[1] ++ [2]` → `[1, 2]` |
+| `++` | Scalar to array | `1 ++ [2,3]` → `[1, 2, 3]` |
+| `++` | Array to scalar | `[1,2] ++ 3` → `[1, 2, 3]` |
 
 ### Comparison
 | Operator | Description |
@@ -70,11 +77,80 @@ Complete reference for all Parsley types, methods, and operators.
 | `>=` | Greater than or equal |
 
 ### Logical
-| Operator | Description |
-|----------|-------------|
-| `&&` | AND |
-| `\|\|` | OR |
-| `!` | NOT |
+| Operator | Description | Example |
+|----------|-------------|---------||
+| `&&` | Boolean AND | `true && false` → `false` |
+| `&&` | Array intersection | `[1,2,3] && [2,3,4]` → `[2, 3]` |
+| `&&` | Dictionary intersection | `{a:1, b:2} && {b:3, c:4}` → `{b: 2}` |
+| `||` | Boolean OR | `true || false` → `true` |
+| `||` | Array union | `[1,2] || [2,3]` → `[1, 2, 3]` |
+| `!` | NOT | `!true` → `false` |
+
+### Set Operations
+
+**Array Intersection** (`&&`): Returns elements present in both arrays (deduplicated).
+```parsley
+[1, 2, 3] && [2, 3, 4]           // [2, 3]
+[1, 2, 2, 3] && [2, 3, 3, 4]     // [2, 3] (duplicates removed)
+[1, 2] && [3, 4]                 // [] (no common elements)
+```
+
+**Array Union** (`||`): Merges arrays, removing duplicates.
+```parsley
+[1, 2] || [2, 3]                 // [1, 2, 3]
+[1, 1, 2] || [2, 3, 3]           // [1, 2, 3] (duplicates removed)
+[1, 2] || []                     // [1, 2]
+```
+
+**Array Subtraction** (`-`): Removes elements from left array that exist in right.
+```parsley
+[1, 2, 3, 4] - [2, 4]            // [1, 3]
+[1, 2, 2, 3] - [2]               // [1, 3] (all instances removed)
+[1, 2, 3] - [4, 5]               // [1, 2, 3] (no change)
+```
+
+**Dictionary Intersection** (`&&`): Returns dictionary with keys present in both (left values kept).
+```parsley
+{a: 1, b: 2, c: 3} && {b: 99, c: 99, d: 4}  // {b: 2, c: 3}
+{a: 1} && {b: 2}                             // {}
+```
+
+**Dictionary Subtraction** (`-`): Removes keys from left that exist in right (values in right don't matter).
+```parsley
+{a: 1, b: 2, c: 3} - {b: 0, d: 0}  // {a: 1, c: 3}
+{a: 1, b: 2} - {c: 3}              // {a: 1, b: 2} (no change)
+```
+
+**Array Chunking** (`/`): Splits array into chunks of specified size.
+```parsley
+[1, 2, 3, 4, 5, 6] / 2    // [[1, 2], [3, 4], [5, 6]]
+[1, 2, 3, 4, 5] / 2       // [[1, 2], [3, 4], [5]]
+[1, 2] / 5                // [[1, 2]]
+[1, 2, 3] / 0             // ERROR: chunk size must be positive
+```
+
+**String Repetition** (`*`): Repeats string N times.
+```parsley
+"abc" * 3                 // "abcabcabc"
+"x" * 5                   // "xxxxx"
+"test" * 0                // ""
+"hi" * -1                 // "" (negative treated as 0)
+```
+
+**Array Repetition** (`*`): Repeats array contents N times.
+```parsley
+[1, 2] * 3                // [1, 2, 1, 2, 1, 2]
+["a"] * 4                 // ["a", "a", "a", "a"]
+[1, 2, 3] * 0             // []
+```
+
+**Scalar Concatenation** (`++`): Wraps scalars in arrays for concatenation.
+```parsley
+1 ++ [2, 3, 4]            // [1, 2, 3, 4]
+[1, 2, 3] ++ 4            // [1, 2, 3, 4]
+1 ++ 2 ++ 3               // [1, 2, 3]
+"a" ++ ["b", "c"]         // ["a", "b", "c"]
+```
 
 ### Pattern Matching
 | Operator | Description | Example |
@@ -173,6 +249,21 @@ nums[:2]     // From start to index 2
 ### Concatenation
 ```parsley
 [1, 2] ++ [3, 4]  // [1, 2, 3, 4]
+1 ++ [2, 3]       // [1, 2, 3] (scalar concatenation)
+[1, 2] ++ 3       // [1, 2, 3]
+```
+
+### Set Operations
+```parsley
+[1, 2, 3] && [2, 3, 4]  // [2, 3] (intersection)
+[1, 2] || [2, 3]        // [1, 2, 3] (union)
+[1, 2, 3] - [2]         // [1, 3] (subtraction)
+```
+
+### Other Operations
+```parsley
+[1, 2, 3, 4] / 2  // [[1, 2], [3, 4]] (chunking)
+[1, 2] * 3        // [1, 2, 1, 2, 1, 2] (repetition)
 ```
 
 ---
@@ -203,6 +294,12 @@ let config = {
 ### Merging
 ```parsley
 {a: 1} ++ {b: 2}  // {a: 1, b: 2}
+```
+
+### Set Operations
+```parsley
+{a: 1, b: 2} && {b: 3, c: 4}  // {b: 2} (intersection, left values kept)
+{a: 1, b: 2} - {b: 0}         // {a: 1} (subtract keys)
 ```
 
 ---

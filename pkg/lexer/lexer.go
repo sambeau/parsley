@@ -607,9 +607,25 @@ func (l *Lexer) NextToken() Token {
 			tok = newToken(GT, l.ch, l.line, l.column)
 		}
 	case '&':
-		tok = newToken(AND, l.ch, l.line, l.column)
+		if l.peekChar() == '&' {
+			ch := l.ch
+			line := l.line
+			col := l.column
+			l.readChar() // consume second '&'
+			tok = Token{Type: AND, Literal: string(ch) + string(l.ch), Line: line, Column: col}
+		} else {
+			tok = newToken(AND, l.ch, l.line, l.column)
+		}
 	case '|':
-		tok = newToken(OR, l.ch, l.line, l.column)
+		if l.peekChar() == '|' {
+			ch := l.ch
+			line := l.line
+			col := l.column
+			l.readChar() // consume second '|'
+			tok = Token{Type: OR, Literal: string(ch) + string(l.ch), Line: line, Column: col}
+		} else {
+			tok = newToken(OR, l.ch, l.line, l.column)
+		}
 	case '?':
 		if l.peekChar() == '?' {
 			ch := l.ch

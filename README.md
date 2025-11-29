@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.15
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.16
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -145,6 +145,10 @@ nums.map(fn(x) { x * 2 })     // [2, 4, 6]
 nums.filter(fn(x) { x > 1 })  // [2, 3]
 
 [1, 2] ++ [3, 4]              // [1, 2, 3, 4]
+[1, 2, 3] && [2, 3, 4]        // [2, 3] (intersection)
+[1, 2] || [2, 3]              // [1, 2, 3] (union)
+[1, 2, 3] - [2]               // [1, 3] (subtraction)
+"hi" * 3                      // "hihihi" (repetition)
 ```
 
 #### Dictionaries
@@ -164,7 +168,9 @@ user.keys()                   // ["name", "age", "greet"]
 user.values()                 // ["Sam", 57, fn]
 user.has("name")              // true
 
-{a: 1} ++ {b: 2}              // {a: 1, b: 2}
+{a: 1} ++ {b: 2}              // {a: 1, b: 2} (merge)
+{a: 1, b: 2} && {b: 3, c: 4}  // {b: 2} (intersection)
+{a: 1, b: 2} - {b: 0}         // {a: 1} (subtract keys)
 ```
 
 #### Numbers
