@@ -23,7 +23,7 @@
 ~~- Look at consistency of API one more time~~ ✅ (v0.13.0)
 	~~- Remove deprecated features~~ ✅ (v0.13.0)
 - Check everything is working:
-	- run through all code looking for missing tests
+	- ~~run through all code looking for missing tests~~✅ (v0.13.1)
 	- Setup database and sftp environments for integration testing
 	- run integration tests
 - Better errors
