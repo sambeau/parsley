@@ -1222,3 +1222,178 @@ let d = {a: 1}
 d.b.upper()              // null (d.b is null)
 d.b.split(",").reverse() // null (entire chain)
 ```
+
+---
+
+## Security
+
+Parsley provides file system access control through command-line flags. By default, write and execute operations are restricted for security.
+
+### Security Model
+
+| Operation | Default Behavior | Override Flags |
+|-----------|-----------------|----------------|
+| **Read** | ✅ Allowed | `--restrict-read=PATHS`, `--no-read` |
+| **Write** | ❌ Denied | `--allow-write=PATHS`, `-w` |
+| **Execute** | ❌ Denied | `--allow-execute=PATHS`, `-x` |
+
+### Command-Line Flags
+
+#### Read Control
+
+```bash
+--restrict-read=PATHS    # Blacklist: deny reading from paths
+--no-read                # Deny all file reads
+```
+
+**Examples:**
+
+```bash
+# Prevent reading sensitive directories
+./pars --restrict-read=/etc,/var script.pars
+
+# stdin-only processing (no file reads)
+./pars --no-read < data.json
+```
+
+#### Write Control
+
+```bash
+--allow-write=PATHS      # Whitelist: allow writes to specific paths
+--allow-write-all        # Allow unrestricted writes (old behavior)
+-w                       # Shorthand for --allow-write-all
+```
+
+**Examples:**
+
+```bash
+# Allow writes only to output directory
+./pars --allow-write=./output build.pars
+
+# Allow writes to multiple directories
+./pars --allow-write=./data,./cache process.pars
+
+# Development mode: unrestricted writes
+./pars -w dev-script.pars
+```
+
+#### Execute Control
+
+```bash
+--allow-execute=PATHS    # Whitelist: allow imports from specific paths
+--allow-execute-all      # Allow unrestricted module imports
+-x                       # Shorthand for --allow-execute-all
+```
+
+**Examples:**
+
+```bash
+# Allow importing only from lib directory
+./pars --allow-execute=./lib app.pars
+
+# Allow imports from multiple directories
+./pars --allow-execute=./lib,./modules app.pars
+
+# Development mode: unrestricted imports
+./pars -x dev-script.pars
+```
+
+### Path Resolution
+
+All paths in security flags are:
+- Resolved to absolute paths at startup
+- Cleaned using filepath.Clean
+- Applied to the directory and all subdirectories
+- Support `~` for home directory expansion
+
+```bash
+# These are equivalent
+./pars --allow-write=./output script.pars
+./pars --allow-write=$(pwd)/output script.pars
+
+# Home directory expansion
+./pars --allow-write=~/Documents/output script.pars
+```
+
+### Combined Flags
+
+Mix and match security flags for precise control:
+
+```bash
+# Static site generator: read freely, write to public
+./pars --allow-write=./public build.pars
+
+# API processor: restrict sensitive reads, write results, import libs
+./pars --restrict-read=/etc --allow-write=./output --allow-execute=./lib process.pars
+
+# Development: unrestricted writes and imports
+./pars -w -x dev-script.pars
+
+# Paranoid: specific write path, no reads, no imports
+./pars --no-read --allow-write=./output template.pars
+```
+
+### Security Errors
+
+When access is denied, clear error messages indicate the issue:
+
+```
+Error: security: file write not allowed: ./output/result.json (use --allow-write or -w)
+Error: security: file read restricted: /etc/passwd
+Error: security: script execution not allowed: ../tools/module.pars (use --allow-execute or -x)
+```
+
+### Migration from v0.9.x
+
+**Breaking Changes in v0.10.0:**
+
+- **Write operations** now denied by default
+- **Module imports** (execute) now denied by default
+- **Read operations** remain unrestricted (no change)
+
+**Quick Fix:**
+
+```bash
+# Old (v0.9.x) - everything allowed
+./pars build.pars
+
+# New (v0.10.0) - add -w for old behavior
+./pars -w build.pars
+
+# Or specify allowed paths
+./pars --allow-write=./output build.pars
+```
+
+### Protected Operations
+
+The following operations are subject to security checks:
+
+| Operation | Security Check | Example |
+|-----------|----------------|---------|
+| File read | `read` | `content <== text("file.txt")` |
+| File write | `write` | `"data" ==> text("file.txt")` |
+| File delete | `write` | `file("temp.txt").remove()` |
+| Directory list | `read` | `dir("./folder").files` |
+| Module import | `execute` | `import("./module.pars")` |
+
+### Best Practices
+
+1. **Production**: Use specific allow-lists
+   ```bash
+   ./pars --allow-write=./output --allow-execute=./lib app.pars
+   ```
+
+2. **Development**: Use shorthands for convenience
+   ```bash
+   ./pars -w -x dev-script.pars
+   ```
+
+3. **CI/CD**: Minimal permissions
+   ```bash
+   ./pars --allow-write=./dist build.pars
+   ```
+
+4. **Untrusted scripts**: Maximum restrictions
+   ```bash
+   ./pars --no-read --allow-write=./sandbox untrusted.pars
+   ```

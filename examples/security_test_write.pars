@@ -1,0 +1,2 @@
+// Test security: Try to write without permission
+"This should fail" ==> text("./test_output.txt")

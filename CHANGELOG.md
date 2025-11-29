@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.10.0] - 2025-11-29
+
+### Added
+- **File System Security**: Command-line flags to restrict file system access
+  - `--restrict-read=PATHS` - Deny reading from comma-separated paths (blacklist)
+  - `--no-read` - Deny all file reads
+  - `--allow-write=PATHS` - Allow writing to comma-separated paths (whitelist)
+  - `--allow-write-all` / `-w` - Allow unrestricted writes
+  - `--allow-execute=PATHS` - Allow executing scripts from paths (whitelist)
+  - `--allow-execute-all` / `-x` - Allow unrestricted script execution
+  - Security checks integrated into all file operations, directory listings, and module imports
+  - Comprehensive test coverage for all security scenarios
+
+### Changed
+- **BREAKING**: Write operations now denied by default (use `--allow-write` or `-w` to enable)
+- **BREAKING**: Script execution (module imports) now denied by default (use `--allow-execute` or `-x` to enable)
+- Read operations remain unrestricted by default (use `--restrict-read` or `--no-read` to restrict)
+
+### Security
+- File writes now require explicit permission via command-line flags
+- Module imports now require explicit execute permission
+- Path validation ensures security restrictions are enforced consistently
+
+---
+
 ## [0.9.18] - 2025-11-29
 
 ### Added

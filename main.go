@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sambeau/parsley/pkg/evaluator"
@@ -15,37 +17,52 @@ import (
 // Version is set at compile time via -ldflags
 var Version = "0.9.4"
 
+var (
+	// Display flags
+	helpFlag       = flag.Bool("h", false, "Show help message")
+	helpLongFlag   = flag.Bool("help", false, "Show help message")
+	versionFlag    = flag.Bool("V", false, "Show version information")
+	versionLongFlag = flag.Bool("version", false, "Show version information")
+	prettyPrintFlag = flag.Bool("pp", false, "Pretty-print HTML output")
+	prettyLongFlag  = flag.Bool("pretty", false, "Pretty-print HTML output")
+	
+	// Security flags
+	restrictReadFlag     = flag.String("restrict-read", "", "Comma-separated read blacklist paths")
+	noReadFlag           = flag.Bool("no-read", false, "Deny all file reads")
+	allowWriteFlag       = flag.String("allow-write", "", "Comma-separated write whitelist paths")
+	allowWriteAllFlag    = flag.Bool("allow-write-all", false, "Allow unrestricted writes")
+	allowWriteAllShort   = flag.Bool("w", false, "Shorthand for --allow-write-all")
+	allowExecuteFlag     = flag.String("allow-execute", "", "Comma-separated execute whitelist paths")
+	allowExecuteAllFlag  = flag.Bool("allow-execute-all", false, "Allow unrestricted executes")
+	allowExecuteAllShort = flag.Bool("x", false, "Shorthand for --allow-execute-all")
+)
+
 func main() {
-	// Parse command line arguments
-	prettyPrint := false
-	filename := ""
+	// Customize flag usage message
+	flag.Usage = printHelp
+	flag.Parse()
 
-	for i := 1; i < len(os.Args); i++ {
-		arg := os.Args[i]
-
-		// Check for help flag
-		if arg == "-h" || arg == "--help" || arg == "-?" {
-			printHelp()
-			os.Exit(0)
-		}
-
-		// Check for version flag
-		if arg == "-V" || arg == "--version" {
-			fmt.Printf("pars version %s\n", Version)
-			os.Exit(0)
-		}
-
-		// Check for pretty-print flag
-		if arg == "-pp" || arg == "--pretty" {
-			prettyPrint = true
-			continue
-		}
-
-		// Assume it's a filename
-		if filename == "" {
-			filename = arg
-		}
+	// Check for help flag
+	if *helpFlag || *helpLongFlag {
+		printHelp()
+		os.Exit(0)
 	}
+
+	// Check for version flag
+	if *versionFlag || *versionLongFlag {
+		fmt.Printf("pars version %s\n", Version)
+		os.Exit(0)
+	}
+
+	// Get filename from remaining args
+	args := flag.Args()
+	var filename string
+	if len(args) > 0 {
+		filename = args[0]
+	}
+
+	// Determine pretty print setting
+	prettyPrint := *prettyPrintFlag || *prettyLongFlag
 
 	if filename != "" {
 		// File execution mode
@@ -62,16 +79,29 @@ func printHelp() {
 Usage:
   pars [options] [file]
 
-Options:
-  -h, --help       Show this help message
-  -V, --version    Show version information
-  -pp, --pretty    Pretty-print HTML output with proper indentation
+Display Options:
+  -h, --help            Show this help message
+  -V, --version         Show version information
+  -pp, --pretty         Pretty-print HTML output with proper indentation
+
+Security Options:
+  --restrict-read=PATHS     Deny reading from comma-separated paths
+  --no-read                 Deny all file reads
+  --allow-write=PATHS       Allow writing to comma-separated paths
+  --allow-write-all, -w     Allow unrestricted writes
+  --allow-execute=PATHS     Allow executing scripts from paths
+  --allow-execute-all, -x   Allow unrestricted script execution
+
+Security Examples:
+  pars -w script.pars                           # Allow all writes
+  pars --allow-write=./output script.pars       # Allow writes to ./output only
+  pars -x --allow-write=./data script.pars      # Allow all executes, writes to ./data
+  pars --restrict-read=/etc script.pars         # Deny reads from /etc
 
 Examples:
   pars                      Start interactive REPL
   pars script.pars          Execute a Parsley script
   pars -pp page.pars        Execute and pretty-print HTML output
-  pars page.pars --pretty   Pretty-print (flag order doesn't matter)
 
 For more information, visit: https://github.com/sambeau/parsley
 `, Version)
@@ -79,6 +109,13 @@ For more information, visit: https://github.com/sambeau/parsley
 
 // executeFile reads and executes a pars source file
 func executeFile(filename string, prettyPrint bool) {
+	// Build security policy (always create one to enable default restrictions)
+	policy, err := buildSecurityPolicy()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
+	}
+
 	// Read the file
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -100,6 +137,7 @@ func executeFile(filename string, prettyPrint bool) {
 	// Evaluate the program
 	env := evaluator.NewEnvironment()
 	env.Filename = filename
+	env.Security = policy
 	evaluated := evaluator.Eval(program, env)
 
 	// Check for evaluation errors
@@ -189,4 +227,76 @@ func printErrors(filename string, source string, errors []string) {
 			fmt.Fprintf(os.Stderr, "    %s\n", trimmedLine)
 		}
 	}
+}
+
+// buildSecurityPolicy creates a SecurityPolicy from command-line flags
+func buildSecurityPolicy() (*evaluator.SecurityPolicy, error) {
+	policy := &evaluator.SecurityPolicy{
+		NoRead:          *noReadFlag,
+		AllowWriteAll:   *allowWriteAllFlag || *allowWriteAllShort,
+		AllowExecuteAll: *allowExecuteAllFlag || *allowExecuteAllShort,
+	}
+
+	// Parse restrict list
+	if *restrictReadFlag != "" {
+		paths, err := parseAndResolvePaths(*restrictReadFlag)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --restrict-read: %s", err)
+		}
+		policy.RestrictRead = paths
+	}
+
+	// Parse allow lists
+	if *allowWriteFlag != "" {
+		paths, err := parseAndResolvePaths(*allowWriteFlag)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --allow-write: %s", err)
+		}
+		policy.AllowWrite = paths
+	}
+
+	if *allowExecuteFlag != "" {
+		paths, err := parseAndResolvePaths(*allowExecuteFlag)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --allow-execute: %s", err)
+		}
+		policy.AllowExecute = paths
+	}
+
+	return policy, nil
+}
+
+// parseAndResolvePaths parses comma-separated paths and resolves them to absolute paths
+func parseAndResolvePaths(pathList string) ([]string, error) {
+	parts := strings.Split(pathList, ",")
+	resolved := make([]string, 0, len(parts))
+
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+
+		// Expand home directory
+		if strings.HasPrefix(p, "~/") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("cannot expand ~: %s", err)
+			}
+			p = filepath.Join(home, p[2:])
+		}
+
+		// Convert to absolute path
+		absPath, err := filepath.Abs(p)
+		if err != nil {
+			return nil, fmt.Errorf("invalid path %s: %s", p, err)
+		}
+
+		// Clean path
+		absPath = filepath.Clean(absPath)
+
+		resolved = append(resolved, absPath)
+	}
+
+	return resolved, nil
 }

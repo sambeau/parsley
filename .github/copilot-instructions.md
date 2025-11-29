@@ -79,3 +79,19 @@ This is a Go project using standard Go practices and conventions.
 - Maintain a `.vscode-extension/README.md` file for the VS Code extension
 - Keep the extension version aligned with the main project version
 - Document installation and usage instructions in the extension README
+
+## On feature/bugfix completion
+
+- use `docs/Pre-flight for Git Commit.md` as a checklist to prepare for git commit
+
+## Planning and design documents
+
+- Store planning and design documents in `docs/design`
+- Keep design documents up to date with implementation status
+- Document any deviations from the original design in the docs
+- Use relevant design documents to guide implementation and testing
+
+## Design Philosophy
+
+- Adhere to Parsley's core design philosophy when planning to add new features or make changes. (see docs/design/Design Philosophy.md)
+

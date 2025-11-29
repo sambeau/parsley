@@ -2,13 +2,15 @@
 
 ## APPROVED
 
-~~- File delete() methods: add a delete method to file pseudo-type~~ (v0.9.17 - implemented as remove())
+~~- File delete() methods: add a delete method to file pseudo-type~~ ✅ (v0.9.17 - implemented as remove())
+~~- chroots for write: limit writes to one or more directories and their children~~ ✅ (v0.10.0)
+~~- chroots for read: limit reads to one or more directories and their children~~ ✅ (v0.10.0)
+~~- chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin~~ ✅ (v0.10.0)
+
+## IN PLANNING
 
 ## IN DESIGN
 
-- chroots for write: limit writes to one or more directories and their children
-- chroots for read: limit reads to one or more directories and their children
-- chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin
 - run scripts: Execute external commands/scripts/tools with command line imputs/options, receive exit status + optional output as result
 - pipe scripts: Execute external commands/scripts/tools with command line imputs/options, receive exit status + optional output as result
 - File I/O security sandbox: --no-read, --no-write flags

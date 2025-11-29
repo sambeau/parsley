@@ -225,6 +225,16 @@ func (dbc *DBConnection) Inspect() string {
 	return fmt.Sprintf("<DBConnection driver=%s>", dbc.Driver)
 }
 
+// SecurityPolicy defines file system access restrictions
+type SecurityPolicy struct {
+	RestrictRead    []string // Denied read directories (blacklist)
+	NoRead          bool     // Deny all reads
+	AllowWrite      []string // Allowed write directories (whitelist)
+	AllowWriteAll   bool     // Allow all writes
+	AllowExecute    []string // Allowed execute directories (whitelist)
+	AllowExecuteAll bool     // Allow all executes
+}
+
 // Environment represents the environment for variable bindings
 type Environment struct {
 	store       map[string]Object
@@ -233,6 +243,7 @@ type Environment struct {
 	LastToken   *lexer.Token
 	letBindings map[string]bool // tracks which variables were declared with 'let'
 	exports     map[string]bool // tracks which variables were explicitly exported
+	Security    *SecurityPolicy // File system security policy
 }
 
 // NewEnvironment creates a new environment
@@ -334,6 +345,93 @@ func (e *Environment) Update(name string, val Object) Object {
 	// Variable doesn't exist anywhere, create it in current scope
 	e.store[name] = val
 	return val
+}
+
+// checkPathAccess validates file system access based on security policy
+func (e *Environment) checkPathAccess(path string, operation string) error {
+	if e.Security == nil {
+		// No policy = default behavior
+		// Read: allowed
+		// Write: denied
+		// Execute: denied
+		if operation == "write" {
+			return fmt.Errorf("write access denied (use --allow-write or -w)")
+		}
+		if operation == "execute" {
+			return fmt.Errorf("execute access denied (use --allow-execute or -x)")
+		}
+		return nil
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %s", err)
+	}
+	absPath = filepath.Clean(absPath)
+
+	switch operation {
+	case "read":
+		if e.Security.NoRead {
+			return fmt.Errorf("file read access denied: %s", path)
+		}
+		// Check blacklist
+		if isPathRestricted(absPath, e.Security.RestrictRead) {
+			return fmt.Errorf("file read restricted: %s", path)
+		}
+
+	case "write":
+		if e.Security.AllowWriteAll {
+			return nil // Unrestricted
+		}
+		if !isPathAllowed(absPath, e.Security.AllowWrite) {
+			return fmt.Errorf("file write not allowed: %s (use --allow-write or -w)", path)
+		}
+
+	case "execute":
+		if e.Security.AllowExecuteAll {
+			return nil // Unrestricted
+		}
+		if !isPathAllowed(absPath, e.Security.AllowExecute) {
+			return fmt.Errorf("script execution not allowed: %s (use --allow-execute or -x)", path)
+		}
+	}
+
+	return nil
+}
+
+// isPathAllowed checks if a path is within any allowed directory
+func isPathAllowed(path string, allowList []string) bool {
+	// Empty allow list means nothing is allowed
+	if len(allowList) == 0 {
+		return false
+	}
+
+	// Check if path is within any allowed directory
+	for _, allowed := range allowList {
+		if path == allowed || strings.HasPrefix(path, allowed+string(filepath.Separator)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isPathRestricted checks if a path is within any restricted directory
+func isPathRestricted(path string, restrictList []string) bool {
+	// Empty restrict list = no restrictions
+	if len(restrictList) == 0 {
+		return false
+	}
+
+	// Check if path is within any restricted directory
+	for _, restricted := range restrictList {
+		if path == restricted || strings.HasPrefix(path, restricted+string(filepath.Separator)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Global constants
@@ -2699,6 +2797,11 @@ func evalDirComputedProperty(dict *Dictionary, key string, env *Environment) Obj
 
 // readDirContents reads directory contents and returns array of file/dir handles
 func readDirContents(dirPath string, env *Environment) Object {
+	// Security check
+	if err := env.checkPathAccess(dirPath, "read"); err != nil {
+		return newError("security: %s", err.Error())
+	}
+
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return newError("failed to read directory '%s': %s", dirPath, err.Error())
@@ -6552,6 +6655,11 @@ func evalImport(args []Object, env *Environment) Object {
 		return newError("failed to resolve module path: %s", err.Error())
 	}
 
+	// Security check
+	if err := env.checkPathAccess(absPath, "execute"); err != nil {
+		return newError("security: %s", err.Error())
+	}
+
 	// Check if module is currently being loaded (circular dependency)
 	if moduleCache.loading[absPath] {
 		return newError("circular dependency detected when importing: %s", absPath)
@@ -8955,6 +9063,11 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	}
 	pathStr = absPath
 
+	// Security check
+	if err := env.checkPathAccess(pathStr, "read"); err != nil {
+		return nil, newError("security: %s", err.Error())
+	}
+
 	// Get the format
 	formatExpr, hasFormat := fileDict.Pairs["format"]
 	if !hasFormat {
@@ -9801,6 +9914,11 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	}
 	pathStr = absPath
 
+	// Security check
+	if err := env.checkPathAccess(pathStr, "write"); err != nil {
+		return newError("security: %s", err.Error())
+	}
+
 	// Get the format
 	formatExpr, hasFormat := fileDict.Pairs["format"]
 	if !hasFormat {
@@ -10089,6 +10207,11 @@ func evalFileRemove(fileDict *Dictionary, env *Environment) Object {
 	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
 	if pathErr != nil {
 		return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+	}
+
+	// Security check (treat as write operation)
+	if err := env.checkPathAccess(absPath, "write"); err != nil {
+		return newError("security: %s", err.Error())
 	}
 
 	// Delete the file

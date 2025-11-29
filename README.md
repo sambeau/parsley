@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.17
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.10.0
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -778,6 +778,68 @@ renderIndex()
 ```
 
 Run with: `./pars site-generator.pars`
+
+---
+
+## Security
+
+Parsley provides command-line flags to restrict file system access, protecting against unauthorized file operations and malicious scripts.
+
+### Security Model
+
+- **Read operations**: Unrestricted by default (opt-in blacklist)
+- **Write operations**: Denied by default (opt-in whitelist)
+- **Execute operations**: Denied by default (opt-in whitelist for module imports)
+
+### Security Flags
+
+```bash
+# Read restrictions
+--restrict-read=PATHS    # Deny reading from paths (blacklist)
+--no-read                # Deny all file reads
+
+# Write permissions
+--allow-write=PATHS      # Allow writes to specific paths
+--allow-write-all, -w    # Allow unrestricted writes
+
+# Execute permissions  
+--allow-execute=PATHS    # Allow importing modules from paths
+--allow-execute-all, -x  # Allow unrestricted module imports
+```
+
+### Examples
+
+```bash
+# Static site generator: read freely, write to output
+./pars --allow-write=./public build.pars
+
+# API processor: restrict sensitive reads, write results
+./pars --restrict-read=/etc --allow-write=./output process.pars
+
+# Development mode: unrestricted (old behavior)
+./pars -w -x dev-script.pars
+
+# Production: specific permissions
+./pars --allow-write=./data --allow-execute=./lib app.pars
+```
+
+### Migration from v0.9.x
+
+In v0.10.0, write and execute operations are denied by default:
+
+```bash
+# Old (v0.9.x) - everything allowed
+./pars build.pars
+
+# New (v0.10.0) - writes denied by default
+./pars build.pars  # ERROR: write access denied
+
+# Fix: Add -w for unrestricted writes (old behavior)
+./pars -w build.pars
+
+# Or: Specify allowed paths
+./pars --allow-write=./output build.pars
+```
 
 ---
 
