@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.13.0] - 2025-11-29
+
+### BREAKING CHANGES
+
+**Method Naming Consistency** - Type conversion methods now use `to*` prefix:
+- `upper()` → `toUpper()` - Convert string to uppercase
+- `lower()` → `toLower()` - Convert string to lowercase
+
+**Migration Guide:**
+```parsley
+// OLD (0.12.x and earlier)
+"hello".upper()        // "HELLO"
+"WORLD".lower()        // "world"
+
+// NEW (0.13.0+)
+"hello".toUpper()      // "HELLO"
+"WORLD".toLower()      // "world"
+```
+
+All other methods remain unchanged:
+- ✅ `length()`, `trim()`, `split()`, `replace()`, `join()`, `reverse()`, `sort()`, `map()`, `filter()`, `format()`
+
+### Removed
+
+- **Deprecated `Parameters` field** - Removed from function objects (AST and evaluator)
+  - Functions now only use `Params` field with destructuring support
+  - This was deprecated since function destructuring was added
+  - No user-facing impact (parser already used new format)
+
+- **HTML() format factory** - Removed from documentation
+  - HTML files are just text - use `text(@./file.html)` instead
+  - Pretty-printing available via `--pretty` CLI flag
+
+### Changed
+
+- Cleaned up internal function representation
+- Removed fallback logic for old parameter format
+- Updated all tests and examples to use new method names
+
+---
+
 ## [0.12.2] - 2025-11-29
 
 ### Added

@@ -237,8 +237,8 @@ a ?? b ?? c ?? "default"   // First non-null value
 | Method | Description | Example |
 |--------|-------------|---------|
 | `.length()` | String length | `"hello".length()` → `5` |
-| `.upper()` | Uppercase | `"hello".upper()` → `"HELLO"` |
-| `.lower()` | Lowercase | `"HELLO".lower()` → `"hello"` |
+| `.toUpper()` | Uppercase | `"hello".toUpper()` → `"HELLO"` |
+| `.toLower()` | Lowercase | `"HELLO".toLower()` → `"hello"` |
 | `.trim()` | Remove whitespace | `"  hi  ".trim()` → `"hi"` |
 | `.split(delim)` | Split to array | `"a,b,c".split(",")` → `["a","b","c"]` |
 | `.replace(old, new)` | Replace text | `"hello".replace("l", "L")` → `"heLLo"` |
@@ -1046,7 +1046,7 @@ if (!readErr) {
     let processed = activeUsers.map(fn(u) {
         {
             id: u.id,
-            name: u.name.upper(),
+            name: u.name.toUpper(),
             lastSeen: @now
         }
     })
@@ -1940,7 +1940,7 @@ let csvOutput = stringifyCSV(report)
 Methods return appropriate types, enabling fluent chains:
 
 ```parsley
-"  hello world  ".trim().upper().split(" ")  // ["HELLO", "WORLD"]
+"  hello world  ".trim().toUpper().split(" ")  // ["HELLO", "WORLD"]
 [3, 1, 2].sort().reverse()                   // [3, 2, 1]
 [1, 2, 3].map(fn(x) { x * 2 }).reverse()     // [6, 4, 2]
 ```
@@ -1951,7 +1951,7 @@ Methods called on null return null instead of erroring:
 
 ```parsley
 let d = {a: 1}
-d.b.upper()              // null (d.b is null)
+d.b.toUpper()              // null (d.b is null)
 d.b.split(",").reverse() // null (entire chain)
 ```
 
@@ -2161,11 +2161,11 @@ Press Tab to auto-complete keywords and built-in functions. Completion words inc
 
 **Keywords:** `let`, `if`, `else`, `for`, `in`, `fn`, `return`, `export`, `import`
 
-**I/O Functions:** `log`, `logLine`, `file`, `dir`, `JSON`, `CSV`, `MD`, `SVG`, `HTML`, `text`, `lines`, `bytes`, `SFTP`, `Fetch`, `SQL`
+**I/O Functions:** `log`, `logLine`, `file`, `dir`, `JSON`, `CSV`, `MD`, `SVG`, `text`, `lines`, `bytes`, `SFTP`, `Fetch`, `SQL`
 
 **Collections:** `len`, `keys`, `values`, `type`, `sort`, `reverse`, `join`
 
-**Strings:** `split`, `trim`, `upper`, `lower`, `contains`, `startsWith`, `endsWith`, `replace`, `match`, `test`
+**Strings:** `split`, `trim`, `toUpper`, `toLower`, `contains`, `startsWith`, `endsWith`, `replace`, `match`, `test`
 
 **Math:** `abs`, `floor`, `ceil`, `round`, `sqrt`, `pow`, `sin`, `cos`, `tan`, `min`, `max`, `sum`
 

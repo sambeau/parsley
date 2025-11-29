@@ -18,15 +18,15 @@ import (
 // evalStringMethod evaluates a method call on a String
 func evalStringMethod(str *String, method string, args []Object) Object {
 	switch method {
-	case "upper":
+	case "toUpper":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'upper'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments for 'toUpper'. got=%d, want=0", len(args))
 		}
 		return &String{Value: strings.ToUpper(str.Value)}
 
-	case "lower":
+	case "toLower":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'lower'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments for 'toLower'. got=%d, want=0", len(args))
 		}
 		return &String{Value: strings.ToLower(str.Value)}
 

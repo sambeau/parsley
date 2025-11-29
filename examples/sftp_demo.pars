@@ -167,7 +167,7 @@ if (!readUsersErr) {
     let processed = activeUsers.map(fn(u) {
         {
             id: u.id,
-            name: u.name.upper(),
+            name: u.name.toUpper(),
             lastSeen: @now
         }
     })

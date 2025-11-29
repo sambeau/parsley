@@ -53,7 +53,7 @@ func TestPathTemplateInterpolation(t *testing.T) {
 		},
 		{
 			name:     "function call in interpolation",
-			input:    `p = @(./{"hello".upper()}.txt); p.string`,
+			input:    `p = @(./{"hello".toUpper()}.txt); p.string`,
 			expected: "./HELLO.txt",
 		},
 		{

@@ -141,26 +141,19 @@ func (e *Error) Inspect() string {
 
 // Function represents function objects
 type Function struct {
-	Parameters []*ast.Identifier        // deprecated - kept for compatibility
-	Params     []*ast.FunctionParameter // new parameter list with destructuring support
-	Body       *ast.BlockStatement
-	Env        *Environment
+	Params []*ast.FunctionParameter // parameter list with destructuring support
+	Body   *ast.BlockStatement
+	Env    *Environment
 }
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
 func (f *Function) Inspect() string {
-	if len(f.Params) > 0 {
-		return fmt.Sprintf("fn(%v) {\n%s\n}", f.Params, f.Body.String())
-	}
-	return fmt.Sprintf("fn(%v) {\n%s\n}", f.Parameters, f.Body.String())
+	return fmt.Sprintf("fn(%v) {\n%s\n}", f.Params, f.Body.String())
 }
 
 // ParamCount returns the number of parameters for this function
 func (f *Function) ParamCount() int {
-	if len(f.Params) > 0 {
-		return len(f.Params)
-	}
-	return len(f.Parameters)
+	return len(f.Params)
 }
 
 // BuiltinFunction represents a built-in function
@@ -6400,11 +6393,8 @@ func Eval(node ast.Node, env *Environment) Object {
 
 	case *ast.FunctionLiteral:
 		body := node.Body
-		// Use new-style params if available, otherwise fall back to old parameters
-		if len(node.Params) > 0 {
-			return &Function{Params: node.Params, Env: env, Body: body}
-		}
-		return &Function{Parameters: node.Parameters, Env: env, Body: body}
+		// Use new-style params
+		return &Function{Params: node.Params, Env: env, Body: body}
 
 	case *ast.ArrayLiteral:
 		elements := evalExpressions(node.Elements, env)
@@ -7645,33 +7635,23 @@ func evalLogLine(args []Object, env *Environment) Object {
 func extendFunctionEnv(fn *Function, args []Object) *Environment {
 	env := NewEnclosedEnvironment(fn.Env)
 
-	// Use new-style parameters if available
-	if len(fn.Params) > 0 {
-		for paramIdx, param := range fn.Params {
-			if paramIdx >= len(args) {
-				break
-			}
-			arg := args[paramIdx]
-
-			// Handle different parameter types
-			if param.DictPattern != nil {
-				// Dictionary destructuring (in function params, never exported)
-				evalDictDestructuringAssignment(param.DictPattern, arg, env, true, false)
-			} else if len(param.ArrayPattern) > 0 {
-				// Array destructuring
-				evalArrayDestructuringForParam(param.ArrayPattern, arg, env)
-			} else if param.Ident != nil {
-				// Simple identifier
-				env.Set(param.Ident.Value, arg)
-			}
+	// Use parameter list with destructuring support
+	for paramIdx, param := range fn.Params {
+		if paramIdx >= len(args) {
+			break
 		}
-	} else {
-		// Fallback to old-style parameters
-		for paramIdx, param := range fn.Parameters {
-			if paramIdx >= len(args) {
-				break
-			}
-			env.Set(param.Value, args[paramIdx])
+		arg := args[paramIdx]
+
+		// Handle different parameter types
+		if param.DictPattern != nil {
+			// Dictionary destructuring (in function params, never exported)
+			evalDictDestructuringAssignment(param.DictPattern, arg, env, true, false)
+		} else if len(param.ArrayPattern) > 0 {
+			// Array destructuring
+			evalArrayDestructuringForParam(param.ArrayPattern, arg, env)
+		} else if param.Ident != nil {
+			// Simple identifier
+			env.Set(param.Ident.Value, arg)
 		}
 	}
 
@@ -7772,9 +7752,9 @@ func evalForExpression(node *ast.ForExpression, env *Environment) Object {
 		// 'in' form: for(var in array) body
 		// node.Body is already a FunctionLiteral with the variable as parameter
 		fn = &Function{
-			Parameters: node.Body.(*ast.FunctionLiteral).Parameters,
-			Body:       node.Body.(*ast.FunctionLiteral).Body,
-			Env:        env,
+			Params: node.Body.(*ast.FunctionLiteral).Params,
+			Body:   node.Body.(*ast.FunctionLiteral).Body,
+			Env:    env,
 		}
 	} else {
 		return newError("for expression missing function or body")
@@ -7848,14 +7828,10 @@ func evalForDictExpression(node *ast.ForExpression, dict *Dictionary, env *Envir
 				Env:    env,
 			}
 		} else {
-			fn = &Function{
-				Parameters: bodyFn.Parameters,
-				Body:       bodyFn.Body,
-				Env:        env,
-			}
+			return newError("for loop over dictionary requires body with key, value parameters")
 		}
 	} else {
-		return newError("for loop over dictionary requires body with key, value parameters")
+		return newError("for loop over dictionary requires function body")
 	}
 
 	// Check parameter count

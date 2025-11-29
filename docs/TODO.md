@@ -20,12 +20,13 @@
 ~~- Improve REPL~~ ✅ (v0.12.2)
 	~~- Investigate options: what do other Go cli tools do?~~ ✅
 	~~- Better editing Up, down, left, right~~ ✅
-- Look at consistency of API one more time
-	- Remove deprecated features
+~~- Look at consistency of API one more time~~ ✅ (v0.13.0)
+	~~- Remove deprecated features~~ ✅ (v0.13.0)
 - Check everything is working:
 	- run through all code looking for missing tests
 	- Setup database and sftp environments for integration testing
 	- run integration tests
+- Better errors
 - Build something big to see how it works in practice
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands

@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.12.2
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.13.0
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -125,7 +125,7 @@ null                  // Null
 let name = "World"
 "Hello, {name}!"              // Interpolation
 
-"hello".upper()               // "HELLO"
+"hello".toUpper()               // "HELLO"
 "a,b,c".split(",")            // ["a", "b", "c"]
 "hello"[1:4]                  // "ell" (slicing)
 ```
@@ -681,7 +681,7 @@ For complete API documentation, see [docs/reference.md](docs/reference.md).
 
 | Type | Methods |
 |------|---------|
-| String | `.upper()` `.lower()` `.trim()` `.split()` `.replace()` `.length()` |
+| String | `.toUpper()` `.toLower()` `.trim()` `.split()` `.replace()` `.length()` |
 | Array | `.length()` `.sort()` `.reverse()` `.map()` `.filter()` `.format()` |
 | Dictionary | `.keys()` `.values()` `.has()` |
 | Number | `.format()` `.currency()` `.percent()` |

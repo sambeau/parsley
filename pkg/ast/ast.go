@@ -475,10 +475,9 @@ func (fp *FunctionParameter) String() string {
 }
 
 type FunctionLiteral struct {
-	Token      lexer.Token          // the 'fn' token
-	Parameters []*Identifier        // deprecated - kept for backwards compatibility
-	Params     []*FunctionParameter // new parameter list supporting destructuring
-	Body       *BlockStatement
+	Token  lexer.Token          // the 'fn' token
+	Params []*FunctionParameter // parameter list supporting destructuring
+	Body   *BlockStatement
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}
@@ -487,15 +486,8 @@ func (fl *FunctionLiteral) String() string {
 	var out bytes.Buffer
 
 	params := []string{}
-	if len(fl.Params) > 0 {
-		for _, p := range fl.Params {
-			params = append(params, p.String())
-		}
-	} else {
-		// Fallback for old-style parameters
-		for _, p := range fl.Parameters {
-			params = append(params, p.String())
-		}
+	for _, p := range fl.Params {
+		params = append(params, p.String())
 	}
 
 	out.WriteString(fl.TokenLiteral())

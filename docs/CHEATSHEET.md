@@ -253,7 +253,7 @@ data =/=> conn(@/remote/file.json).json
 ### 7. Method Chaining
 ```parsley
 // String methods
-"hello".upper()              // "HELLO"
+"hello".toUpper()              // "HELLO"
 "  trim  ".trim()           // "trim"
 "a,b,c".split(",")          // ["a", "b", "c"]
 
@@ -268,7 +268,7 @@ data =/=> conn(@/remote/file.json).json
 @./file.txt.ext             // "txt"
 
 // Chaining
-"  HELLO  ".trim().lower()  // "hello"
+"  HELLO  ".trim().toLower()  // "hello"
 ```
 
 ---
@@ -281,11 +281,10 @@ file(@path)      // Auto-detect format from extension
 JSON(@path)      // Parse as JSON
 CSV(@path)       // Parse as CSV
 MD(@path)        // Markdown with frontmatter
-text(@path)      // Plain text
+text(@path)      // Plain text (use for HTML files)
 lines(@path)     // Array of lines
 bytes(@path)     // Byte array
 SVG(@path)       // SVG (strips prolog)
-HTML(@path)      // HTML template
 dir(@path)       // Directory listing
 ```
 
@@ -397,7 +396,7 @@ let evens = for (n in numbers) {
 // Map + Filter
 let processed = for (item in items) {
     if (item.active) {
-        item.name.upper()
+        item.name.toUpper()
     }
 }
 ```
@@ -496,7 +495,7 @@ type(@1d)                         // "DURATION"
 let data <== JSON(@./input.json)
 let processed = for (item in data) {
     {
-        name: item.name.upper(),
+        name: item.name.toUpper(),
         score: item.score * 2
     }
 }

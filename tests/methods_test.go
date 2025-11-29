@@ -19,14 +19,14 @@ func TestStringMethods(t *testing.T) {
 		expected interface{}
 	}{
 		// upper()
-		{`"hello".upper()`, "HELLO"},
-		{`"Hello World".upper()`, "HELLO WORLD"},
-		{`"ALREADY UPPER".upper()`, "ALREADY UPPER"},
+		{`"hello".toUpper()`, "HELLO"},
+		{`"Hello World".toUpper()`, "HELLO WORLD"},
+		{`"ALREADY UPPER".toUpper()`, "ALREADY UPPER"},
 
 		// lower()
-		{`"HELLO".lower()`, "hello"},
-		{`"Hello World".lower()`, "hello world"},
-		{`"already lower".lower()`, "already lower"},
+		{`"HELLO".toLower()`, "hello"},
+		{`"Hello World".toLower()`, "hello world"},
+		{`"already lower".toLower()`, "already lower"},
 
 		// trim()
 		{`"  hello  ".trim()`, "hello"},
@@ -487,8 +487,8 @@ func TestMethodChaining(t *testing.T) {
 		expected interface{}
 	}{
 		// String chaining
-		{`"  hello world  ".trim().upper()`, "HELLO WORLD"},
-		{`"HELLO".lower().upper()`, "HELLO"},
+		{`"  hello world  ".trim().toUpper()`, "HELLO WORLD"},
+		{`"HELLO".toLower().toUpper()`, "HELLO"},
 
 		// String → Array chaining
 		{`"a,b,c".split(",").length()`, int64(3)},
@@ -496,7 +496,7 @@ func TestMethodChaining(t *testing.T) {
 		{`"c,b,a".split(",").reverse()`, []string{"a", "b", "c"}},
 
 		// Array → String chaining
-		{`["hello", "world"].format().upper()`, "HELLO AND WORLD"},
+		{`["hello", "world"].format().toUpper()`, "HELLO AND WORLD"},
 
 		// Array chaining
 		{`[3, 1, 2].sort().reverse()`, []int64{3, 2, 1}},
@@ -580,14 +580,14 @@ func TestNullPropagation(t *testing.T) {
 		input string
 	}{
 		// Method calls on null return null (using missing dictionary key to get null)
-		{`let d = {a: 1}; d.b.upper()`},
-		{`let d = {a: 1}; d.b.lower()`},
+		{`let d = {a: 1}; d.b.toUpper()`},
+		{`let d = {a: 1}; d.b.toLower()`},
 		{`let d = {a: 1}; d.b.split(",")`},
 		{`let d = {a: 1}; d.b.length()`},
 		{`let d = {a: 1}; d.b.format()`},
 
 		// Chained null propagation
-		{`let d = {a: 1}; d.b.upper().lower()`},
+		{`let d = {a: 1}; d.b.toUpper().toLower()`},
 		{`let d = {a: 1}; d.b.split(",").reverse()`},
 
 		// Property access on null returns null

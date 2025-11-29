@@ -1274,9 +1274,9 @@ func (p *Parser) parseForExpression() ast.Expression {
 
 		// Set parameters based on whether we have one or two variables
 		if expression.ValueVariable != nil {
-			bodyFn.Parameters = []*ast.Identifier{expression.Variable, expression.ValueVariable}
+			bodyFn.Params = []*ast.FunctionParameter{{Ident: expression.Variable}, {Ident: expression.ValueVariable}}
 		} else {
-			bodyFn.Parameters = []*ast.Identifier{expression.Variable}
+			bodyFn.Params = []*ast.FunctionParameter{{Ident: expression.Variable}}
 		}
 
 		bodyFn.Body = p.parseBlockStatement()

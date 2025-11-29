@@ -49,7 +49,7 @@ log("Array:", p.string)
 // Output: ./src/main.go
 
 // Function calls in interpolation
-p = @(./{"hello".upper()}.txt)
+p = @(./{"hello".toUpper()}.txt)
 log("Function:", p.string)
 // Output: ./HELLO.txt
 
