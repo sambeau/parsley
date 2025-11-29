@@ -86,10 +86,19 @@ This is a Go project using standard Go practices and conventions.
 
 ## Planning and design documents
 
+- Don't put documents in the root folder
 - Store planning and design documents in `docs/design`
 - Keep design documents up to date with implementation status
 - Document any deviations from the original design in the docs
 - Use relevant design documents to guide implementation and testing
+
+## Implementation documents
+- Don't put documents in the root folder
+- Store implementation plans in `docs/implementation`
+
+## Verification documents
+- Don't put documents in the root folder
+- Store verification plans and test cases in `docs/verification`
 
 ## Design Philosophy
 
