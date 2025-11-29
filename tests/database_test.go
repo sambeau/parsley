@@ -88,9 +88,9 @@ func TestSQLiteConnection(t *testing.T) {
 
 func TestSQLiteQueries(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		check    func(*testing.T, evaluator.Object)
+		name  string
+		input string
+		check func(*testing.T, evaluator.Object)
 	}{
 		{
 			name: "Execute CREATE TABLE",

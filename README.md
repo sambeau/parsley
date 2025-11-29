@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.13
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.9.15
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
@@ -20,6 +20,7 @@ A minimalist language for generating HTML/XML with first-class file I/O.
   - [Control Flow](#control-flow)
   - [HTML/XML Tags](#htmlxml-tags)
   - [File I/O](#file-io)
+  - [Database](#database)
   - [Modules](#modules)
 - [Examples](#examples)
 - [Development](#development)
@@ -335,6 +336,37 @@ for (img in images) {
     <img src="{img.path}" />
 }
 ```
+
+### Database
+
+Parsley has first-class SQLite database support with a clean, expressive syntax.
+
+```parsley
+// Create connection
+let db = SQLITE(":memory:")  // or SQLITE(@./data.db)
+
+// Execute DDL/DML (returns {affected, lastId})
+let _ = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)"
+let result = db <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+
+// Query single row (returns dict or null)
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+
+// Query multiple rows (returns array of dicts)
+let users = db <=??=> "SELECT * FROM users WHERE age > 25"
+
+// Transactions
+db.begin()
+let _ = db <=!=> "INSERT INTO users (name) VALUES ('Bob')"
+let _ = db <=!=> "INSERT INTO posts (user_id) VALUES (2)"
+db.commit()  // or db.rollback()
+
+// Connection methods
+db.ping()      // Test connection
+db.close()     // Close connection
+```
+
+See [examples/database_demo.pars](examples/database_demo.pars) for a complete working example.
 
 ### Modules
 

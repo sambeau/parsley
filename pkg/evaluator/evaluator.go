@@ -5393,7 +5393,7 @@ func Eval(node ast.Node, env *Environment) Object {
 			if isError(query) {
 				return query
 			}
-			
+
 			switch node.Operator {
 			case "<=?=>":
 				return evalDatabaseQueryOne(connection, query, env)
@@ -5403,7 +5403,7 @@ func Eval(node ast.Node, env *Environment) Object {
 				return evalDatabaseExecute(connection, query, env)
 			}
 		}
-		
+
 		// Special handling for nullish coalescing operator (??)
 		// It's short-circuit: only evaluate right if left is NULL
 		if node.Operator == "??" {
@@ -7698,13 +7698,13 @@ func parseTagProps(propsStr string, env *Environment) Object {
 		} else if propsStr[i] == '{' {
 			// Expression in braces
 			i++ // skip {
-			
+
 			// Check for spread operator ...expr
 			if i+3 <= len(propsStr) && propsStr[i] == '.' && propsStr[i+1] == '.' && propsStr[i+2] == '.' {
 				i += 3 // skip ...
 				exprStart := i
 				braceCount := 1
-				
+
 				for i < len(propsStr) && braceCount > 0 {
 					if propsStr[i] == '{' {
 						braceCount++
@@ -7715,23 +7715,23 @@ func parseTagProps(propsStr string, env *Environment) Object {
 						i++
 					}
 				}
-				
+
 				if braceCount != 0 {
 					return newError("unclosed {...} in tag spread operator")
 				}
-				
+
 				exprStr := propsStr[exprStart:i]
 				i++ // skip }
-				
+
 				// Parse and evaluate the spread expression
 				l := lexer.New(exprStr)
 				p := parser.New(l)
 				program := p.ParseProgram()
-				
+
 				if len(p.Errors()) > 0 {
 					return newError("error parsing tag spread expression: %s", p.Errors()[0])
 				}
-				
+
 				if len(program.Statements) > 0 {
 					if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
 						// Evaluate the spread expression immediately
@@ -7739,7 +7739,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 						if isError(spreadObj) {
 							return spreadObj
 						}
-						
+
 						// If it's a dictionary, merge its properties
 						if spreadDict, ok := spreadObj.(*Dictionary); ok {
 							for key, value := range spreadDict.Pairs {
@@ -7752,7 +7752,7 @@ func parseTagProps(propsStr string, env *Environment) Object {
 				}
 				continue
 			}
-			
+
 			braceCount := 1
 			exprStart := i
 
@@ -9314,7 +9314,7 @@ func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object
 
 	// Convert to dictionary
 	resultDict := rowToDict(columns, values, env)
-	
+
 	return assignQueryResult(node.Names, resultDict, env, node.IsLet)
 }
 
@@ -9424,8 +9424,14 @@ func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
 	// Return result as dictionary
 	resultDict := &Dictionary{
 		Pairs: map[string]ast.Expression{
-			"affected": &ast.IntegerLiteral{Value: affected},
-			"lastId":   &ast.IntegerLiteral{Value: lastId},
+			"affected": &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(affected, 10)},
+				Value: affected,
+			},
+			"lastId": &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(lastId, 10)},
+				Value: lastId,
+			},
 		},
 		Env: env,
 	}
@@ -9477,7 +9483,7 @@ func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface
 // dictToNamedParams converts a dictionary to a slice of named parameters
 func dictToNamedParams(dict *Dictionary, env *Environment) []interface{} {
 	params := make([]interface{}, 0, len(dict.Pairs))
-	
+
 	// Sort keys for consistent order
 	keys := make([]string, 0, len(dict.Pairs))
 	for key := range dict.Pairs {
@@ -9515,29 +9521,62 @@ func objectToGoValue(obj Object) interface{} {
 // rowToDict converts a database row to a Parsley dictionary
 func rowToDict(columns []string, values []interface{}, env *Environment) *Dictionary {
 	pairs := make(map[string]ast.Expression)
-	
+
 	for i, col := range columns {
 		var expr ast.Expression
-		
+
 		switch v := values[i].(type) {
 		case int64:
-			expr = &ast.IntegerLiteral{Value: v}
+			literal := strconv.FormatInt(v, 10)
+			expr = &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: literal},
+				Value: v,
+			}
 		case float64:
-			expr = &ast.FloatLiteral{Value: v}
+			literal := strconv.FormatFloat(v, 'f', -1, 64)
+			expr = &ast.FloatLiteral{
+				Token: lexer.Token{Type: lexer.FLOAT, Literal: literal},
+				Value: v,
+			}
 		case string:
-			expr = &ast.StringLiteral{Value: v}
+			expr = &ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: v},
+				Value: v,
+			}
 		case []byte:
-			expr = &ast.StringLiteral{Value: string(v)}
+			strVal := string(v)
+			expr = &ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: strVal},
+				Value: strVal,
+			}
 		case bool:
-			expr = &ast.Boolean{Value: v}
+			var tokenType lexer.TokenType
+			var literal string
+			if v {
+				tokenType = lexer.TRUE
+				literal = "true"
+			} else {
+				tokenType = lexer.FALSE
+				literal = "false"
+			}
+			expr = &ast.Boolean{
+				Token: lexer.Token{Type: tokenType, Literal: literal},
+				Value: v,
+			}
 		case nil:
-			// For nil values, use an identifier that evaluates to null
-			expr = &ast.Identifier{Value: "null"}
+			expr = &ast.Identifier{
+				Token: lexer.Token{Type: lexer.IDENT, Literal: "null"},
+				Value: "null",
+			}
 		default:
 			// For unknown types, convert to string
-			expr = &ast.StringLiteral{Value: fmt.Sprintf("%v", v)}
+			strVal := fmt.Sprintf("%v", v)
+			expr = &ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: strVal},
+				Value: strVal,
+			}
 		}
-		
+
 		pairs[col] = expr
 	}
 
@@ -9697,8 +9736,14 @@ func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Obje
 	// Return result as dictionary
 	return &Dictionary{
 		Pairs: map[string]ast.Expression{
-			"affected": &ast.IntegerLiteral{Value: affected},
-			"lastId":   &ast.IntegerLiteral{Value: lastId},
+			"affected": &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(affected, 10)},
+				Value: affected,
+			},
+			"lastId": &ast.IntegerLiteral{
+				Token: lexer.Token{Type: lexer.INT, Literal: strconv.FormatInt(lastId, 10)},
+				Value: lastId,
+			},
 		},
 		Env: env,
 	}

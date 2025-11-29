@@ -1,0 +1,63 @@
+// Database Demo - Complete example of database operations in Parsley
+//
+// This example demonstrates:
+// - Creating an in-memory SQLite database
+// - Creating tables
+// - Inserting data
+// - Querying single rows with <=?=>
+// - Querying multiple rows with <=??=>
+// - Executing updates with <=!=>
+
+// Database setup
+let db = SQLITE(":memory:")
+
+// Create users table
+let _ = db <=!=> "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT, age INTEGER)"
+
+// Insert some sample data
+let _ = db <=!=> "INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@example.com', 30)"
+let _ = db <=!=> "INSERT INTO users (name, email, age) VALUES ('Bob', 'bob@example.com', 25)"
+let _ = db <=!=> "INSERT INTO users (name, email, age) VALUES ('Charlie', 'charlie@example.com', 35)"
+
+log("Database initialized with 3 users\n")
+
+// Query single user by ID - returns a dictionary or null
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+log("Single user (id=1):")
+log(user)
+log("")
+
+// Query all users - returns an array of dictionaries
+let users = db <=??=> "SELECT * FROM users"
+log("All users:")
+log(users)
+log("")
+
+// Update a user - returns {affected: N, lastId: N}
+let updateResult = db <=!=> "UPDATE users SET age = 31 WHERE id = 1"
+log("Update result:")
+log(updateResult)
+log("")
+
+// Verify the update
+let updatedUser = db <=?=> "SELECT * FROM users WHERE id = 1"
+log("Updated user (age should be 31):")
+log(updatedUser)
+log("")
+
+// Query with WHERE clause
+let youngUsers = db <=??=> "SELECT * FROM users WHERE age < 30"
+log("Users younger than 30:")
+log(youngUsers)
+log("")
+
+// Delete a user
+let deleteResult = db <=!=> "DELETE FROM users WHERE id = 3"
+log("Delete result:")
+log(deleteResult)
+log("")
+
+// Verify deletion
+let remainingUsers = db <=??=> "SELECT * FROM users"
+log("Remaining users after deletion:")
+log(remainingUsers)

@@ -15,6 +15,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Path Methods](#path-methods)
 - [URL Methods](#url-methods)
 - [File I/O](#file-io)
+- [Database](#database)
 - [Regex](#regex)
 - [Modules](#modules)
 - [Tags](#tags)
@@ -100,6 +101,13 @@ a ?? b ?? c ?? "default"   // First non-null value
 | `<==` | Read from file | `let data <== JSON(@./file.json)` |
 | `==>` | Write to file | `data ==> JSON(@./out.json)` |
 | `==>>` | Append to file | `line ==>> lines(@./log.txt)` |
+
+### Database
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `<=?=>` | Query single row | `let user = db <=?=> "SELECT * FROM users WHERE id = 1"` |
+| `<=??=>` | Query multiple rows | `let users = db <=??=> "SELECT * FROM users"` |
+| `<=!=>` | Execute mutation | `let result = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"` |
 
 ### Other
 | Operator | Description |
@@ -700,6 +708,232 @@ match[3]  // "4567"
 "hello world".replace(/world/, "Parsley")  // "hello Parsley"
 "a1b2c3".split(/\d+/)                      // ["a", "b", "c"]
 ```
+
+---
+
+## Database
+
+Parsley provides first-class support for SQLite databases with clean, expressive operators.
+
+### Database Operators
+
+| Operator | Description | Returns |
+|----------|-------------|---------|
+| `<=?=>` | Query single row | Dictionary or `null` |
+| `<=??=>` | Query multiple rows | Array of dictionaries |
+| `<=!=>` | Execute mutation | `{affected, lastId}` |
+
+### Connection Factory
+
+```parsley
+// SQLite (only supported driver currently)
+let db = SQLITE(":memory:")           // In-memory database
+let db = SQLITE(@./data.db)           // File-based database
+let db = SQLITE("/path/to/data.db")   // String path also works
+```
+
+### Querying Data
+
+#### Single Row Query (`<=?=>`)
+
+Returns a dictionary if a row is found, or `null` if no match:
+
+```parsley
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+// Returns: {id: 1, name: "Alice", email: "alice@example.com"} or null
+
+// Using with conditional
+if (user) {
+    log("Found user: {user.name}")
+} else {
+    log("User not found")
+}
+
+// With nullish coalescing
+let user = db <=?=> "SELECT * FROM users WHERE id = 999" ?? {name: "Guest"}
+```
+
+#### Multiple Row Query (`<=??=>`)
+
+Returns an array of dictionaries (empty array if no matches):
+
+```parsley
+let users = db <=??=> "SELECT * FROM users WHERE age > 25"
+// Returns: [{id: 1, name: "Alice", age: 30}, {id: 2, name: "Bob", age: 28}]
+
+// Iterate over results
+for (user in users) {
+    log("{user.name}: {user.email}")
+}
+
+// Get count
+let count = len(users)
+```
+
+### Executing Mutations (`<=!=>`)
+
+Execute INSERT, UPDATE, DELETE, or DDL statements:
+
+```parsley
+// CREATE TABLE
+let _ = db <=!=> "CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    age INTEGER
+)"
+
+// INSERT
+let result = db <=!=> "INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@example.com', 30)"
+// Returns: {affected: 1, lastId: 1}
+
+log("Inserted {result.affected} row(s), last ID: {result.lastId}")
+
+// UPDATE
+let result = db <=!=> "UPDATE users SET age = 31 WHERE id = 1"
+// Returns: {affected: 1, lastId: 1}
+
+// DELETE
+let result = db <=!=> "DELETE FROM users WHERE id = 5"
+// Returns: {affected: 1, lastId: 5}
+```
+
+### Transactions
+
+```parsley
+// Begin transaction
+db.begin()
+
+// Execute multiple statements
+let _ = db <=!=> "INSERT INTO users (name) VALUES ('Alice')"
+let _ = db <=!=> "INSERT INTO posts (user_id, title) VALUES (1, 'First Post')"
+
+// Commit or rollback
+if (someCondition) {
+    db.commit()     // Returns true on success
+} else {
+    db.rollback()   // Returns true on success
+}
+
+// Check transaction status
+if (db.inTransaction) {
+    log("Still in transaction")
+}
+```
+
+### Connection Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `db.ping()` | Boolean | Test if connection is alive |
+| `db.begin()` | Boolean | Start transaction |
+| `db.commit()` | Boolean | Commit transaction |
+| `db.rollback()` | Boolean | Rollback transaction |
+| `db.close()` | Null | Close connection |
+
+### Connection Properties
+
+```parsley
+db.type           // "sqlite"
+db.connected      // true/false
+db.inTransaction  // true/false
+db.lastError      // Error message string or empty
+```
+
+### Data Type Mapping
+
+SQLite types are automatically converted to Parsley types:
+
+| SQLite Type | Parsley Type | Example |
+|-------------|--------------|---------|
+| INTEGER | Integer | `42` |
+| REAL | Float | `3.14` |
+| TEXT | String | `"hello"` |
+| BLOB | String | (converted to string) |
+| NULL | Null | `null` |
+
+### Working with NULL Values
+
+NULL database values are represented as `null` in Parsley:
+
+```parsley
+let user = db <=?=> "SELECT name, age FROM users WHERE id = 1"
+// If age is NULL in database: {name: "Alice", age: null}
+
+if (user.age == null) {
+    log("Age not set")
+}
+
+// Use nullish coalescing for defaults
+let age = user.age ?? 0
+```
+
+### Error Handling
+
+Database errors are returned as Parsley errors:
+
+```parsley
+// Syntax error
+let result = db <=!=> "INVALID SQL"
+// Returns: ERROR: near "INVALID": syntax error
+
+// Table doesn't exist
+let users = db <=??=> "SELECT * FROM nonexistent"
+// Returns: ERROR: no such table: nonexistent
+
+// Check last error
+if (db.lastError != "") {
+    log("Database error: {db.lastError}")
+}
+```
+
+### Complete Example
+
+```parsley
+// Create database
+let db = SQLITE(@./app.db)
+
+// Set up schema
+let _ = db <=!=> "CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s', 'now'))
+)"
+
+// Insert data
+let result = db <=!=> "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+log("Created user with ID: {result.lastId}")
+
+// Query single user
+let user = db <=?=> "SELECT * FROM users WHERE email = 'alice@example.com'"
+
+if (user) {
+    log("Welcome back, {user.name}!")
+    
+    // Update
+    let _ = db <=!=> "UPDATE users SET name = 'Alice Smith' WHERE id = {user.id}"
+    
+    // Query all users
+    let allUsers = db <=??=> "SELECT name, email FROM users ORDER BY created_at DESC"
+    
+    for (u in allUsers) {
+        log("{u.name} <{u.email}>")
+    }
+}
+
+// Close when done
+db.close()
+```
+
+### Best Practices
+
+1. **Use single-operator syntax**: `let result = db <=!=> query` (not double-operator)
+2. **Handle NULL values**: Always check for `null` in query results
+3. **Use transactions for multiple operations**: Ensures data consistency
+4. **Close connections**: Call `db.close()` when done (especially for file-based DBs)
+5. **Check errors**: Use `db.lastError` or handle ERROR returns
+6. **Avoid SQL injection**: Future versions will support parameterized queries
 
 ---
 
