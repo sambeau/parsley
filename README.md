@@ -114,9 +114,6 @@ null                  // Null
 @1d2h30m              // Duration
 @./config.json        // Path
 @https://example.com  // URL
-@(./path/{name}.txt)  // Interpolated path
-@(https://api.com/{v}/users)  // Interpolated URL
-@(2024-{month}-{day}) // Interpolated datetime
 ```
 
 #### Strings
@@ -151,7 +148,7 @@ for (i in 1..5) { log(i) }    // Loop from 1 to 5
 [1, 2, 3] && [2, 3, 4]        // [2, 3] (intersection)
 [1, 2] || [2, 3]              // [1, 2, 3] (union)
 [1, 2, 3] - [2]               // [1, 3] (subtraction)
-"hi" * 3                      // "hihihi" (repetition)
+["hi"] * 3                    // [hi, hi, hi]  (repetition)
 ```
 
 #### Dictionaries
@@ -379,20 +376,39 @@ See [examples/database_demo.pars](examples/database_demo.pars) for a complete wo
 
 ### Modules
 
+Parsley supports importing and organizing code with modules.
+
+#### Creating Modules
+
 ```parsley
 // validators.pars
-let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
-let isEmail = fn(str) { str ~ emailRegex != null }
+export let emailRegex = /^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/
+export let isEmail = fn(str) { str ~ emailRegex != null }
 
-// app.pars
+// Private helper (not exported)
+privateHelper = fn(x) { x * 2 }
+```
+
+Use `export` to explicitly mark exported bindings. Variables without `export` or `let` are module-private. Note: `let` bindings without `export` are still exported for backward compatibility.
+
+#### Importing Modules
+
+```parsley
+// Import with destructuring
 let {isEmail} = import(@./validators.pars)
 
 if (isEmail(userInput)) {
     <p class="valid">Email is valid</p>
 }
+
+// Import entire module
+let validators = import(@./validators.pars)
+validators.isEmail(userInput)
 ```
 
-Only `let` bindings are exported. Variables without `let` are module-private.
+#### Standard Library
+
+Parsley includes a growing standard library in the `std/` directory.
 
 ## Examples
 
@@ -540,44 +556,6 @@ For complete API documentation, see [docs/reference.md](docs/reference.md).
 | `==>` | Write file: `data ==> JSON(@./out.json)` |
 | `==>>` | Append file: `line ==>> text(@./log.txt)` |
 | `++` | Concatenate: `[1] ++ [2]` or `{a:1} ++ {b:2}` |
-
----
-
-## Module System
-
-Parsley supports importing and organizing code with modules.
-
-### Importing Modules
-
-```parsley
-// Import from relative path
-import ./modules/utils.pars
-
-// Import from standard library
-import std/strings
-
-// Access module exports
-let result = utils.helper("input")
-```
-
-### Creating Modules
-
-```parsley
-// mymodule.pars
-let version = "1.0"
-
-fn double(x) {
-  x * 2
-}
-
-// Export explicitly
-export version
-export double
-```
-
-### Standard Library
-
-Parsley includes a growing standard library in the `std/` directory.
 
 ---
 

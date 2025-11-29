@@ -79,7 +79,7 @@ Complete reference for all Parsley types, methods, and operators.
 
 ### Logical
 | Operator | Description | Example |
-|----------|-------------|---------||
+|----------|-------------|---------|
 | `&&` | Boolean AND | `true && false` → `false` |
 | `&&` | Array intersection | `[1,2,3] && [2,3,4]` → `[2, 3]` |
 | `&&` | Dictionary intersection | `{a:1, b:2} && {b:3, c:4}` → `{b: 2}` |
