@@ -20,25 +20,25 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 	switch method {
 	case "toUpper":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toUpper'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toUpper`. got=%d, want=0", len(args))
 		}
 		return &String{Value: strings.ToUpper(str.Value)}
 
 	case "toLower":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toLower'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toLower`. got=%d, want=0", len(args))
 		}
 		return &String{Value: strings.ToLower(str.Value)}
 
 	case "trim":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'trim'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `trim`. got=%d, want=0", len(args))
 		}
 		return &String{Value: strings.TrimSpace(str.Value)}
 
 	case "split":
 		if len(args) != 1 {
-			return newError("wrong number of arguments for 'split'. got=%d, want=1", len(args))
+			return newError("wrong number of arguments to `split`. got=%d, want=1", len(args))
 		}
 		delim, ok := args[0].(*String)
 		if !ok {
@@ -53,7 +53,7 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 
 	case "replace":
 		if len(args) != 2 {
-			return newError("wrong number of arguments for 'replace'. got=%d, want=2", len(args))
+			return newError("wrong number of arguments to `replace`. got=%d, want=2", len(args))
 		}
 		old, ok := args[0].(*String)
 		if !ok {
@@ -67,7 +67,7 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 
 	case "length":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'length'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `length`. got=%d, want=0", len(args))
 		}
 		// Return rune count for proper Unicode support
 		return &Integer{Value: int64(len([]rune(str.Value)))}
@@ -86,13 +86,13 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	switch method {
 	case "length":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'length'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `length`. got=%d, want=0", len(args))
 		}
 		return &Integer{Value: int64(len(arr.Elements))}
 
 	case "reverse":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'reverse'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `reverse`. got=%d, want=0", len(args))
 		}
 		// Create a reversed copy
 		length := len(arr.Elements)
@@ -104,13 +104,13 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 
 	case "sort":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'sort'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `sort`. got=%d, want=0", len(args))
 		}
 		return naturalSortArray(arr)
 
 	case "sortBy":
 		if len(args) != 1 {
-			return newError("wrong number of arguments for 'sortBy'. got=%d, want=1", len(args))
+			return newError("wrong number of arguments to `sortBy`. got=%d, want=1", len(args))
 		}
 		fn, ok := args[0].(*Function)
 		if !ok {
@@ -120,7 +120,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 
 	case "map":
 		if len(args) != 1 {
-			return newError("wrong number of arguments for 'map'. got=%d, want=1", len(args))
+			return newError("wrong number of arguments to `map`. got=%d, want=1", len(args))
 		}
 		fn, ok := args[0].(*Function)
 		if !ok {
@@ -130,7 +130,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 
 	case "filter":
 		if len(args) != 1 {
-			return newError("wrong number of arguments for 'filter'. got=%d, want=1", len(args))
+			return newError("wrong number of arguments to `filter`. got=%d, want=1", len(args))
 		}
 		fn, ok := args[0].(*Function)
 		if !ok {
@@ -141,7 +141,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "format":
 		// format(style?, locale?)
 		if len(args) > 2 {
-			return newError("wrong number of arguments for 'format'. got=%d, want=0-2", len(args))
+			return newError("wrong number of arguments to `format`. got=%d, want=0-2", len(args))
 		}
 
 		// Convert array elements to strings
@@ -185,7 +185,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 	case "join":
 		// join(separator?) - joins array elements into a string
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'join'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `join`. got=%d, want=0-1", len(args))
 		}
 
 		separator := ""
@@ -387,7 +387,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 	switch method {
 	case "keys":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'keys'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `keys`. got=%d, want=0", len(args))
 		}
 		keys := make([]Object, 0, len(dict.Pairs))
 		for k := range dict.Pairs {
@@ -400,7 +400,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 
 	case "values":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'values'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `values`. got=%d, want=0", len(args))
 		}
 		values := make([]Object, 0, len(dict.Pairs))
 		for k, expr := range dict.Pairs {
@@ -414,7 +414,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 
 	case "has":
 		if len(args) != 1 {
-			return newError("wrong number of arguments for 'has'. got=%d, want=1", len(args))
+			return newError("wrong number of arguments to `has`. got=%d, want=1", len(args))
 		}
 		key, ok := args[0].(*String)
 		if !ok {
@@ -439,7 +439,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'format'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
@@ -454,7 +454,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 	case "currency":
 		// currency(code, locale?)
 		if len(args) < 1 || len(args) > 2 {
-			return newError("wrong number of arguments for 'currency'. got=%d, want=1-2", len(args))
+			return newError("wrong number of arguments to `currency`. got=%d, want=1-2", len(args))
 		}
 		code, ok := args[0].(*String)
 		if !ok {
@@ -473,7 +473,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 	case "percent":
 		// percent(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'percent'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `percent`. got=%d, want=0-1", len(args))
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
@@ -496,7 +496,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'format'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
@@ -511,7 +511,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 	case "currency":
 		// currency(code, locale?)
 		if len(args) < 1 || len(args) > 2 {
-			return newError("wrong number of arguments for 'currency'. got=%d, want=1-2", len(args))
+			return newError("wrong number of arguments to `currency`. got=%d, want=1-2", len(args))
 		}
 		code, ok := args[0].(*String)
 		if !ok {
@@ -530,7 +530,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 	case "percent":
 		// percent(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'percent'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `percent`. got=%d, want=0-1", len(args))
 		}
 		localeStr := "en-US"
 		if len(args) == 1 {
@@ -557,14 +557,14 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
 	case "format":
 		// format(style?, locale?)
 		if len(args) > 2 {
-			return newError("wrong number of arguments for 'format'. got=%d, want=0-2", len(args))
+			return newError("wrong number of arguments to `format`. got=%d, want=0-2", len(args))
 		}
 
 		style := "long"
@@ -591,19 +591,19 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 
 	case "dayOfYear":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'dayOfYear'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `dayOfYear`. got=%d, want=0", len(args))
 		}
 		return evalDatetimeComputedProperty(dict, "dayOfYear", env)
 
 	case "week":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'week'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `week`. got=%d, want=0", len(args))
 		}
 		return evalDatetimeComputedProperty(dict, "week", env)
 
 	case "timestamp":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'timestamp'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `timestamp`. got=%d, want=0", len(args))
 		}
 		return evalDatetimeComputedProperty(dict, "timestamp", env)
 
@@ -622,14 +622,14 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
 	case "format":
 		// format(locale?)
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'format'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
 		}
 
 		// Extract months and seconds from duration
@@ -667,13 +667,13 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
 	case "isAbsolute":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'isAbsolute'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `isAbsolute`. got=%d, want=0", len(args))
 		}
 		// Get the absolute property
 		if absExpr, ok := dict.Pairs["absolute"]; ok {
@@ -686,7 +686,7 @@ func evalPathMethod(dict *Dictionary, method string, args []Object, env *Environ
 
 	case "isRelative":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'isRelative'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `isRelative`. got=%d, want=0", len(args))
 		}
 		// Get the absolute property and negate it
 		if absExpr, ok := dict.Pairs["absolute"]; ok {
@@ -712,13 +712,13 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
 	case "origin":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'origin'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `origin`. got=%d, want=0", len(args))
 		}
 		// origin = scheme + "://" + host + (port ? ":" + port : "")
 		scheme := ""
@@ -757,7 +757,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	case "pathname":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'pathname'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `pathname`. got=%d, want=0", len(args))
 		}
 		// pathname = "/" + path components joined by "/"
 		if pathExpr, ok := dict.Pairs["path"]; ok {
@@ -777,7 +777,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	case "search":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'search'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `search`. got=%d, want=0", len(args))
 		}
 		// search = query string representation
 		if queryExpr, ok := dict.Pairs["query"]; ok {
@@ -802,7 +802,7 @@ func evalUrlMethod(dict *Dictionary, method string, args []Object, env *Environm
 
 	case "href":
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'href'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `href`. got=%d, want=0", len(args))
 		}
 		// href = full URL string representation
 		return &String{Value: urlDictToString(dict)}
@@ -822,7 +822,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
@@ -830,7 +830,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		// format(style?)
 		// Styles: "pattern" (just pattern), "literal" (with slashes/flags), "verbose" (pattern and flags separated)
 		if len(args) > 1 {
-			return newError("wrong number of arguments for 'format'. got=%d, want=0-1", len(args))
+			return newError("wrong number of arguments to `format`. got=%d, want=0-1", len(args))
 		}
 
 		// Get pattern and flags
@@ -877,7 +877,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 	case "test":
 		// test(string) - returns boolean if the regex matches the string
 		if len(args) != 1 {
-			return newError("wrong number of arguments for 'test'. got=%d, want=1", len(args))
+			return newError("wrong number of arguments to `test`. got=%d, want=1", len(args))
 		}
 		str, ok := args[0].(*String)
 		if !ok {
@@ -924,14 +924,14 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
 	case "remove":
 		// remove() - removes/deletes the file from filesystem
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'remove'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `remove`. got=%d, want=0", len(args))
 		}
 		return evalFileRemove(dict, env)
 
@@ -1034,7 +1034,7 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 
@@ -1137,7 +1137,7 @@ func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Envi
 	case "toDict":
 		// toDict() - returns the raw dictionary representation for debugging
 		if len(args) != 0 {
-			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
 		}
 		return dict
 

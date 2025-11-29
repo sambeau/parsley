@@ -3388,7 +3388,7 @@ func getBuiltins() map[string]*Builtin {
 		"SQLITE": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `SQLITE`. got=%d, want=1 or 2", len(args))
 				}
 
 				// First arg: path literal
@@ -3464,7 +3464,7 @@ func getBuiltins() map[string]*Builtin {
 		"POSTGRES": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `POSTGRES`. got=%d, want=1 or 2", len(args))
 				}
 
 				// First arg: URL literal
@@ -3539,7 +3539,7 @@ func getBuiltins() map[string]*Builtin {
 		"MYSQL": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `MYSQL`. got=%d, want=1 or 2", len(args))
 				}
 
 				// First arg: URL literal
@@ -3614,7 +3614,7 @@ func getBuiltins() map[string]*Builtin {
 		"SFTP": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `SFTP`. got=%d, want=1 or 2", len(args))
 				}
 
 				// First arg: URL (can be dictionary or string)
@@ -3844,7 +3844,7 @@ func getBuiltins() map[string]*Builtin {
 		"sin": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `sin`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3861,7 +3861,7 @@ func getBuiltins() map[string]*Builtin {
 		"cos": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `cos`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3878,7 +3878,7 @@ func getBuiltins() map[string]*Builtin {
 		"tan": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `tan`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3895,7 +3895,7 @@ func getBuiltins() map[string]*Builtin {
 		"asin": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `asin`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3912,7 +3912,7 @@ func getBuiltins() map[string]*Builtin {
 		"acos": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `acos`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3929,7 +3929,7 @@ func getBuiltins() map[string]*Builtin {
 		"atan": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `atan`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3946,7 +3946,7 @@ func getBuiltins() map[string]*Builtin {
 		"sqrt": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `sqrt`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3963,7 +3963,7 @@ func getBuiltins() map[string]*Builtin {
 		"round": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 1 {
-					return newError("wrong number of arguments. got=%d, want=1", len(args))
+					return newError("wrong number of arguments to `round`. got=%d, want=1", len(args))
 				}
 
 				arg := args[0]
@@ -3980,7 +3980,7 @@ func getBuiltins() map[string]*Builtin {
 		"pow": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 2 {
-					return newError("wrong number of arguments. got=%d, want=2", len(args))
+					return newError("wrong number of arguments to `pow`. got=%d, want=2", len(args))
 				}
 
 				base := args[0]
@@ -4012,7 +4012,7 @@ func getBuiltins() map[string]*Builtin {
 		"pi": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 0 {
-					return newError("wrong number of arguments. got=%d, want=0", len(args))
+					return newError("wrong number of arguments to `pi`. got=%d, want=0", len(args))
 				}
 				return &Float{Value: math.Pi}
 			},
@@ -4020,7 +4020,7 @@ func getBuiltins() map[string]*Builtin {
 		"now": {
 			Fn: func(args ...Object) Object {
 				if len(args) != 0 {
-					return newError("wrong number of arguments. got=%d, want=0", len(args))
+					return newError("wrong number of arguments to `now`. got=%d, want=0", len(args))
 				}
 				// Get current environment from context (we'll pass it through the Builtin)
 				// For now, create a new environment for the dictionary
@@ -4031,7 +4031,7 @@ func getBuiltins() map[string]*Builtin {
 		"time": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `time`. got=%d, want=1 or 2", len(args))
 				}
 
 				env := NewEnvironment()
@@ -4565,7 +4565,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatNumber": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `formatNumber`. got=%d, want=1 or 2", len(args))
 				}
 
 				var value float64
@@ -4599,7 +4599,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatCurrency": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 2 || len(args) > 3 {
-					return newError("wrong number of arguments. got=%d, want=2 or 3", len(args))
+					return newError("wrong number of arguments to `formatCurrency`. got=%d, want=2 or 3", len(args))
 				}
 
 				var value float64
@@ -4644,7 +4644,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatPercent": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 2 {
-					return newError("wrong number of arguments. got=%d, want=1 or 2", len(args))
+					return newError("wrong number of arguments to `formatPercent`. got=%d, want=1 or 2", len(args))
 				}
 
 				var value float64
@@ -4678,7 +4678,7 @@ func getBuiltins() map[string]*Builtin {
 		"formatDate": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
-					return newError("wrong number of arguments. got=%d, want=1, 2, or 3", len(args))
+					return newError("wrong number of arguments to `formatDate`. got=%d, want=1, 2, or 3", len(args))
 				}
 
 				// First argument must be a datetime dictionary
@@ -4733,7 +4733,7 @@ func getBuiltins() map[string]*Builtin {
 		"format": {
 			Fn: func(args ...Object) Object {
 				if len(args) < 1 || len(args) > 3 {
-					return newError("wrong number of arguments. got=%d, want=1-3", len(args))
+					return newError("wrong number of arguments to `format`. got=%d, want=1-3", len(args))
 				}
 
 				// Handle arrays (list formatting)

@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/sambeau/parsley/pkg/evaluator"
-	"github.com/sambeau/parsley/pkg/lexer"
-	"github.com/sambeau/parsley/pkg/parser"
 )
 
 func TestRegexLiterals(t *testing.T) {
@@ -21,7 +19,7 @@ func TestRegexLiterals(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -40,7 +38,7 @@ func TestRegexMatch(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -57,7 +55,7 @@ func TestRegexNotMatch(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -72,7 +70,7 @@ func TestRegexConditional(t *testing.T) {
 			"no match"
 		}
 	`
-	evaluated := testEval(input)
+	evaluated := testEvalHelper(input)
 	testExpectedObject(t, input, evaluated, `"john"`)
 }
 
@@ -82,7 +80,7 @@ func TestRegexDestructuring(t *testing.T) {
 		let full, name, domain = email ~ /(\w+)@([\w.]+)/;
 		name + ":" + domain
 	`
-	evaluated := testEval(input)
+	evaluated := testEvalHelper(input)
 	testExpectedObject(t, input, evaluated, `"jane:test.org"`)
 }
 
@@ -97,7 +95,7 @@ func TestRegexBuiltin(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -114,7 +112,7 @@ func TestReplaceFunction(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -131,7 +129,7 @@ func TestSplitFunction(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -150,7 +148,7 @@ func TestRegexFlags(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
 }
@@ -167,7 +165,7 @@ func TestRegexErrors(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		errObj, ok := evaluated.(*evaluator.Error)
 		if !ok {
 			t.Errorf("Expected error for input '%s', got %T", tt.input, evaluated)
@@ -196,18 +194,9 @@ func TestRegexComplexPatterns(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		evaluated := testEvalHelper(tt.input)
 		testExpectedObject(t, tt.input, evaluated, tt.expected)
 	}
-}
-
-// Helper function to run Parsley code
-func testEval(input string) evaluator.Object {
-	l := lexer.New(input)
-	p := parser.New(l)
-	program := p.ParseProgram()
-	env := evaluator.NewEnvironment()
-	return evaluator.Eval(program, env)
 }
 
 // Helper to test expected output

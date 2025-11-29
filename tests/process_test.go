@@ -9,7 +9,8 @@ import (
 	"github.com/sambeau/parsley/pkg/parser"
 )
 
-func testEval(input string) evaluator.Object {
+// testEvalProcess is a local helper that enables execute-all for process tests
+func testEvalProcess(input string) evaluator.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.ParseProgram()
@@ -75,7 +76,7 @@ func TestCommandBuiltin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalProcess(tt.input)
 			if tt.wantErr {
 				if _, ok := result.(*evaluator.Error); !ok {
 					t.Errorf("Expected error, got %T: %v", result, result)
@@ -142,7 +143,7 @@ func TestProcessExecution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalProcess(tt.input)
 			if tt.wantErr {
 				if _, ok := result.(*evaluator.Error); !ok {
 					t.Errorf("Expected error, got %T: %v", result, result)
@@ -172,7 +173,7 @@ func TestProcessExecution(t *testing.T) {
 func TestProcessExecutionResult(t *testing.T) {
 	input := `let result = COMMAND("echo", ["test output"]) <=#=> null; result.exitCode == 0`
 
-	result := testEval(input)
+	result := testEvalProcess(input)
 	if err, ok := result.(*evaluator.Error); ok {
 		t.Fatalf("Expected success, got error: %v", err.Message)
 	}
@@ -189,7 +190,7 @@ func TestProcessExecutionResult(t *testing.T) {
 	// Test all fields exist
 	input2 := `let result = COMMAND("echo", ["test"]) <=#=> null; [result.stdout, result.stderr, result.exitCode, result.error]`
 
-	result2 := testEval(input2)
+	result2 := testEvalProcess(input2)
 	if err, ok := result2.(*evaluator.Error); ok {
 		t.Fatalf("Expected success, got error: %v", err.Message)
 	}
@@ -258,7 +259,7 @@ func TestJSONFormatBuiltins(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalProcess(tt.input)
 			if tt.wantErr {
 				if _, ok := result.(*evaluator.Error); !ok {
 					t.Errorf("Expected error, got %T: %v", result, result)
@@ -320,7 +321,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalProcess(tt.input)
 			if tt.wantErr {
 				if _, ok := result.(*evaluator.Error); !ok {
 					t.Errorf("Expected error, got %T: %v", result, result)
@@ -342,7 +343,7 @@ func TestCSVFormatBuiltins(t *testing.T) {
 func TestJSONRoundTrip(t *testing.T) {
 	input := `let obj = {name: "Test", value: 42, items: [1, 2, 3]}; let json = stringifyJSON(obj); let parsed = parseJSON(json); parsed.name`
 
-	result := testEval(input)
+	result := testEvalProcess(input)
 	if err, ok := result.(*evaluator.Error); ok {
 		t.Fatalf("Expected success, got error: %v", err.Message)
 	}

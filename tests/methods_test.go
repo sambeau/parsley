@@ -619,7 +619,7 @@ func TestMethodErrors(t *testing.T) {
 		errContains string
 	}{
 		// Wrong argument count
-		{`"hello".upper("arg")`, "wrong number of arguments"},
+		{`"hello".toUpper("arg")`, "wrong number of arguments"},
 		{`"hello".split()`, "wrong number of arguments"},
 		{`"hello".replace("a")`, "wrong number of arguments"},
 

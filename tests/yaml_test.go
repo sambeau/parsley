@@ -18,6 +18,10 @@ func testEvalYAMLWithFilename(input string, filename string) evaluator.Object {
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
 	env.Filename = filename
+	// Enable write access for tests
+	env.Security = &evaluator.SecurityPolicy{
+		AllowWriteAll: true,
+	}
 	return evaluator.Eval(program, env)
 }
 

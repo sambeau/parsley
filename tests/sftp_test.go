@@ -47,7 +47,7 @@ func TestSFTPConnectionCreation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 
 			if tt.wantErr {
 				_, isErr := result.(*evaluator.Error)
@@ -81,7 +81,7 @@ func TestSFTPCallableSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 
 			if tt.wantErr {
 				// Check for error or SFTP_FILE_HANDLE_OBJ type
@@ -137,7 +137,7 @@ func TestSFTPFormatAccessors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -169,7 +169,7 @@ func TestSFTPReadOperatorSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -201,7 +201,7 @@ func TestSFTPWriteOperatorSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -228,7 +228,7 @@ func TestSFTPAppendOperatorSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -270,7 +270,7 @@ func TestSFTPDirectoryOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -297,7 +297,7 @@ func TestSFTPConnectionMethods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -324,7 +324,7 @@ func TestSFTPErrorCapturePattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 
 			if tt.wantErr {
 				if _, isErr := result.(*evaluator.Error); !isErr {
@@ -361,7 +361,7 @@ func TestSFTPConnectionCaching(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
@@ -398,7 +398,7 @@ func TestSFTPURLParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 
 			if tt.wantErr {
 				t.Logf("%s result type: %s", tt.name, result.Type())
@@ -438,7 +438,7 @@ func TestSFTPFormatEncoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := testEval(tt.input)
+			result := testEvalHelper(tt.input)
 			t.Logf("%s result type: %s", tt.name, result.Type())
 		})
 	}
