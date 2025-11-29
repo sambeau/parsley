@@ -19,13 +19,13 @@ var Version = "0.9.4"
 
 var (
 	// Display flags
-	helpFlag       = flag.Bool("h", false, "Show help message")
-	helpLongFlag   = flag.Bool("help", false, "Show help message")
-	versionFlag    = flag.Bool("V", false, "Show version information")
+	helpFlag        = flag.Bool("h", false, "Show help message")
+	helpLongFlag    = flag.Bool("help", false, "Show help message")
+	versionFlag     = flag.Bool("V", false, "Show version information")
 	versionLongFlag = flag.Bool("version", false, "Show version information")
 	prettyPrintFlag = flag.Bool("pp", false, "Pretty-print HTML output")
 	prettyLongFlag  = flag.Bool("pretty", false, "Pretty-print HTML output")
-	
+
 	// Security flags
 	restrictReadFlag     = flag.String("restrict-read", "", "Comma-separated read blacklist paths")
 	noReadFlag           = flag.Bool("no-read", false, "Deny all file reads")
