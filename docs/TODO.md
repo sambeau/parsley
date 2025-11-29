@@ -1,5 +1,57 @@
 # TODO List
 
+## APPROVED
+
+- File delete() methods: add a delete method to file pseudo-type
+
+## IN DESIGN
+
+- chroots for write: limit writes to one or more directories and their children
+- chroots for read: limit reads to one or more directories and their children
+- chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin
+- run scripts: Execute external commands/scripts/tools with command line imputs/options, receive exit status + optional output as result
+- pipe scripts: Execute external commands/scripts/tools with command line imputs/options, receive exit status + optional output as result
+- File I/O security sandbox: --no-read, --no-write flags
+- SFTP Support: Read/Write files from FTP server - useful for static site generation
+- Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
+	- use cmd/ for commands
+- Parsley Server: Simple, minimal HTTP(S) server that outputs raw HTML files and runs Parsley scripts
+	- Ceate Plan
+		- Read https://grafana.com/blog/2024/02/09/how-i-write-http-services-in-go-after-13-years/
+		- Examine other small, focused, Go HTTP servers, e.g.
+		- Comsider useful features from Hugo
+	- Import environment
+	- Config file? vs Web-based admin
+		- HTAccess?
+	- HTML/HTTP features for Parsley
+		- Investigate in interface/api/environment/context between HTTP and Parsley
+		- Request to dictionary
+		- dictionary to Response 
+		- Cookies
+		- Multi-part data
+
+
+## CONSIDERING
+
+- Parsley-based static site generator: a small, simple, opinionated site generator
+	- Examine Hugo https://gohugo.io/documentation/
+- Supabase database support
+	- Consider postgrest-go support
+		- Examine https://github.com/supabase-community/postgrest-go
+	- Examine https://github.com/supabase-community/supabase-go
+	- Would not need any realtime features
+- MCP support for Parsley
+	- Investigate how this would work
+- Treesitter grammar
+	- Investigate how useful this would be
+- Optional basic, type checking: basics + array of basics, no user-defined types, e.g. foo(bar:int){bar}; [int], [[int]]
+- Require 'let' to declare variables before use?
+- Add 'const' to declare conts to prevent modification?
+- Optional Chaining (?.) and maybe (!.)?
+- Dictionaries to props in tags: extraProps= {a:"A", b:"B"};<foo {extraProps}/> => <foo a="A" b="B"/>
+
+## DONE
+
 - ~~File type~~ ✅ (v0.8.0)
 - ~~Modules, import and export~~ ✅ (v0.9.0)
 - ~~Datetime~~ ✅ (v0.6.0)
@@ -27,13 +79,3 @@
 - ~~SQL and databases {user} = [$GetUser userID={userId}] <=/=> SQL()~~ ✅ (0.9.15)
 - ~~Fetch from URL~~ ✅ (0.9.11)
 - ~~1 ++ [2,3,4,5] , [1,2,3,4] ++ 5~~ ✅ (0.9.16)
-- File methods: delete
-- Dictionaries to props in tags
-- Execute bash script
-- Pipe to bash script
-- Simple HTTP server
-	- routing
-	- cookies
-- Add 'const'?
-- Optional Chaining (!.)
-- File I/O security sandbox (--allow-read, --allow-write flags)
