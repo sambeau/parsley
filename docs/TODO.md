@@ -11,15 +11,20 @@
 ~~- pipe scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
 ~~- Fetch support for format objects~~ ✅ (v0.9.11 - documented in v0.11.0)
 ~~- SFTP Support: Read/Write files from FTP server - useful for static site generation~~ ✅ (v0.12.0)
+~~- Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)~~ ✅ (v0.12.1)
 
 ## IN PLANNING
 
 ### For V1.0 ALPHA
 
-- Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)
+- Improve REPL
+	- Investigate options: what do other Go cli tools do?
+	- Better editing Up, down, left, right
+	- code color based on grammar?
 - Look at consistency of API one more time
 	- Remove deprecated features
-- Check everything is working
+- Check everything is working:
+	- run through all code looking for missing tests
 	- Setup database and sftp environments for integration testing
 	- run integration tests
 - Build something big to see how it works in practice

@@ -1,0 +1,27 @@
+// Directory Manipulation Example
+// Demonstrates .mkdir(), .rmdir() methods for local file paths
+
+// Create a simple directory
+file(@/tmp/test-dir).mkdir()
+log("Created /tmp/test-dir")
+
+// Create nested directories with parents option
+file(@/tmp/parent/child/grandchild).mkdir({parents: true})
+log("Created nested directories")
+
+// Remove an empty directory
+file(@/tmp/test-dir).rmdir()
+log("Removed /tmp/test-dir")
+
+// Remove a directory tree recursively
+file(@/tmp/parent).rmdir({recursive: true})
+log("Removed /tmp/parent and all children")
+
+// Using dir() factory works the same way
+dir(@/tmp/another-test).mkdir()
+log("Created /tmp/another-test using dir()")
+
+dir(@/tmp/another-test).rmdir()
+log("Removed /tmp/another-test")
+
+log("\nAll operations completed successfully!")

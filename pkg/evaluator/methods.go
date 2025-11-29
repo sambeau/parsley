@@ -4,6 +4,7 @@ package evaluator
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -934,6 +935,90 @@ func evalFileMethod(dict *Dictionary, method string, args []Object, env *Environ
 		}
 		return evalFileRemove(dict, env)
 
+	case "mkdir":
+		// Create directory
+		pathStr := getFilePathString(dict, env)
+		if pathStr == "" {
+			return newError("file handle has no valid path")
+		}
+
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		if pathErr != nil {
+			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		}
+
+		var recursive bool
+		if len(args) > 0 {
+			if optDict, ok := args[0].(*Dictionary); ok {
+				if parentsExpr, ok := optDict.Pairs["parents"]; ok {
+					if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
+						if boolVal, ok := parentsVal.(*Boolean); ok {
+							recursive = boolVal.Value
+						}
+					}
+				}
+			}
+		}
+
+		// Security check (treat as write operation)
+		if err := env.checkPathAccess(absPath, "write"); err != nil {
+			return newError("security: %s", err.Error())
+		}
+
+		var err error
+		if recursive {
+			err = os.MkdirAll(absPath, 0755)
+		} else {
+			err = os.Mkdir(absPath, 0755)
+		}
+
+		if err != nil {
+			return newError("failed to create directory: %s", err.Error())
+		}
+		return NULL
+
+	case "rmdir":
+		// Remove directory
+		pathStr := getFilePathString(dict, env)
+		if pathStr == "" {
+			return newError("file handle has no valid path")
+		}
+
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		if pathErr != nil {
+			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		}
+
+		var recursive bool
+		if len(args) > 0 {
+			if optDict, ok := args[0].(*Dictionary); ok {
+				if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
+					if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
+						if boolVal, ok := recursiveVal.(*Boolean); ok {
+							recursive = boolVal.Value
+						}
+					}
+				}
+			}
+		}
+
+		// Security check (treat as write operation)
+		if err := env.checkPathAccess(absPath, "write"); err != nil {
+			return newError("security: %s", err.Error())
+		}
+
+		var err error
+		if recursive {
+			err = os.RemoveAll(absPath)
+		} else {
+			err = os.Remove(absPath)
+		}
+
+		if err != nil {
+			return newError("failed to remove directory: %s", err.Error())
+		}
+		return NULL
+
 	default:
 		return newError("unknown method '%s' for file", method)
 	}
@@ -952,6 +1037,90 @@ func evalDirMethod(dict *Dictionary, method string, args []Object, env *Environm
 			return newError("wrong number of arguments for 'toDict'. got=%d, want=0", len(args))
 		}
 		return dict
+
+	case "mkdir":
+		// Create directory
+		pathStr := getFilePathString(dict, env)
+		if pathStr == "" {
+			return newError("directory handle has no valid path")
+		}
+
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		if pathErr != nil {
+			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		}
+
+		var recursive bool
+		if len(args) > 0 {
+			if optDict, ok := args[0].(*Dictionary); ok {
+				if parentsExpr, ok := optDict.Pairs["parents"]; ok {
+					if parentsVal := Eval(parentsExpr, optDict.Env); parentsVal != nil {
+						if boolVal, ok := parentsVal.(*Boolean); ok {
+							recursive = boolVal.Value
+						}
+					}
+				}
+			}
+		}
+
+		// Security check (treat as write operation)
+		if err := env.checkPathAccess(absPath, "write"); err != nil {
+			return newError("security: %s", err.Error())
+		}
+
+		var err error
+		if recursive {
+			err = os.MkdirAll(absPath, 0755)
+		} else {
+			err = os.Mkdir(absPath, 0755)
+		}
+
+		if err != nil {
+			return newError("failed to create directory: %s", err.Error())
+		}
+		return NULL
+
+	case "rmdir":
+		// Remove directory
+		pathStr := getFilePathString(dict, env)
+		if pathStr == "" {
+			return newError("directory handle has no valid path")
+		}
+
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		if pathErr != nil {
+			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		}
+
+		var recursive bool
+		if len(args) > 0 {
+			if optDict, ok := args[0].(*Dictionary); ok {
+				if recursiveExpr, ok := optDict.Pairs["recursive"]; ok {
+					if recursiveVal := Eval(recursiveExpr, optDict.Env); recursiveVal != nil {
+						if boolVal, ok := recursiveVal.(*Boolean); ok {
+							recursive = boolVal.Value
+						}
+					}
+				}
+			}
+		}
+
+		// Security check (treat as write operation)
+		if err := env.checkPathAccess(absPath, "write"); err != nil {
+			return newError("security: %s", err.Error())
+		}
+
+		var err error
+		if recursive {
+			err = os.RemoveAll(absPath)
+		} else {
+			err = os.Remove(absPath)
+		}
+
+		if err != nil {
+			return newError("failed to remove directory: %s", err.Error())
+		}
+		return NULL
 
 	default:
 		return newError("unknown method '%s' for dir", method)

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.12.1] - 2025-11-29
+
+### Added
+- **Local Directory Methods**: Directory manipulation for local file paths
+  - `file(@/path).mkdir(options?)` - Create directory
+  - `file(@/path).rmdir(options?)` - Remove directory
+  - `dir(@/path).mkdir(options?)` - Create directory
+  - `dir(@/path).rmdir(options?)` - Remove directory
+  - Options: `{parents: true}` for mkdir, `{recursive: true}` for rmdir
+  - Achieves feature parity with SFTP directory operations
+- Example script: `examples/directory_operations_demo.pars`
+- Comprehensive test suite: `tests/local_directory_test.go` with 8 tests
+
+---
+
 ## [0.12.0] - 2025-12-01
 
 ### Added

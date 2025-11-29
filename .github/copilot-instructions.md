@@ -44,6 +44,7 @@ This is a Go project using standard Go practices and conventions.
 - Use the standard `testing` package
 - Aim for high test coverage on critical paths
 - Use `testify` for more complex assertions if needed
+- Don't put tests in the root folder; keep them in `tests/` directory
 
 ## Version Numbering
 

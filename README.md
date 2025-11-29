@@ -334,6 +334,14 @@ logEntry ==>> lines(@./app.log)
 let f = file(@./temp.txt)
 f.remove()  // Returns null on success
 
+// Create directories
+file(@./new-dir).mkdir()
+file(@./parent/child).mkdir({parents: true})  // Create nested
+
+// Remove directories
+file(@./old-dir).rmdir()
+file(@./dir-tree).rmdir({recursive: true})  // Remove with contents
+
 // With error handling
 if (f.exists) {
     f.remove()

@@ -731,11 +731,21 @@ log(u)             // https://api.example.com/v1
 | Method | Description |
 |--------|-------------|
 | `.remove()` | Removes/deletes the file from the filesystem. Returns `null` on success, error on failure. |
+| `.mkdir(options?)` | Creates a directory. Options: `{parents: true}` to create parent directories. |
+| `.rmdir(options?)` | Removes a directory. Options: `{recursive: true}` to remove with contents. |
 
 ```parsley
 // Remove a file
 let f = file(@./temp.txt)
 f.remove()  // Deletes the file
+
+// Create directories
+file(@./new-dir).mkdir()
+file(@./parent/child).mkdir({parents: true})
+
+// Remove directories
+file(@./empty-dir).rmdir()
+file(@./dir-tree).rmdir({recursive: true})
 
 // With error handling
 let result = f.remove()
