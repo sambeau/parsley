@@ -26,7 +26,7 @@
 	- ~~run through all code looking for missing tests~~✅ (v0.13.1)
 	- Setup database and sftp environments for integration testing
 	- run integration tests
-- Better errors
+- ~~Better errors~~ ✅ (v0.13.1)
 	- ~~Human-readable type names in error messages~~ ✅ (v0.13.1)
 	- ~~Consistent function name formatting in errors~~ ✅ (v0.13.1)
 - Build something big to see how it works in practice
@@ -35,8 +35,8 @@
 - POSTGRES support
 
 ### For V1.0 BETA
-- Performance checks
-- Code quality checks
+- ~~Performance checks~~ ✅ (v0.13.0
+- ~~Code quality checks~~ ✅ (v0.13.0
 
 ### For V1.0 RELEASE
 - Rewrite README
