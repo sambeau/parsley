@@ -43,12 +43,15 @@ var precedences = map[lexer.TokenType]int{
 	lexer.PLUS:      SUM,
 	lexer.MINUS:     SUM,
 	lexer.PLUSPLUS:  CONCAT,
-	lexer.SLASH:     PRODUCT,
-	lexer.ASTERISK:  PRODUCT,
-	lexer.PERCENT:   PRODUCT,
-	lexer.LBRACKET:  INDEX,
-	lexer.DOT:       INDEX,
-	lexer.LPAREN:    CALL,
+	lexer.SLASH:      PRODUCT,
+	lexer.ASTERISK:   PRODUCT,
+	lexer.PERCENT:    PRODUCT,
+	lexer.LBRACKET:   INDEX,
+	lexer.DOT:        INDEX,
+	lexer.LPAREN:     CALL,
+	lexer.QUERY_ONE:  EQUALS, // Database query operators
+	lexer.QUERY_MANY: EQUALS,
+	lexer.EXECUTE:    EQUALS,
 }
 
 // Parser represents the parser
@@ -124,6 +127,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.NOT_MATCH, p.parseInfixExpression)
 	p.registerInfix(lexer.PLUSPLUS, p.parseInfixExpression)
+	p.registerInfix(lexer.QUERY_ONE, p.parseInfixExpression)   // Database operators
+	p.registerInfix(lexer.QUERY_MANY, p.parseInfixExpression)  // Database operators
+	p.registerInfix(lexer.EXECUTE, p.parseInfixExpression)     // Database operators
 	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 	p.registerInfix(lexer.LBRACKET, p.parseIndexOrSliceExpression)
@@ -407,78 +413,6 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		return fetchStmt
 	}
 
-	// Check for <=?=> (query one row from database)
-	if p.peekTokenIs(lexer.QUERY_ONE) {
-		p.nextToken() // consume first part
-		queryToken := p.curToken
-		p.nextToken() // move to connection expression
-		connection := p.parseExpression(LOWEST)
-		if !p.expectPeek(lexer.QUERY_ONE) {
-			return nil
-		}
-		p.nextToken() // move to query expression
-		query := p.parseExpression(LOWEST)
-		queryStmt := &ast.QueryOneStatement{
-			Token:      queryToken,
-			Names:      names,
-			Connection: connection,
-			Query:      query,
-			IsLet:      true,
-		}
-		if p.peekTokenIs(lexer.SEMICOLON) {
-			p.nextToken()
-		}
-		return queryStmt
-	}
-
-	// Check for <=??=> (query many rows from database)
-	if p.peekTokenIs(lexer.QUERY_MANY) {
-		p.nextToken() // consume first part
-		queryToken := p.curToken
-		p.nextToken() // move to connection expression
-		connection := p.parseExpression(LOWEST)
-		if !p.expectPeek(lexer.QUERY_MANY) {
-			return nil
-		}
-		p.nextToken() // move to query expression
-		query := p.parseExpression(LOWEST)
-		queryStmt := &ast.QueryManyStatement{
-			Token:      queryToken,
-			Names:      names,
-			Connection: connection,
-			Query:      query,
-			IsLet:      true,
-		}
-		if p.peekTokenIs(lexer.SEMICOLON) {
-			p.nextToken()
-		}
-		return queryStmt
-	}
-
-	// Check for <=!=> (execute database mutation)
-	if p.peekTokenIs(lexer.EXECUTE) {
-		p.nextToken() // consume first part
-		execToken := p.curToken
-		p.nextToken() // move to connection expression
-		connection := p.parseExpression(LOWEST)
-		if !p.expectPeek(lexer.EXECUTE) {
-			return nil
-		}
-		p.nextToken() // move to query expression
-		query := p.parseExpression(LOWEST)
-		execStmt := &ast.ExecuteStatement{
-			Token:      execToken,
-			Names:      names,
-			Connection: connection,
-			Query:      query,
-			IsLet:      true,
-		}
-		if p.peekTokenIs(lexer.SEMICOLON) {
-			p.nextToken()
-		}
-		return execStmt
-	}
-
 	// Regular let statement
 	stmt := &ast.LetStatement{Token: letToken, Export: export}
 	if len(names) == 1 {
@@ -558,79 +492,6 @@ func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 		}
 		return fetchStmt
 	}
-
-	// Check for <=?=> (query one row from database)
-	if p.peekTokenIs(lexer.QUERY_ONE) {
-		p.nextToken() // consume first part
-		queryToken := p.curToken
-		p.nextToken() // move to connection expression
-		connection := p.parseExpression(LOWEST)
-		if !p.expectPeek(lexer.QUERY_ONE) {
-			return nil
-		}
-		p.nextToken() // move to query expression
-		query := p.parseExpression(LOWEST)
-		queryStmt := &ast.QueryOneStatement{
-			Token:      queryToken,
-			Names:      names,
-			Connection: connection,
-			Query:      query,
-			IsLet:      false,
-		}
-		if p.peekTokenIs(lexer.SEMICOLON) {
-			p.nextToken()
-		}
-		return queryStmt
-	}
-
-	// Check for <=??=> (query many rows from database)
-	if p.peekTokenIs(lexer.QUERY_MANY) {
-		p.nextToken() // consume first part
-		queryToken := p.curToken
-		p.nextToken() // move to connection expression
-		connection := p.parseExpression(LOWEST)
-		if !p.expectPeek(lexer.QUERY_MANY) {
-			return nil
-		}
-		p.nextToken() // move to query expression
-		query := p.parseExpression(LOWEST)
-		queryStmt := &ast.QueryManyStatement{
-			Token:      queryToken,
-			Names:      names,
-			Connection: connection,
-			Query:      query,
-			IsLet:      false,
-		}
-		if p.peekTokenIs(lexer.SEMICOLON) {
-			p.nextToken()
-		}
-		return queryStmt
-	}
-
-	// Check for <=!=> (execute database mutation)
-	if p.peekTokenIs(lexer.EXECUTE) {
-		p.nextToken() // consume first part
-		execToken := p.curToken
-		p.nextToken() // move to connection expression
-		connection := p.parseExpression(LOWEST)
-		if !p.expectPeek(lexer.EXECUTE) {
-			return nil
-		}
-		p.nextToken() // move to query expression
-		query := p.parseExpression(LOWEST)
-		execStmt := &ast.ExecuteStatement{
-			Token:      execToken,
-			Names:      names,
-			Connection: connection,
-			Query:      query,
-			IsLet:      false,
-		}
-		if p.peekTokenIs(lexer.SEMICOLON) {
-			p.nextToken()
-		}
-		return execStmt
-	}
-
 
 	// Regular assignment
 	stmt := &ast.AssignmentStatement{Token: firstToken, Export: export}

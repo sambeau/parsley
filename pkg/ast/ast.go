@@ -810,12 +810,12 @@ func (ws *WriteStatement) String() string {
 
 // QueryOneStatement represents query-one-row statements like 'let user = db <=?=> <GetUser id={1} />'
 type QueryOneStatement struct {
-	Token      lexer.Token  // the <=?=> token
+	Token      lexer.Token   // the <=?=> token
 	Names      []*Identifier // the variable names (can be identifiers or destructuring patterns)
-	Connection Expression   // the database connection
-	Query      Expression   // the query expression (component returning <SQL>)
-	IsLet      bool         // true if this is a let statement
-	Export     bool         // true if this should be exported
+	Connection Expression    // the database connection
+	Query      Expression    // the query expression (component returning <SQL>)
+	IsLet      bool          // true if this is a let statement
+	Export     bool          // true if this should be exported
 }
 
 func (qos *QueryOneStatement) statementNode()       {}
@@ -849,12 +849,12 @@ func (qos *QueryOneStatement) String() string {
 
 // QueryManyStatement represents query-many-rows statements like 'let users = db <=??=> <SearchUsers />'
 type QueryManyStatement struct {
-	Token      lexer.Token  // the <=??=> token
+	Token      lexer.Token   // the <=??=> token
 	Names      []*Identifier // the variable names (can be identifiers or destructuring patterns)
-	Connection Expression   // the database connection
-	Query      Expression   // the query expression (component returning <SQL>)
-	IsLet      bool         // true if this is a let statement
-	Export     bool         // true if this should be exported
+	Connection Expression    // the database connection
+	Query      Expression    // the query expression (component returning <SQL>)
+	IsLet      bool          // true if this is a let statement
+	Export     bool          // true if this should be exported
 }
 
 func (qms *QueryManyStatement) statementNode()       {}
@@ -888,12 +888,12 @@ func (qms *QueryManyStatement) String() string {
 
 // ExecuteStatement represents database mutation statements like 'let {affected} = db <=!=> <CreateUser />'
 type ExecuteStatement struct {
-	Token      lexer.Token  // the <=!=> token
+	Token      lexer.Token   // the <=!=> token
 	Names      []*Identifier // the variable names (can be identifiers or destructuring patterns)
-	Connection Expression   // the database connection
-	Query      Expression   // the query expression (component returning <SQL>)
-	IsLet      bool         // true if this is a let statement
-	Export     bool         // true if this should be exported
+	Connection Expression    // the database connection
+	Query      Expression    // the query expression (component returning <SQL>)
+	IsLet      bool          // true if this is a let statement
+	Export     bool          // true if this should be exported
 }
 
 func (es *ExecuteStatement) statementNode()       {}

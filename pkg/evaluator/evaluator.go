@@ -44,17 +44,17 @@ var (
 type ObjectType string
 
 const (
-	INTEGER_OBJ    = "INTEGER"
-	FLOAT_OBJ      = "FLOAT"
-	BOOLEAN_OBJ    = "BOOLEAN"
-	STRING_OBJ     = "STRING"
-	NULL_OBJ       = "NULL"
-	RETURN_OBJ     = "RETURN_VALUE"
-	ERROR_OBJ      = "ERROR"
-	FUNCTION_OBJ   = "FUNCTION"
-	BUILTIN_OBJ    = "BUILTIN"
-	ARRAY_OBJ      = "ARRAY"
-	DICTIONARY_OBJ = "DICTIONARY"
+	INTEGER_OBJ       = "INTEGER"
+	FLOAT_OBJ         = "FLOAT"
+	BOOLEAN_OBJ       = "BOOLEAN"
+	STRING_OBJ        = "STRING"
+	NULL_OBJ          = "NULL"
+	RETURN_OBJ        = "RETURN_VALUE"
+	ERROR_OBJ         = "ERROR"
+	FUNCTION_OBJ      = "FUNCTION"
+	BUILTIN_OBJ       = "BUILTIN"
+	ARRAY_OBJ         = "ARRAY"
+	DICTIONARY_OBJ    = "DICTIONARY"
 	DB_CONNECTION_OBJ = "DB_CONNECTION"
 )
 
@@ -3259,7 +3259,7 @@ func getBuiltins() map[string]*Builtin {
 
 				// Create DSN (SQLite just uses the path, with special handling for :memory:)
 				dsn := pathStr.Value
-				
+
 				// Check cache
 				cacheKey := "sqlite:" + dsn
 				dbConnectionsMu.RLock()
@@ -3334,7 +3334,7 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				dsn := urlStr.Value
-				
+
 				// Check cache
 				cacheKey := "postgres:" + dsn
 				dbConnectionsMu.RLock()
@@ -3409,7 +3409,7 @@ func getBuiltins() map[string]*Builtin {
 				}
 
 				dsn := urlStr.Value
-				
+
 				// Check cache
 				cacheKey := "mysql:" + dsn
 				dbConnectionsMu.RLock()
@@ -5208,7 +5208,7 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 		dbConnectionsMu.Lock()
 		delete(dbConnections, cacheKey)
 		dbConnectionsMu.Unlock()
-		
+
 		if err := conn.DB.Close(); err != nil {
 			conn.LastError = err.Error()
 			return newError("failed to close connection: %s", err.Error())
@@ -5307,6 +5307,15 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.WriteStatement:
 		return evalWriteStatement(node, env)
 
+	case *ast.QueryOneStatement:
+		return evalQueryOneStatement(node, env)
+
+	case *ast.QueryManyStatement:
+		return evalQueryManyStatement(node, env)
+
+	case *ast.ExecuteStatement:
+		return evalExecuteStatement(node, env)
+
 	case *ast.ReturnStatement:
 		val := Eval(node.ReturnValue, env)
 		if isError(val) {
@@ -5374,6 +5383,27 @@ func Eval(node ast.Node, env *Environment) Object {
 		return evalPrefixExpression(node.Operator, right)
 
 	case *ast.InfixExpression:
+		// Special handling for database operators
+		if node.Operator == "<=?=>" || node.Operator == "<=??=>" || node.Operator == "<=!=>" {
+			connection := Eval(node.Left, env)
+			if isError(connection) {
+				return connection
+			}
+			query := Eval(node.Right, env)
+			if isError(query) {
+				return query
+			}
+			
+			switch node.Operator {
+			case "<=?=>":
+				return evalDatabaseQueryOne(connection, query, env)
+			case "<=??=>":
+				return evalDatabaseQueryMany(connection, query, env)
+			case "<=!=>":
+				return evalDatabaseExecute(connection, query, env)
+			}
+		}
+		
 		// Special handling for nullish coalescing operator (??)
 		// It's short-circuit: only evaluate right if left is NULL
 		if node.Operator == "??" {
@@ -7154,6 +7184,11 @@ func evalStandardTagPair(node *ast.TagPairExpression, env *Environment) Object {
 
 // evalCustomTagPair evaluates a custom (uppercase) tag pair as a function call
 func evalCustomTagPair(node *ast.TagPairExpression, env *Environment) Object {
+	// Special handling for <SQL> tags
+	if node.Name == "SQL" {
+		return evalSQLTag(node, env)
+	}
+
 	// Look up the component variable/function
 	val, ok := env.Get(node.Name)
 	if !ok {
@@ -7233,6 +7268,43 @@ func evalTagContentsAsArray(contents []ast.Node, env *Environment) Object {
 	}
 
 	return &Array{Elements: elements}
+}
+
+// evalSQLTag handles <SQL params={...}>...</SQL> tags
+func evalSQLTag(node *ast.TagPairExpression, env *Environment) Object {
+	// Parse props to get params
+	propsDict := parseTagProps(node.Props, env)
+	if isError(propsDict) {
+		return propsDict
+	}
+
+	// Get the SQL content
+	sqlContent := evalTagContents(node.Contents, env)
+	if isError(sqlContent) {
+		return sqlContent
+	}
+
+	sqlStr, ok := sqlContent.(*String)
+	if !ok {
+		return newError("SQL tag content must be a string")
+	}
+
+	// Build result dictionary with sql and params
+	resultPairs := map[string]ast.Expression{
+		"sql": &ast.StringLiteral{Value: sqlStr.Value},
+	}
+
+	// Add params if provided
+	if dict, ok := propsDict.(*Dictionary); ok {
+		if paramsExpr, hasParams := dict.Pairs["params"]; hasParams {
+			resultPairs["params"] = paramsExpr
+		}
+	}
+
+	return &Dictionary{
+		Pairs: resultPairs,
+		Env:   env,
+	}
 }
 
 // evalTagProps evaluates tag props string with interpolations
@@ -7626,6 +7698,61 @@ func parseTagProps(propsStr string, env *Environment) Object {
 		} else if propsStr[i] == '{' {
 			// Expression in braces
 			i++ // skip {
+			
+			// Check for spread operator ...expr
+			if i+3 <= len(propsStr) && propsStr[i] == '.' && propsStr[i+1] == '.' && propsStr[i+2] == '.' {
+				i += 3 // skip ...
+				exprStart := i
+				braceCount := 1
+				
+				for i < len(propsStr) && braceCount > 0 {
+					if propsStr[i] == '{' {
+						braceCount++
+					} else if propsStr[i] == '}' {
+						braceCount--
+					}
+					if braceCount > 0 {
+						i++
+					}
+				}
+				
+				if braceCount != 0 {
+					return newError("unclosed {...} in tag spread operator")
+				}
+				
+				exprStr := propsStr[exprStart:i]
+				i++ // skip }
+				
+				// Parse and evaluate the spread expression
+				l := lexer.New(exprStr)
+				p := parser.New(l)
+				program := p.ParseProgram()
+				
+				if len(p.Errors()) > 0 {
+					return newError("error parsing tag spread expression: %s", p.Errors()[0])
+				}
+				
+				if len(program.Statements) > 0 {
+					if exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement); ok {
+						// Evaluate the spread expression immediately
+						spreadObj := Eval(exprStmt.Expression, env)
+						if isError(spreadObj) {
+							return spreadObj
+						}
+						
+						// If it's a dictionary, merge its properties
+						if spreadDict, ok := spreadObj.(*Dictionary); ok {
+							for key, value := range spreadDict.Pairs {
+								pairs[key] = value
+							}
+						} else {
+							return newError("spread operator requires a dictionary, got %s", spreadObj.Type())
+						}
+					}
+				}
+				continue
+			}
+			
 			braceCount := 1
 			exprStart := i
 
@@ -9124,6 +9251,457 @@ func evalWriteStatement(node *ast.WriteStatement, env *Environment) Object {
 	}
 
 	return NULL
+}
+
+// evalQueryOneStatement evaluates the <=?=> operator to query a single row
+func evalQueryOneStatement(node *ast.QueryOneStatement, env *Environment) Object {
+	// Evaluate the connection
+	connObj := Eval(node.Connection, env)
+	if isError(connObj) {
+		return connObj
+	}
+
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return newError("query operator <=?=> requires a database connection, got %s", connObj.Type())
+	}
+
+	// Evaluate the query expression (should return a tag with SQL and params)
+	queryObj := Eval(node.Query, env)
+	if isError(queryObj) {
+		return queryObj
+	}
+
+	// Extract SQL and params from the query object
+	sql, params, err := extractSQLAndParams(queryObj, env)
+	if err != nil {
+		return err
+	}
+
+	// Execute the query
+	// For QueryRow, we need to get column info, so we use Query instead
+	rows, queryErr := conn.DB.Query(sql, params...)
+	if queryErr != nil {
+		conn.LastError = queryErr.Error()
+		return newError("query failed: %s", queryErr.Error())
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, colErr := rows.Columns()
+	if colErr != nil {
+		conn.LastError = colErr.Error()
+		return newError("failed to get columns: %s", colErr.Error())
+	}
+
+	// Check if there's a row
+	if !rows.Next() {
+		// No rows - return null
+		return assignQueryResult(node.Names, NULL, env, node.IsLet)
+	}
+
+	// Scan the row into a map
+	values := make([]interface{}, len(columns))
+	valuePtrs := make([]interface{}, len(columns))
+	for i := range values {
+		valuePtrs[i] = &values[i]
+	}
+
+	if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
+		conn.LastError = scanErr.Error()
+		return newError("failed to scan row: %s", scanErr.Error())
+	}
+
+	// Convert to dictionary
+	resultDict := rowToDict(columns, values, env)
+	
+	return assignQueryResult(node.Names, resultDict, env, node.IsLet)
+}
+
+// evalQueryManyStatement evaluates the <=??=> operator to query multiple rows
+func evalQueryManyStatement(node *ast.QueryManyStatement, env *Environment) Object {
+	// Evaluate the connection
+	connObj := Eval(node.Connection, env)
+	if isError(connObj) {
+		return connObj
+	}
+
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return newError("query operator <=??=> requires a database connection, got %s", connObj.Type())
+	}
+
+	// Evaluate the query expression
+	queryObj := Eval(node.Query, env)
+	if isError(queryObj) {
+		return queryObj
+	}
+
+	// Extract SQL and params
+	sql, params, err := extractSQLAndParams(queryObj, env)
+	if err != nil {
+		return err
+	}
+
+	// Execute the query
+	rows, queryErr := conn.DB.Query(sql, params...)
+	if queryErr != nil {
+		conn.LastError = queryErr.Error()
+		return newError("query failed: %s", queryErr.Error())
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, colErr := rows.Columns()
+	if colErr != nil {
+		conn.LastError = colErr.Error()
+		return newError("failed to get columns: %s", colErr.Error())
+	}
+
+	// Scan all rows
+	var results []Object
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
+			conn.LastError = scanErr.Error()
+			return newError("failed to scan row: %s", scanErr.Error())
+		}
+
+		resultDict := rowToDict(columns, values, env)
+		results = append(results, resultDict)
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		conn.LastError = rowsErr.Error()
+		return newError("error iterating rows: %s", rowsErr.Error())
+	}
+
+	resultArray := &Array{Elements: results}
+	return assignQueryResult(node.Names, resultArray, env, node.IsLet)
+}
+
+// evalExecuteStatement evaluates the <=!=> operator to execute mutations
+func evalExecuteStatement(node *ast.ExecuteStatement, env *Environment) Object {
+	// Evaluate the connection
+	connObj := Eval(node.Connection, env)
+	if isError(connObj) {
+		return connObj
+	}
+
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return newError("execute operator <=!=> requires a database connection, got %s", connObj.Type())
+	}
+
+	// Evaluate the query expression
+	queryObj := Eval(node.Query, env)
+	if isError(queryObj) {
+		return queryObj
+	}
+
+	// Extract SQL and params
+	sql, params, err := extractSQLAndParams(queryObj, env)
+	if err != nil {
+		return err
+	}
+
+	// Execute the statement
+	result, execErr := conn.DB.Exec(sql, params...)
+	if execErr != nil {
+		conn.LastError = execErr.Error()
+		return newError("execute failed: %s", execErr.Error())
+	}
+
+	// Get affected rows and last insert ID
+	affected, _ := result.RowsAffected()
+	lastId, _ := result.LastInsertId()
+
+	// Return result as dictionary
+	resultDict := &Dictionary{
+		Pairs: map[string]ast.Expression{
+			"affected": &ast.IntegerLiteral{Value: affected},
+			"lastId":   &ast.IntegerLiteral{Value: lastId},
+		},
+		Env: env,
+	}
+
+	return assignQueryResult(node.Names, resultDict, env, node.IsLet)
+}
+
+// extractSQLAndParams extracts SQL string and parameters from a query object
+func extractSQLAndParams(queryObj Object, env *Environment) (string, []interface{}, *Error) {
+	// If it's a string, use it directly with no params
+	if str, ok := queryObj.(*String); ok {
+		return str.Value, nil, nil
+	}
+
+	// If it's a dictionary (from <SQL> tag), extract sql and params
+	if dict, ok := queryObj.(*Dictionary); ok {
+		// Get SQL content
+		sqlExpr, hasSql := dict.Pairs["sql"]
+		if !hasSql {
+			return "", nil, newError("query object missing 'sql' property")
+		}
+		sqlObj := Eval(sqlExpr, env)
+		if isError(sqlObj) {
+			return "", nil, sqlObj.(*Error)
+		}
+		sqlStr, ok := sqlObj.(*String)
+		if !ok {
+			return "", nil, newError("sql property must be a string, got %s", sqlObj.Type())
+		}
+
+		// Get params if present
+		var params []interface{}
+		if paramsExpr, hasParams := dict.Pairs["params"]; hasParams {
+			paramsObj := Eval(paramsExpr, env)
+			if isError(paramsObj) {
+				return "", nil, paramsObj.(*Error)
+			}
+			if paramsDict, ok := paramsObj.(*Dictionary); ok {
+				params = dictToNamedParams(paramsDict, env)
+			}
+		}
+
+		return sqlStr.Value, params, nil
+	}
+
+	return "", nil, newError("query must be a string or <SQL> tag, got %s", queryObj.Type())
+}
+
+// dictToNamedParams converts a dictionary to a slice of named parameters
+func dictToNamedParams(dict *Dictionary, env *Environment) []interface{} {
+	params := make([]interface{}, 0, len(dict.Pairs))
+	
+	// Sort keys for consistent order
+	keys := make([]string, 0, len(dict.Pairs))
+	for key := range dict.Pairs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		expr := dict.Pairs[key]
+		val := Eval(expr, env)
+		params = append(params, objectToGoValue(val))
+	}
+
+	return params
+}
+
+// objectToGoValue converts a Parsley object to a Go value for database params
+func objectToGoValue(obj Object) interface{} {
+	switch v := obj.(type) {
+	case *Integer:
+		return v.Value
+	case *Float:
+		return v.Value
+	case *String:
+		return v.Value
+	case *Boolean:
+		return v.Value
+	case *Null:
+		return nil
+	default:
+		return obj.Inspect()
+	}
+}
+
+// rowToDict converts a database row to a Parsley dictionary
+func rowToDict(columns []string, values []interface{}, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+	
+	for i, col := range columns {
+		var expr ast.Expression
+		
+		switch v := values[i].(type) {
+		case int64:
+			expr = &ast.IntegerLiteral{Value: v}
+		case float64:
+			expr = &ast.FloatLiteral{Value: v}
+		case string:
+			expr = &ast.StringLiteral{Value: v}
+		case []byte:
+			expr = &ast.StringLiteral{Value: string(v)}
+		case bool:
+			expr = &ast.Boolean{Value: v}
+		case nil:
+			// For nil values, use an identifier that evaluates to null
+			expr = &ast.Identifier{Value: "null"}
+		default:
+			// For unknown types, convert to string
+			expr = &ast.StringLiteral{Value: fmt.Sprintf("%v", v)}
+		}
+		
+		pairs[col] = expr
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
+// assignQueryResult assigns query result to variables
+func assignQueryResult(names []*ast.Identifier, result Object, env *Environment, isLet bool) Object {
+	if len(names) == 0 {
+		return result
+	}
+
+	if len(names) == 1 {
+		name := names[0].Value
+		if name != "_" {
+			if isLet {
+				env.SetLet(name, result)
+			} else {
+				env.Update(name, result)
+			}
+		}
+		return result
+	}
+
+	// Multiple names - destructure array or dict
+	return evalDestructuringAssignment(names, result, env, isLet, false)
+}
+
+// evalDatabaseQueryOne evaluates database query for single row (infix expression version)
+func evalDatabaseQueryOne(connObj Object, queryObj Object, env *Environment) Object {
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return newError("query operator <=?=> requires a database connection, got %s", connObj.Type())
+	}
+
+	// Extract SQL and params from the query object
+	sql, params, err := extractSQLAndParams(queryObj, env)
+	if err != nil {
+		return err
+	}
+
+	// Execute the query
+	rows, queryErr := conn.DB.Query(sql, params...)
+	if queryErr != nil {
+		conn.LastError = queryErr.Error()
+		return newError("query failed: %s", queryErr.Error())
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, colErr := rows.Columns()
+	if colErr != nil {
+		conn.LastError = colErr.Error()
+		return newError("failed to get columns: %s", colErr.Error())
+	}
+
+	// Check if there's a row
+	if !rows.Next() {
+		// No rows - return null
+		return NULL
+	}
+
+	// Scan the row into a map
+	values := make([]interface{}, len(columns))
+	valuePtrs := make([]interface{}, len(columns))
+	for i := range values {
+		valuePtrs[i] = &values[i]
+	}
+
+	if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
+		conn.LastError = scanErr.Error()
+		return newError("failed to scan row: %s", scanErr.Error())
+	}
+
+	// Convert to dictionary
+	return rowToDict(columns, values, env)
+}
+
+// evalDatabaseQueryMany evaluates database query for multiple rows (infix expression version)
+func evalDatabaseQueryMany(connObj Object, queryObj Object, env *Environment) Object {
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return newError("query operator <=??=> requires a database connection, got %s", connObj.Type())
+	}
+
+	// Extract SQL and params
+	sql, params, err := extractSQLAndParams(queryObj, env)
+	if err != nil {
+		return err
+	}
+
+	// Execute the query
+	rows, queryErr := conn.DB.Query(sql, params...)
+	if queryErr != nil {
+		conn.LastError = queryErr.Error()
+		return newError("query failed: %s", queryErr.Error())
+	}
+	defer rows.Close()
+
+	// Get column names
+	columns, colErr := rows.Columns()
+	if colErr != nil {
+		conn.LastError = colErr.Error()
+		return newError("failed to get columns: %s", colErr.Error())
+	}
+
+	// Scan all rows
+	var results []Object
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if scanErr := rows.Scan(valuePtrs...); scanErr != nil {
+			conn.LastError = scanErr.Error()
+			return newError("failed to scan row: %s", scanErr.Error())
+		}
+
+		resultDict := rowToDict(columns, values, env)
+		results = append(results, resultDict)
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		conn.LastError = rowsErr.Error()
+		return newError("error iterating rows: %s", rowsErr.Error())
+	}
+
+	return &Array{Elements: results}
+}
+
+// evalDatabaseExecute evaluates database execute statement (infix expression version)
+func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Object {
+	conn, ok := connObj.(*DBConnection)
+	if !ok {
+		return newError("execute operator <=!=> requires a database connection, got %s", connObj.Type())
+	}
+
+	// Extract SQL and params
+	sql, params, err := extractSQLAndParams(queryObj, env)
+	if err != nil {
+		return err
+	}
+
+	// Execute the statement
+	result, execErr := conn.DB.Exec(sql, params...)
+	if execErr != nil {
+		conn.LastError = execErr.Error()
+		return newError("execute failed: %s", execErr.Error())
+	}
+
+	// Get affected rows and last insert ID
+	affected, _ := result.RowsAffected()
+	lastId, _ := result.LastInsertId()
+
+	// Return result as dictionary
+	return &Dictionary{
+		Pairs: map[string]ast.Expression{
+			"affected": &ast.IntegerLiteral{Value: affected},
+			"lastId":   &ast.IntegerLiteral{Value: lastId},
+		},
+		Env: env,
+	}
 }
 
 // writeFileContent writes content to a file based on its format
