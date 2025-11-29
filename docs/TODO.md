@@ -9,6 +9,7 @@
 ~~- chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin~~ ✅ (v0.10.0)
 ~~- run scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
 ~~- pipe scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
+~~- Fetch support for format objects~~ ✅ (v0.9.11 - documented in v0.11.0)
 
 ## IN PLANNING
 

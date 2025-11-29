@@ -145,6 +145,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.9.11] - 2025-11-28
 
 ### Added
+- **HTTP Requests (Fetch)**: Fetch content from URLs using the `<=/=` operator
+  - Format factories: `JSON(url)`, `text(url)`, `YAML(url)`, `lines(url)`, `bytes(url)`
+  - Request options: `method`, `headers`, `body`, `timeout`
+  - Response destructuring: `{data, error, status, headers} <=/= request`
+  - Support for GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+  - Error capture pattern for robust error handling
+  - Example: `let users <=/= JSON(@https://api.example.com/users)`
 - **Datetime "Kinds"**: Datetime literals now track their display format
   - `@2024-11-26` → kind: `"date"` (displays as "2024-11-26")
   - `@2024-11-26T15:30:00` → kind: `"datetime"` (displays as ISO datetime)
@@ -154,6 +161,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - Improved consistency in `toString()` and `toDict()` methods across all types
+
+### Documentation
+- Added comprehensive HTTP Requests documentation in reference.md
+- Added HTTP request examples to README.md  
+- Created `examples/fetch_demo.pars` with working examples
+
+**Note**: HTTP Requests feature was implemented in v0.9.11 but documentation was added retroactively in v0.11.0.
 
 ---
 

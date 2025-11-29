@@ -1,0 +1,289 @@
+// HTTP Requests Demo - Fetch content from URLs
+// Run: ./pars examples/fetch_demo.pars
+
+log("\n=== HTTP Requests Demo ===\n")
+
+// ============================================================
+// 1. Basic GET Requests
+// ============================================================
+
+log("1. Basic GET Requests")
+log("---------------------")
+
+// Fetch JSON data from public API
+let {data as users, error as usersErr} <=/= JSON(@https://jsonplaceholder.typicode.com/users)
+if (usersErr == null) {
+    log("✓ Fetched " + users.length() + " users")
+    log("  First user: " + users[0].name + " <" + users[0].email + ">")
+} else {
+    log("✗ Failed to fetch users:", usersErr)
+}
+
+// Fetch plain text
+let {data as html, error as htmlErr} <=/= text(@https://example.com)
+if (htmlErr == null) {
+    let htmlLines = html.split("\n")
+    log("✓ Fetched HTML (" + htmlLines.length() + " lines)")
+    log("  First line: " + htmlLines[0])
+} else {
+    log("✗ Failed to fetch HTML:", htmlErr)
+}
+
+log("")
+
+// ============================================================
+// 2. Response Structure
+// ============================================================
+
+log("2. Response Structure")
+log("---------------------")
+
+// Access all response fields
+let {data, error, status, headers} <=/= JSON(@https://jsonplaceholder.typicode.com/posts/1)
+log("Data:", if (error == null) data.title else "N/A")
+let errorMsg = if (error == null) "none" else error
+log("Error:", errorMsg)
+log("Status:", status)
+let contentType = headers["Content-Type"]
+let contentTypeStr = if (contentType != null) contentType else "unknown"
+log("Content-Type:", contentTypeStr)
+
+log("")
+
+// ============================================================
+// 3. POST Requests
+// ============================================================
+
+log("3. POST Requests")
+log("----------------")
+
+let newPost = {
+    title: "Hello from Parsley",
+    body: "This is a test post created by Parsley",
+    userId: 1
+}
+
+let {data as created, error as createErr, status as createStatus} <=/= JSON(@https://jsonplaceholder.typicode.com/posts, {
+    method: "POST",
+    body: newPost
+})
+
+if (createErr == null && createStatus == 201) {
+    log("✓ Created post #" + created.id)
+    log("  Title: " + created.title)
+} else {
+    log("✗ Failed to create post:", createErr)
+}
+
+log("")
+
+// ============================================================
+// 4. PUT/PATCH Requests
+// ============================================================
+
+log("4. PUT/PATCH Requests")
+log("---------------------")
+
+// Update with PUT (full replacement)
+let {data as updated, status as putStatus} <=/= JSON(@https://jsonplaceholder.typicode.com/posts/1, {
+    method: "PUT",
+    body: {title: "Updated Title", body: "New content", userId: 1}
+})
+log("PUT status:", putStatus, "- Title:", updated.title)
+
+// Partial update with PATCH
+let {data as patched, status as patchStatus} <=/= JSON(@https://jsonplaceholder.typicode.com/posts/1, {
+    method: "PATCH",
+    body: {title: "Patched Title"}
+})
+log("PATCH status:", patchStatus, "- Title:", patched.title)
+
+log("")
+
+// ============================================================
+// 5. DELETE Requests
+// ============================================================
+
+log("5. DELETE Requests")
+log("------------------")
+
+let {status as deleteStatus, error as deleteErr} <=/= JSON(@https://jsonplaceholder.typicode.com/posts/1, {
+    method: "DELETE"
+})
+
+if (deleteStatus == 200 && deleteErr == null) {
+    log("✓ Deleted post (status: " + deleteStatus + ")")
+} else {
+    log("✗ Delete failed:", deleteErr)
+}
+
+log("")
+
+// ============================================================
+// 6. Custom Headers
+// ============================================================
+
+log("6. Custom Headers")
+log("-----------------")
+
+log("Note: Parsley dictionary syntax requires identifier keys (no hyphens).")
+log("For HTTP headers with hyphens, consider using simple header names or")
+log("constructing headers programmatically if needed.")
+
+// Simple headers without hyphens work fine
+let {data as authData, status as authStatus} <=/= JSON(@https://jsonplaceholder.typicode.com/todos/1)
+
+log("Request - Status:", authStatus)
+log("Todo:", if (authStatus == 200) authData.title else "N/A")
+
+log("")
+
+// ============================================================
+// 7. Error Handling
+// ============================================================
+
+log("7. Error Handling")
+log("-----------------")
+
+// Non-existent endpoint (404)
+let {data as notFound, error as nfErr, status as nfStatus} <=/= JSON(@https://jsonplaceholder.typicode.com/invalid)
+let errorInfo = if (nfErr != null) nfErr else "HTTP " + nfStatus
+log("404 endpoint - Status:", nfStatus, "Error:", errorInfo)
+
+// Invalid URL
+let {error as invalidErr} <=/= JSON(@https://this-domain-does-not-exist-123456.com/api)
+log("Invalid domain - Error:", invalidErr)
+
+// Use default values on error
+let {data as fallbackData} <=/= JSON(@https://invalid-url.com)
+if (fallbackData != null) {
+    log("Fallback value:", fallbackData)
+} else {
+    log("Fallback value: null (using default)")
+}
+
+log("")
+
+// ============================================================
+// 8. Different Format Factories
+// ============================================================
+
+log("8. Format Factories")
+log("-------------------")
+
+// JSON format (parsed automatically)
+let jsonData <=/= JSON(@https://jsonplaceholder.typicode.com/users/1)
+log("JSON format:", jsonData.name)
+
+// Text format (raw string)
+let textData <=/= text(@https://jsonplaceholder.typicode.com/users/1)
+log("Text format (first 50 chars):", textData[0:50] + "...")
+
+// Lines format (array of strings)
+let linesData <=/= lines(@https://example.com)
+log("Lines format:", linesData.length(), "lines")
+
+log("")
+
+// ============================================================
+// 9. Timeout Configuration
+// ============================================================
+
+log("9. Timeout Configuration")
+log("------------------------")
+
+// Fast timeout (might fail on slow connections)
+let {data as quickData, error as quickErr} <=/= JSON(@https://jsonplaceholder.typicode.com/posts/1, {
+    timeout: 1000  // 1 second
+})
+
+if (quickErr != null) {
+    log("Fast timeout - Error:", quickErr)
+} else {
+    log("Fast timeout - Success")
+}
+
+// Longer timeout for slow endpoints
+let {data as slowData, error as slowErr} <=/= JSON(@https://jsonplaceholder.typicode.com/posts, {
+    timeout: 30000  // 30 seconds (default)
+})
+
+if (slowErr == null) {
+    log("Standard timeout - Result:", slowData.length() + " posts")
+} else {
+    log("Standard timeout - Error:", slowErr)
+}
+
+log("")
+
+// ============================================================
+// 10. Practical Example: API Integration
+// ============================================================
+
+log("10. Practical Example: GitHub API")
+log("----------------------------------")
+
+// Note: GitHub API works better with custom headers, but
+// Parsley dict syntax doesn't support hyphenated keys like "User-Agent"
+// The API will still work without custom headers
+
+// Fetch GitHub user data
+let {data as ghUser, error as ghErr, status as ghStatus} <=/= JSON(@https://api.github.com/users/octocat)
+
+if (ghErr == null && ghStatus == 200) {
+    log("✓ GitHub User: " + ghUser.login)
+    log("  Name: " + ghUser.name)
+    log("  Public Repos: " + ghUser.public_repos)
+    log("  Followers: " + ghUser.followers)
+    log("  Created: " + ghUser.created_at)
+} else {
+    log("✗ GitHub API error:", ghErr)
+}
+
+log("")
+
+// ============================================================
+// 11. Multiple API Calls
+// ============================================================
+
+log("11. Multiple API Calls")
+log("----------------------")
+
+// Fetch user and their posts
+let userId = 1
+let {data as user} <=/= JSON(@https://jsonplaceholder.typicode.com/users/1)
+let {data as posts} <=/= JSON(@https://jsonplaceholder.typicode.com/posts)
+
+if (user != null && posts != null) {
+    let userPosts = posts.filter(fn(p) { p.userId == userId })
+    log("User:", user.name)
+    log("Total posts by user:", userPosts.length())
+    log("First post:", userPosts[0].title)
+}
+
+log("")
+
+// ============================================================
+// 12. Download and Save Content
+// ============================================================
+
+log("12. Download and Save")
+log("---------------------")
+
+// Fetch and save to file
+let {data as readmeData, error as readmeErr} <=/= text(@https://raw.githubusercontent.com/golang/go/master/README.md)
+
+if (readmeErr == null) {
+    log("✓ Downloaded Go README.md (" + readmeData.length() + " characters)")
+    log("  Note: File save requires --allow-write flag")
+    log("  To save: readmeData ==> text(@./go_readme_downloaded.md)")
+} else {
+    log("✗ Download failed:", readmeErr)
+}
+
+log("")
+
+log("=== Demo Complete ===")
+log("\nFor more details, see: docs/reference.md#http-requests")
+log("To run with file write permissions: ./pars --allow-write examples/fetch_demo.pars")
+

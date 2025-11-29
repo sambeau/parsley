@@ -388,6 +388,44 @@ db.close()     // Close connection
 
 See [examples/database_demo.pars](examples/database_demo.pars) for a complete working example.
 
+### HTTP Requests
+
+Fetch content from URLs using the `<=/=` operator with format factories:
+
+```parsley
+// Fetch JSON from API
+let users <=/= JSON(@https://api.example.com/users)
+log(users[0].name)
+
+// Fetch plain text
+let html <=/= text(@https://example.com)
+
+// POST request with body
+let response <=/= JSON(@https://api.example.com/users, {
+    method: "POST",
+    body: {name: "Alice", email: "alice@example.com"}
+})
+
+// Error handling with destructuring
+let {data, error, status} <=/= JSON(@https://api.example.com/data)
+if (error != null) {
+    log("Fetch failed:", error)
+} else if (status == 200) {
+    log("Success:", data)
+}
+
+// Custom timeout
+let data <=/= JSON(@https://slow-api.com/data, {
+    timeout: 10000  // 10 seconds (default: 30000)
+})
+```
+
+**Format factories**: `JSON()`, `text()`, `YAML()`, `lines()`, `bytes()`  
+**HTTP methods**: GET (default), POST, PUT, PATCH, DELETE, HEAD, OPTIONS  
+**Response fields**: `data`, `error`, `status`, `headers`
+
+See [examples/fetch_demo.pars](examples/fetch_demo.pars) for complete examples.
+
 ### Process Execution
 
 Execute external commands and process their output:

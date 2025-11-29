@@ -862,6 +862,233 @@ match[3]  // "4567"
 
 ---
 
+## HTTP Requests
+
+Fetch content from URLs using the `<=/=` operator with request handles.
+
+### Fetch Operator
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `<=/=` | Fetch from URL | `let data <=/= JSON(@https://api.example.com)` |
+
+### Request Handle Factories
+
+| Factory | Format | Returns |
+|---------|--------|---------|
+| `JSON(url)` | JSON | Parsed JSON (dict/array) |
+| `text(url)` | Plain text | String |
+| `YAML(url)` | YAML | Parsed YAML |
+| `lines(url)` | Lines | Array of strings |
+| `bytes(url)` | Binary | Array of integers |
+
+### Basic Usage
+
+```parsley
+// Fetch JSON data
+let users <=/= JSON(@https://api.example.com/users)
+log(users[0].name)
+
+// Fetch text content
+let html <=/= text(@https://example.com)
+
+// Direct URL fetch (defaults to text)
+let content <=/= @https://example.com
+```
+
+### Request Options
+
+Pass a second argument to customize the request:
+
+```parsley
+// POST with JSON body
+let response <=/= JSON(@https://api.example.com/users, {
+    method: "POST",
+    body: {name: "Alice", email: "alice@example.com"},
+    headers: {"Authorization": "Bearer token123"}
+})
+
+// Custom timeout (milliseconds)
+let data <=/= JSON(@https://slow-api.com/data, {
+    timeout: 10000  // 10 seconds
+})
+
+// PUT request
+let updated <=/= JSON(@https://api.example.com/users/1, {
+    method: "PUT",
+    body: {name: "Bob"},
+    headers: {"Content-Type": "application/json"}
+})
+```
+
+### Error Handling
+
+Use destructuring to capture errors and response metadata:
+
+```parsley
+// Basic error capture
+let {data, error} <=/= JSON(@https://api.example.com/data)
+if (error != null) {
+    log("Fetch failed:", error)
+} else {
+    log("Success:", data)
+}
+
+// Access HTTP status and headers
+let {data, error, status, headers} <=/= JSON(@https://api.example.com/users)
+log("Status code:", status)
+log("Content-Type:", headers["Content-Type"])
+
+// Handle errors gracefully
+let {data, error} <=/= JSON(@https://unreliable-api.com/data)
+let users = data ?? []  // Default to empty array on error
+```
+
+### HTTP Methods
+
+Supported methods: GET (default), POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+
+```parsley
+// GET (default)
+let data <=/= JSON(@https://api.example.com/items)
+
+// POST
+let created <=/= JSON(@https://api.example.com/items, {
+    method: "POST",
+    body: {title: "New Item"}
+})
+
+// DELETE
+let {data, status} <=/= JSON(@https://api.example.com/items/123, {
+    method: "DELETE"
+})
+
+// PATCH
+let updated <=/= JSON(@https://api.example.com/items/123, {
+    method: "PATCH",
+    body: {title: "Updated Title"}
+})
+```
+
+### Request Headers
+
+Customize headers for authentication, content negotiation, etc.
+
+**Note**: Parsley dictionary syntax requires identifier keys (no hyphens or special characters). For HTTP headers with hyphens like "Content-Type" or "User-Agent", you may need to work around this limitation or use simple header names.
+
+```parsley
+// Simple headers without hyphens work fine
+let data <=/= JSON(@https://api.example.com/data, {
+    headers: {
+        Authorization: "Bearer " + apiToken
+    }
+})
+
+// For headers requiring hyphens, consider alternative approaches
+// or wait for future Parsley enhancements
+```
+
+### Response Structure
+
+When using error capture pattern `{data, error, status, headers}`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | Varies | Parsed response body (based on format) |
+| `error` | String/Null | Error message if request failed, `null` on success |
+| `status` | Integer | HTTP status code (200, 404, 500, etc.) |
+| `headers` | Dictionary | Response HTTP headers |
+
+```parsley
+let {data, error, status, headers} <=/= JSON(@https://api.example.com/data)
+
+if (status == 200) {
+    log("Success!")
+} else if (status == 404) {
+    log("Not found")
+} else if (status >= 500) {
+    log("Server error")
+}
+```
+
+### Practical Examples
+
+**API Integration:**
+```parsley
+// Fetch and process API data
+let {data, error} <=/= JSON(@https://api.github.com/users/octocat)
+if (error == null) {
+    log("User: " + data.login)
+    log("Repos: " + data.public_repos)
+}
+```
+
+**Form Submission:**
+```parsley
+let formData = {
+    username: "alice",
+    password: "secret123"
+}
+
+let {data, error, status} <=/= JSON(@https://example.com/login, {
+    method: "POST",
+    body: formData,
+    headers: {"Content-Type": "application/json"}
+})
+
+if (status == 200) {
+    log("Login successful!")
+} else {
+    log("Login failed:", error)
+}
+```
+
+**Download Text Content:**
+```parsley
+let {data, error} <=/= text(@https://raw.githubusercontent.com/user/repo/main/README.md)
+if (error == null) {
+    data ==> text(@./downloaded_readme.md)
+}
+```
+
+**Multiple API Calls:**
+```parsley
+let users <=/= JSON(@https://api.example.com/users)
+let posts <=/= JSON(@https://api.example.com/posts)
+
+for (user in users) {
+    let userPosts = posts.filter(fn(p) { p.userId == user.id })
+    log(user.name + " has " + userPosts.length() + " posts")
+}
+```
+
+### Best Practices
+
+1. **Always handle errors** - Use `{data, error}` pattern for robust code
+2. **Set reasonable timeouts** - Default is 30 seconds, adjust as needed
+3. **Check status codes** - Don't assume 200 OK, verify response status
+4. **Use appropriate formats** - JSON for APIs, text for HTML, bytes for binary
+5. **Secure credentials** - Never hardcode API keys, use environment variables
+
+```parsley
+// Good: Error handling and timeout
+let {data, error, status} <=/= JSON(@https://api.example.com/data, {
+    timeout: 5000,
+    headers: {"Authorization": "Bearer " + getToken()}
+})
+
+if (error != null) {
+    log("Request failed:", error)
+} else if (status >= 400) {
+    log("HTTP error:", status)
+} else {
+    // Process data
+    log("Success:", data)
+}
+```
+
+---
+
 ## Database
 
 Parsley provides first-class support for SQLite databases with clean, expressive operators.
