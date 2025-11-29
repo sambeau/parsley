@@ -17,10 +17,9 @@
 
 ### For V1.0 ALPHA
 
-- Improve REPL
-	- Investigate options: what do other Go cli tools do?
-	- Better editing Up, down, left, right
-	- code color based on grammar?
+~~- Improve REPL~~ ✅ (v0.12.2)
+	~~- Investigate options: what do other Go cli tools do?~~ ✅
+	~~- Better editing Up, down, left, right~~ ✅
 - Look at consistency of API one more time
 	- Remove deprecated features
 - Check everything is working:

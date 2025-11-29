@@ -2129,3 +2129,97 @@ The following operations are subject to security checks:
    ```bash
    ./pars --no-read --allow-write=./sandbox untrusted.pars
    ```
+
+---
+
+## Interactive REPL
+
+Parsley includes an enhanced Read-Eval-Print Loop (REPL) for interactive development and testing.
+
+### Starting the REPL
+
+```bash
+./pars              # Start interactive REPL
+```
+
+### Features
+
+| Feature | Description | Keys |
+|---------|-------------|------|
+| **Cursor Movement** | Move within current line | ← → |
+| **Command History** | Navigate previous commands | ↑ ↓ |
+| **History Persistence** | Saved across sessions | `~/.parsley_history` |
+| **Tab Completion** | Auto-complete keywords/builtins | Tab |
+| **Multi-line Input** | Automatic detection of incomplete expressions | (automatic) |
+| **Line Editing** | Standard editing shortcuts | Ctrl+A/E (home/end), Ctrl+K (kill) |
+| **Abort Line** | Cancel current input | Ctrl+C |
+| **Exit** | Quit REPL | Ctrl+D or `exit` |
+
+### Tab Completion
+
+Press Tab to auto-complete keywords and built-in functions. Completion words include:
+
+**Keywords:** `let`, `if`, `else`, `for`, `in`, `fn`, `return`, `export`, `import`
+
+**I/O Functions:** `log`, `logLine`, `file`, `dir`, `JSON`, `CSV`, `MD`, `SVG`, `HTML`, `text`, `lines`, `bytes`, `SFTP`, `Fetch`, `SQL`
+
+**Collections:** `len`, `keys`, `values`, `type`, `sort`, `reverse`, `join`
+
+**Strings:** `split`, `trim`, `upper`, `lower`, `contains`, `startsWith`, `endsWith`, `replace`, `match`, `test`
+
+**Math:** `abs`, `floor`, `ceil`, `round`, `sqrt`, `pow`, `sin`, `cos`, `tan`, `min`, `max`, `sum`
+
+**DateTime:** `now`, `date`, `time`, `duration`, `format`, `parse`
+
+**Other:** `range`, `glob`, `toString`, `true`, `false`, `null`
+
+### Multi-line Input
+
+The REPL automatically detects incomplete expressions (unclosed braces, brackets, or parentheses) and prompts for continuation:
+
+```
+>> let data = {
+..     name: "Alice",
+..     age: 30
+.. }
+{age: 30, name: "Alice"}
+```
+
+The `..` prompt indicates continuation mode. Press Ctrl+C to abort multi-line input and return to the main `>>` prompt.
+
+### Command History
+
+- Use ↑ and ↓ to navigate through previous commands
+- History is saved to `~/.parsley_history` and persists across sessions
+- Multi-line commands are saved as complete units
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+A** | Move to start of line |
+| **Ctrl+E** | Move to end of line |
+| **Ctrl+K** | Delete from cursor to end of line |
+| **Ctrl+U** | Delete from cursor to start of line |
+| **Ctrl+C** | Abort current line (clears multi-line buffer) |
+| **Ctrl+D** | Exit REPL |
+
+### Example Session
+
+```
+>> let name = "Parsley"
+>> log("Hello, {name}!")
+Hello, Parsley!
+
+>> let add = fn(a, b) { a + b }
+>> add(5, 3)
+8
+
+>> let nums = [1, 2, 3]
+>> nums.map(fn(x) { x * 2 })
+[2, 4, 6]
+
+>> exit
+Goodbye!
+```
+

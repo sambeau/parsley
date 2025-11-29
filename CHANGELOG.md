@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.12.2] - 2025-11-29
+
+### Added
+- **Enhanced REPL**: Professional interactive shell with modern editing features
+  - Cursor movement: ← → to move within line, ↑ ↓ for command history
+  - Tab completion: Auto-complete keywords and builtins (let, if, for, log, file, etc.)
+  - Multi-line input: Automatic detection of unclosed braces/brackets/parentheses
+  - Persistent history: Commands saved to `~/.parsley_history` across sessions
+  - Improved controls: Ctrl+C to abort current line, Ctrl+D to exit
+  - Visual feedback: ".." continuation prompt for multi-line expressions
+  - Better UX: "^C (cleared)" message when aborting multi-line input
+
+### Changed
+- REPL now uses `github.com/peterh/liner` library for line editing
+- Replaced basic `bufio.Scanner` with feature-rich interactive input
+
+---
+
 ## [0.12.1] - 2025-11-29
 
 ### Added

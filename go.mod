@@ -17,7 +17,9 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
+	github.com/peterh/liner v1.2.2 // indirect
 	github.com/pkg/sftp v1.13.10 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/crypto v0.45.0 // indirect
