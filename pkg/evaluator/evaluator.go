@@ -4061,14 +4061,14 @@ func getBuiltins() map[string]*Builtin {
 						return newError("invalid datetime dictionary: %s", err)
 					}
 				default:
-					return newError("argument to `time` must be STRING, INTEGER, or DICTIONARY, got %s", args[0].Type())
+					return newError("argument to `time` must be a string, integer, or dictionary, got %s", args[0].Type())
 				}
 
 				// Apply delta if provided
 				if len(args) == 2 {
 					delta, ok := args[1].(*Dictionary)
 					if !ok {
-						return newError("second argument to `time` must be DICTIONARY, got %s", args[1].Type())
+						return newError("second argument to `time` must be a dictionary, got %s", args[1].Type())
 					}
 					t = applyDelta(t, delta, env)
 				}
@@ -4575,14 +4575,14 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					value = arg.Value
 				default:
-					return newError("first argument to `formatNumber` must be INTEGER or FLOAT, got %s", args[0].Type())
+					return newError("first argument to `formatNumber` must be an integer or float, got %s", args[0].Type())
 				}
 
 				locale := "en"
 				if len(args) == 2 {
 					locStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `formatNumber` must be STRING, got %s", args[1].Type())
+						return newError("second argument to `formatNumber` must be a string, got %s", args[1].Type())
 					}
 					locale = locStr.Value
 				}
@@ -4609,12 +4609,12 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					value = arg.Value
 				default:
-					return newError("first argument to `formatCurrency` must be INTEGER or FLOAT, got %s", args[0].Type())
+					return newError("first argument to `formatCurrency` must be an integer or float, got %s", args[0].Type())
 				}
 
 				currStr, ok := args[1].(*String)
 				if !ok {
-					return newError("second argument to `formatCurrency` must be STRING (currency code), got %s", args[1].Type())
+					return newError("second argument to `formatCurrency` must be a string (currency code), got %s", args[1].Type())
 				}
 
 				cur, err := currency.ParseISO(currStr.Value)
@@ -4626,7 +4626,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 3 {
 					locStr, ok := args[2].(*String)
 					if !ok {
-						return newError("third argument to `formatCurrency` must be STRING, got %s", args[2].Type())
+						return newError("third argument to `formatCurrency` must be a string, got %s", args[2].Type())
 					}
 					locale = locStr.Value
 				}
@@ -4654,14 +4654,14 @@ func getBuiltins() map[string]*Builtin {
 				case *Float:
 					value = arg.Value
 				default:
-					return newError("first argument to `formatPercent` must be INTEGER or FLOAT, got %s", args[0].Type())
+					return newError("first argument to `formatPercent` must be an integer or float, got %s", args[0].Type())
 				}
 
 				locale := "en"
 				if len(args) == 2 {
 					locStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `formatPercent` must be STRING, got %s", args[1].Type())
+						return newError("second argument to `formatPercent` must be a string, got %s", args[1].Type())
 					}
 					locale = locStr.Value
 				}
@@ -4703,7 +4703,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) >= 2 {
 					styleStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `formatDate` must be STRING, got %s", args[1].Type())
+						return newError("second argument to `formatDate` must be a string, got %s", args[1].Type())
 					}
 					style = styleStr.Value
 					// Validate style
@@ -4716,7 +4716,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 3 {
 					locStr, ok := args[2].(*String)
 					if !ok {
-						return newError("third argument to `formatDate` must be STRING, got %s", args[2].Type())
+						return newError("third argument to `formatDate` must be a string, got %s", args[2].Type())
 					}
 					locale = locStr.Value
 				}
@@ -4752,7 +4752,7 @@ func getBuiltins() map[string]*Builtin {
 					if len(args) >= 2 {
 						styleStr, ok := args[1].(*String)
 						if !ok {
-							return newError("second argument to `format` for arrays must be STRING (style), got %s", args[1].Type())
+							return newError("second argument to `format` for arrays must be a string (style), got %s", args[1].Type())
 						}
 						switch styleStr.Value {
 						case "and":
@@ -4769,7 +4769,7 @@ func getBuiltins() map[string]*Builtin {
 					if len(args) == 3 {
 						locStr, ok := args[2].(*String)
 						if !ok {
-							return newError("third argument to `format` must be STRING (locale), got %s", args[2].Type())
+							return newError("third argument to `format` must be a string (locale), got %s", args[2].Type())
 						}
 						localeStr = locStr.Value
 					}
@@ -4799,7 +4799,7 @@ func getBuiltins() map[string]*Builtin {
 				if len(args) == 2 {
 					locStr, ok := args[1].(*String)
 					if !ok {
-						return newError("second argument to `format` must be STRING, got %s", args[1].Type())
+						return newError("second argument to `format` must be a string, got %s", args[1].Type())
 					}
 					localeStr = locStr.Value
 				}

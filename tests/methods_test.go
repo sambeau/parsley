@@ -624,8 +624,8 @@ func TestMethodErrors(t *testing.T) {
 		{`"hello".replace("a")`, "wrong number of arguments"},
 
 		// Wrong argument type
-		{`"hello".split(123)`, "must be STRING"},
-		{`"hello".replace(1, 2)`, "must be STRING"},
+		{`"hello".split(123)`, "must be a string"},
+		{`"hello".replace(1, 2)`, "must be a string"},
 
 		// Unknown method
 		{`"hello".unknown()`, "unknown method"},

@@ -42,7 +42,7 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 		}
 		delim, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to 'split' must be STRING, got %s", args[0].Type())
+			return newError("argument to `split` must be a string, got %s", args[0].Type())
 		}
 		parts := strings.Split(str.Value, delim.Value)
 		elements := make([]Object, len(parts))
@@ -57,11 +57,11 @@ func evalStringMethod(str *String, method string, args []Object) Object {
 		}
 		old, ok := args[0].(*String)
 		if !ok {
-			return newError("first argument to 'replace' must be STRING, got %s", args[0].Type())
+			return newError("first argument to `replace` must be a string, got %s", args[0].Type())
 		}
 		new, ok := args[1].(*String)
 		if !ok {
-			return newError("second argument to 'replace' must be STRING, got %s", args[1].Type())
+			return newError("second argument to `replace` must be a string, got %s", args[1].Type())
 		}
 		return &String{Value: strings.ReplaceAll(str.Value, old.Value, new.Value)}
 
@@ -157,7 +157,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		if len(args) >= 1 {
 			styleStr, ok := args[0].(*String)
 			if !ok {
-				return newError("first argument to 'format' must be STRING (style), got %s", args[0].Type())
+				return newError("first argument to `format` must be a string (style), got %s", args[0].Type())
 			}
 			switch styleStr.Value {
 			case "and":
@@ -174,7 +174,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		if len(args) == 2 {
 			locStr, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to 'format' must be STRING (locale), got %s", args[1].Type())
+				return newError("second argument to `format` must be a string (locale), got %s", args[1].Type())
 			}
 			localeStr = locStr.Value
 		}
@@ -192,7 +192,7 @@ func evalArrayMethod(arr *Array, method string, args []Object, env *Environment)
 		if len(args) == 1 {
 			sepStr, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'join' must be a STRING, got %s", args[0].Type())
+				return newError("argument to `join` must be a string, got %s", args[0].Type())
 			}
 			separator = sepStr.Value
 		}
@@ -418,7 +418,7 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		}
 		key, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to 'has' must be STRING, got %s", args[0].Type())
+			return newError("argument to `has` must be a string, got %s", args[0].Type())
 		}
 		_, exists := dict.Pairs[key.Value]
 		return nativeBoolToParsBoolean(exists)
@@ -445,7 +445,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'format' must be STRING, got %s", args[0].Type())
+				return newError("argument to `format` must be a string, got %s", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -458,13 +458,13 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		}
 		code, ok := args[0].(*String)
 		if !ok {
-			return newError("first argument to 'currency' must be STRING, got %s", args[0].Type())
+			return newError("first argument to `currency` must be a string, got %s", args[0].Type())
 		}
 		localeStr := "en-US"
 		if len(args) == 2 {
 			loc, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to 'currency' must be STRING, got %s", args[1].Type())
+				return newError("second argument to `currency` must be a string, got %s", args[1].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -479,7 +479,7 @@ func evalIntegerMethod(num *Integer, method string, args []Object) Object {
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'percent' must be STRING, got %s", args[0].Type())
+				return newError("argument to `percent` must be a string, got %s", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -502,7 +502,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'format' must be STRING, got %s", args[0].Type())
+				return newError("argument to `format` must be a string, got %s", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -515,13 +515,13 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 		}
 		code, ok := args[0].(*String)
 		if !ok {
-			return newError("first argument to 'currency' must be STRING, got %s", args[0].Type())
+			return newError("first argument to `currency` must be a string, got %s", args[0].Type())
 		}
 		localeStr := "en-US"
 		if len(args) == 2 {
 			loc, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to 'currency' must be STRING, got %s", args[1].Type())
+				return newError("second argument to `currency` must be a string, got %s", args[1].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -536,7 +536,7 @@ func evalFloatMethod(num *Float, method string, args []Object) Object {
 		if len(args) == 1 {
 			loc, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'percent' must be STRING, got %s", args[0].Type())
+				return newError("argument to `percent` must be a string, got %s", args[0].Type())
 			}
 			localeStr = loc.Value
 		}
@@ -573,7 +573,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		if len(args) >= 1 {
 			styleArg, ok := args[0].(*String)
 			if !ok {
-				return newError("first argument to 'format' must be STRING (style), got %s", args[0].Type())
+				return newError("first argument to `format` must be a string (style), got %s", args[0].Type())
 			}
 			style = styleArg.Value
 		}
@@ -581,7 +581,7 @@ func evalDatetimeMethod(dict *Dictionary, method string, args []Object, env *Env
 		if len(args) == 2 {
 			locArg, ok := args[1].(*String)
 			if !ok {
-				return newError("second argument to 'format' must be STRING (locale), got %s", args[1].Type())
+				return newError("second argument to `format` must be a string (locale), got %s", args[1].Type())
 			}
 			localeStr = locArg.Value
 		}
@@ -643,7 +643,7 @@ func evalDurationMethod(dict *Dictionary, method string, args []Object, env *Env
 		if len(args) == 1 {
 			locStr, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'format' must be STRING, got %s", args[0].Type())
+				return newError("argument to `format` must be a string, got %s", args[0].Type())
 			}
 			localeStr = locStr.Value
 		}
@@ -855,7 +855,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		if len(args) == 1 {
 			styleArg, ok := args[0].(*String)
 			if !ok {
-				return newError("argument to 'format' must be STRING (style), got %s", args[0].Type())
+				return newError("argument to `format` must be a string (style), got %s", args[0].Type())
 			}
 			style = styleArg.Value
 		}
@@ -881,7 +881,7 @@ func evalRegexMethod(dict *Dictionary, method string, args []Object, env *Enviro
 		}
 		str, ok := args[0].(*String)
 		if !ok {
-			return newError("argument to 'test' must be STRING, got %s", args[0].Type())
+			return newError("argument to `test` must be a string, got %s", args[0].Type())
 		}
 
 		// Get pattern and flags

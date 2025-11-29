@@ -344,7 +344,7 @@ func TestDatetimeErrors(t *testing.T) {
 			name:    "time() with invalid type",
 			code:    `let dt = time(true);`,
 			wantErr: true,
-			errMsg:  "must be STRING, INTEGER, or DICTIONARY",
+			errMsg:  "must be a string, integer, or dictionary",
 		},
 		{
 			name:    "time() with invalid string",
@@ -356,7 +356,7 @@ func TestDatetimeErrors(t *testing.T) {
 			name:    "time() with non-dictionary delta",
 			code:    `let dt = time("2024-01-01", "not a dict");`,
 			wantErr: true,
-			errMsg:  "must be DICTIONARY",
+			errMsg:  "must be a dictionary",
 		},
 	}
 

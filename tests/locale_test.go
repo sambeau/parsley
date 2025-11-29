@@ -141,8 +141,8 @@ func TestFormatNumberErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`formatNumber("not a number")`, "must be INTEGER or FLOAT"},
-		{`formatNumber(123, 456)`, "must be STRING"},
+		{`formatNumber("not a number")`, "must be an integer or float"},
+		{`formatNumber(123, 456)`, "must be a string"},
 		{`formatNumber(123, "invalid-locale-xyz")`, "invalid locale"},
 	}
 
@@ -170,8 +170,8 @@ func TestFormatCurrencyErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`formatCurrency("not a number", "USD")`, "must be INTEGER or FLOAT"},
-		{`formatCurrency(123, 456)`, "must be STRING"},
+		{`formatCurrency("not a number", "USD")`, "must be an integer or float"},
+		{`formatCurrency(123, 456)`, "must be a string"},
 		{`formatCurrency(123, "INVALID")`, "invalid currency code"},
 		{`formatCurrency(123, "USD", "invalid-locale-xyz")`, "invalid locale"},
 	}
@@ -251,8 +251,8 @@ func TestFormatDateErrors(t *testing.T) {
 	}{
 		{`formatDate("not a date")`, "must be a datetime"},
 		{`formatDate({})`, "must be a datetime"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, 123)`, "must be STRING"},
-		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", 456)`, "must be STRING"},
+		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, 123)`, "must be a string"},
+		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "long", 456)`, "must be a string"},
 		{`let d = time({year: 2024, month: 12, day: 25}); formatDate(d, "invalid")`, "must be one of: short, medium, long, full"},
 	}
 
@@ -397,7 +397,7 @@ func TestFormatDurationErrors(t *testing.T) {
 	}{
 		{`format("not a duration")`, "must be a duration or array"},
 		{`format({})`, "must be a duration"},
-		{`format(@1d, 123)`, "must be STRING"},
+		{`format(@1d, 123)`, "must be a string"},
 	}
 
 	for _, tt := range tests {
@@ -651,9 +651,9 @@ func TestFormatListErrors(t *testing.T) {
 		input       string
 		errContains string
 	}{
-		{`format(["a", "b"], 123)`, "must be STRING"},
+		{`format(["a", "b"], 123)`, "must be a string"},
 		{`format(["a", "b"], "invalid")`, "invalid style"},
-		{`format(["a", "b"], "and", 123)`, "must be STRING"},
+		{`format(["a", "b"], "and", 123)`, "must be a string"},
 	}
 
 	for _, tt := range tests {
