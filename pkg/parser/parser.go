@@ -193,8 +193,6 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLetStatement(false)
 	case lexer.RETURN:
 		return p.parseReturnStatement()
-	case lexer.DELETE:
-		return p.parseDeleteStatement()
 	case lexer.LBRACE:
 		// Check if this is a dictionary destructuring assignment
 		// We need to look ahead to see if this is {a, b} = ... or just a dict literal
@@ -1609,8 +1607,6 @@ func tokenTypeToReadableName(t lexer.TokenType) string {
 		return "'in'"
 	case lexer.AS:
 		return "'as'"
-	case lexer.DELETE:
-		return "'delete'"
 	case lexer.EXPORT:
 		return "'export'"
 	case lexer.EOF:
@@ -1703,23 +1699,6 @@ func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
 
 	dotExpr.Key = p.curToken.Literal
 	return dotExpr
-}
-
-// parseDeleteStatement parses delete statements
-func (p *Parser) parseDeleteStatement() ast.Statement {
-	stmt := &ast.DeleteStatement{Token: p.curToken}
-
-	p.nextToken()
-
-	// Parse the target expression (should be a property access)
-	stmt.Target = p.parseExpression(LOWEST)
-
-	// Optional semicolon
-	if p.peekTokenIs(lexer.SEMICOLON) {
-		p.nextToken()
-	}
-
-	return stmt
 }
 
 // parseDictDestructuringPattern parses dictionary destructuring patterns like {a, b as c, ...rest}

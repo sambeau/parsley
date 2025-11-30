@@ -339,3 +339,96 @@ func TestDictionaryMethodsWithThis(t *testing.T) {
 		})
 	}
 }
+
+// TestDictDeleteMethod tests the .delete(key) method for dictionaries
+func TestDictDeleteMethod(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "delete single key",
+			input:    `let d = {a: 1, b: 2, c: 3}; d.delete("b"); d.keys().sort()`,
+			expected: `[a, c]`,
+		},
+		{
+			name:     "delete first key",
+			input:    `let d = {a: 1, b: 2}; d.delete("a"); d`,
+			expected: `{b: 2}`,
+		},
+		{
+			name:     "delete last key",
+			input:    `let d = {a: 1, b: 2}; d.delete("b"); d`,
+			expected: `{a: 1}`,
+		},
+		{
+			name:     "delete non-existent key (no error)",
+			input:    `let d = {a: 1}; d.delete("x"); d`,
+			expected: `{a: 1}`,
+		},
+		{
+			name:     "delete all keys",
+			input:    `let d = {a: 1, b: 2}; d.delete("a"); d.delete("b"); d`,
+			expected: `{}`,
+		},
+		{
+			name:     "delete returns null",
+			input:    `let d = {a: 1}; d.delete("a")`,
+			expected: `null`,
+		},
+		{
+			name:     "delete with variable key",
+			input:    `let d = {a: 1, b: 2}; let key = "a"; d.delete(key); d`,
+			expected: `{b: 2}`,
+		},
+		{
+			name:     "delete does not affect user function named delete",
+			input:    `let d = {a: 1, delete: fn(){"custom"}}; d.delete("a"); d["delete"]()`,
+			expected: `custom`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalInput(tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestDeleteKeywordNoLongerReserved tests that 'delete' can be used as identifier
+func TestDeleteKeywordNoLongerReserved(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "delete as variable name",
+			input:    `let delete = "value"; delete`,
+			expected: `value`,
+		},
+		{
+			name:     "delete as function name",
+			input:    `let delete = fn(x) { x * 2 }; delete(5)`,
+			expected: `10`,
+		},
+		{
+			name:     "delete as dict key",
+			input:    `let d = {delete: 42}; d.delete`,
+			expected: `42`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evalInput(tt.input)
+			if result.Inspect() != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}

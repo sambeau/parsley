@@ -312,11 +312,19 @@ nums[:2]     // From start to index 2
 | `.keys()` | All keys | `{a:1}.keys()` → `["a"]` |
 | `.values()` | All values | `{a:1}.values()` → `[1]` |
 | `.has(key)` | Key exists | `{a:1}.has("a")` → `true` |
+| `.delete(key)` | Remove key | `d.delete("a")` → removes key `a` |
 
 ### Access
 ```parsley
 dict.key        // Dot notation
 dict["key"]     // Bracket notation
+```
+
+### Removing Keys
+```parsley
+let d = {a: 1, b: 2, c: 3}
+d.delete("b")   // d is now {a: 1, c: 3}
+d.delete("x")   // No error if key doesn't exist
 ```
 
 ### Self-Reference with `this`

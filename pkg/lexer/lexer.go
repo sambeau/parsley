@@ -93,7 +93,6 @@ const (
 	IF       // "if"
 	ELSE     // "else"
 	RETURN   // "return"
-	DELETE   // "delete"
 	EXPORT   // "export"
 )
 
@@ -250,8 +249,6 @@ func (tt TokenType) String() string {
 		return "ELSE"
 	case RETURN:
 		return "RETURN"
-	case DELETE:
-		return "DELETE"
 	case EXPORT:
 		return "EXPORT"
 	default:
@@ -271,7 +268,6 @@ var keywords = map[string]TokenType{
 	"if":     IF,
 	"else":   ELSE,
 	"return": RETURN,
-	"delete": DELETE,
 	"export": EXPORT,
 	"and":    AND,
 	"or":     OR,

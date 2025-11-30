@@ -694,24 +694,6 @@ func (ee *ExecuteExpression) String() string {
 	return out.String()
 }
 
-// DeleteStatement represents delete dict.key or delete dict["key"]
-type DeleteStatement struct {
-	Token  lexer.Token // the 'delete' token
-	Target Expression  // the property access expression to delete
-}
-
-func (ds *DeleteStatement) statementNode()       {}
-func (ds *DeleteStatement) TokenLiteral() string { return ds.Token.Literal }
-func (ds *DeleteStatement) String() string {
-	var out bytes.Buffer
-
-	out.WriteString("delete ")
-	out.WriteString(ds.Target.String())
-	out.WriteString(";")
-
-	return out.String()
-}
-
 // ReadStatement represents read-from-file statements like 'let x <== file(...)' or '{a, b} <== file(...)'
 type ReadStatement struct {
 	Token       lexer.Token               // the <== token

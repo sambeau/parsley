@@ -423,6 +423,17 @@ func evalDictionaryMethod(dict *Dictionary, method string, args []Object, env *E
 		_, exists := dict.Pairs[key.Value]
 		return nativeBoolToParsBoolean(exists)
 
+	case "delete":
+		if len(args) != 1 {
+			return newError("wrong number of arguments to `delete`. got=%d, want=1", len(args))
+		}
+		key, ok := args[0].(*String)
+		if !ok {
+			return newError("argument to `delete` must be a string, got %s", args[0].Type())
+		}
+		delete(dict.Pairs, key.Value)
+		return NULL
+
 	default:
 		// Return nil for unknown methods to allow user-defined methods to be checked
 		return nil
@@ -1143,5 +1154,54 @@ func evalRequestMethod(dict *Dictionary, method string, args []Object, env *Envi
 
 	default:
 		return newError("unknown method '%s' for request", method)
+	}
+}
+
+// ============================================================================
+// Response Methods
+// ============================================================================
+
+// evalResponseMethod evaluates a method call on a response typed dictionary
+func evalResponseMethod(dict *Dictionary, method string, args []Object, env *Environment) Object {
+	switch method {
+	case "response":
+		// response() - returns the __response metadata dictionary
+		if len(args) != 0 {
+			return newError("wrong number of arguments to `response`. got=%d, want=0", len(args))
+		}
+		if responseExpr, ok := dict.Pairs["__response"]; ok {
+			return Eval(responseExpr, dict.Env)
+		}
+		return NULL
+
+	case "format":
+		// format() - returns the format string (json, text, etc.)
+		if len(args) != 0 {
+			return newError("wrong number of arguments to `format`. got=%d, want=0", len(args))
+		}
+		if formatExpr, ok := dict.Pairs["__format"]; ok {
+			return Eval(formatExpr, dict.Env)
+		}
+		return NULL
+
+	case "data":
+		// data() - returns the __data directly (for explicit access)
+		if len(args) != 0 {
+			return newError("wrong number of arguments to `data`. got=%d, want=0", len(args))
+		}
+		if dataExpr, ok := dict.Pairs["__data"]; ok {
+			return Eval(dataExpr, dict.Env)
+		}
+		return NULL
+
+	case "toDict":
+		// toDict() - returns the raw dictionary representation for debugging
+		if len(args) != 0 {
+			return newError("wrong number of arguments to `toDict`. got=%d, want=0", len(args))
+		}
+		return dict
+
+	default:
+		return newError("unknown method '%s' for response", method)
 	}
 }

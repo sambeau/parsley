@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.13.2] - 2025-11-30
+
+### Changed
+
+- **`delete` is no longer a reserved keyword** - Can now be used as variable/function names
+- **Dictionary key deletion now uses method syntax** - Use `d.delete("key")` instead of `delete d.key`
+- **HTTP DELETE accessor renamed** - Changed from `.del` to `.delete` for consistency
+
+### Added
+
+- **`.delete(key)` method for dictionaries** - Removes a key from a dictionary:
+  ```parsley
+  let d = {a: 1, b: 2, c: 3}
+  d.delete("b")  // d is now {a: 1, c: 3}
+  ```
+
+### Removed
+
+- **`delete` statement** - The `delete d.key` syntax is removed; use `d.delete("key")` instead
+
+---
+
 ## [0.13.1] - 2025-11-29
 
 ### Improved

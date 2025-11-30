@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.13.1
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.13.2
 ```
 
 A minimalist language for generating HTML/XML with first-class file I/O.
