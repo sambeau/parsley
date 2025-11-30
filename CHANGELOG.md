@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.15.3] - 2025-11-30
+
+### Added
+
+- **REPL tag support** - The REPL now supports multi-line input for HTML/XML tags:
+  ```parsley
+  >> <div>
+  .. hello
+  .. </div>
+  <div> hello </div>
+  ```
+  - Opening tags (`<tag>`) wait for closing tags (`</tag>`)
+  - Self-closing tags (`<br/>`) work without waiting
+  - Comparison operators (`<`, `>`) still work normally
+
+---
+
 ## [0.15.2] - 2025-11-30
 
 ### Added

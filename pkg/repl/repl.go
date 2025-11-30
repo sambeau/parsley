@@ -187,7 +187,7 @@ func filterCompletions(line string) []string {
 	return matches
 }
 
-// needsMoreInput checks if the input has unclosed braces, brackets, or parentheses
+// needsMoreInput checks if the input has unclosed braces, brackets, parentheses, or tags
 func needsMoreInput(input string) bool {
 	input = strings.TrimSpace(input)
 	if input == "" {
@@ -197,10 +197,13 @@ func needsMoreInput(input string) bool {
 	braceCount := 0
 	bracketCount := 0
 	parenCount := 0
+	tagCount := 0
 	inString := false
 	escapeNext := false
 
-	for i, ch := range input {
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
+
 		if escapeNext {
 			escapeNext = false
 			continue
@@ -234,11 +237,60 @@ func needsMoreInput(input string) bool {
 			parenCount++
 		case ')':
 			parenCount--
+		case '<':
+			// Check for tags: <tag or </tag (not comparison operators)
+			if i+1 < len(input) {
+				next := input[i+1]
+				if next == '/' {
+					// Closing tag </tag>
+					if i+2 < len(input) && isTagNameStart(input[i+2]) {
+						tagCount--
+					}
+				} else if isTagNameStart(next) {
+					// Opening tag <tag> - but check for self-closing later
+					// Find end of tag to check for />
+					tagEnd := findTagEnd(input, i)
+					if tagEnd > i && tagEnd >= 2 && input[tagEnd-1] == '/' {
+						// Self-closing tag <tag/>, don't increment
+					} else {
+						tagCount++
+					}
+				}
+			}
 		}
 	}
 
 	// Need more input if any are unclosed
-	return braceCount > 0 || bracketCount > 0 || parenCount > 0
+	return braceCount > 0 || bracketCount > 0 || parenCount > 0 || tagCount > 0
+}
+
+// isTagNameStart checks if a character can start a tag name (letter or underscore)
+func isTagNameStart(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
+}
+
+// findTagEnd finds the position of the closing '>' for a tag starting at pos
+func findTagEnd(input string, pos int) int {
+	inQuote := false
+	quoteChar := byte(0)
+	for i := pos + 1; i < len(input); i++ {
+		ch := input[i]
+		if inQuote {
+			if ch == quoteChar {
+				inQuote = false
+			}
+			continue
+		}
+		if ch == '"' || ch == '\'' {
+			inQuote = true
+			quoteChar = ch
+			continue
+		}
+		if ch == '>' {
+			return i
+		}
+	}
+	return -1 // Tag not closed yet
 }
 
 // printParserErrors prints parser errors

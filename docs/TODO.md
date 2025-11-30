@@ -34,7 +34,7 @@
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands
 - POSTGRES support
-- Tag support for REPL
+- ~~Tag support for REPL~~ ✅ (v0.15.3)
 
 ### For V1.0 BETA
 - ~~Performance checks~~ ✅ (v0.13.0
