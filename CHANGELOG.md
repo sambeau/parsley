@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.15.1] - 2025-11-30
+
+### Fixed
+
+- **MD format factory now works** - Fixed bug where `MD(@./file.md)` returned "unsupported file format: md"
+
+---
+
 ## [0.15.0] - 2025-11-30
 
 ### ⚠️ BREAKING CHANGES

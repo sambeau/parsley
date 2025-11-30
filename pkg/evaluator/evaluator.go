@@ -10473,7 +10473,7 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 		content := string(data)
 		return &String{Value: stripXMLProlog(content)}, nil
 
-	case "markdown":
+	case "md", "markdown":
 		// Parse markdown with optional YAML frontmatter
 		content := string(data)
 		return parseMarkdown(content, env)

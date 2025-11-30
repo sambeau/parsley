@@ -21,5 +21,5 @@ If you haven't already done it, can you:
  - add small, succinct update to the docs/reference.md
  - update CHANGELOG.md
  - If matching task in docs/TODO.md, strikethrough, add tick and version, then move to APPROVED
- - suggest suitable, short, succinct, one-line summary for git commit summary
+ - suggest suitable, short, succinct, summary for git commit summary
 
