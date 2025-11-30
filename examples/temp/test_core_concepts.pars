@@ -9,7 +9,7 @@ log("operations:", operations)
 let {name, age} = {name: "Sam", age: 57}
 log("destructured:", name, age)
 
-let first, rest = [1, 2, 3, 4]
+let [first, rest] = [1, 2, 3, 4]
 log("array destructure:", first, rest)
 
 let greeting = "Hello, {name}!"

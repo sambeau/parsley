@@ -15,6 +15,10 @@ func evalModule(input string, filename string) evaluator.Object {
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
 	env.Filename = filename
+	// Enable execute-all for module import tests
+	env.Security = &evaluator.SecurityPolicy{
+		AllowExecuteAll: true,
+	}
 	return evaluator.Eval(program, env)
 }
 

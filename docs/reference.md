@@ -274,6 +274,33 @@ let name = "World"
 | `.format()` | List as prose | `["a","b"].format()` → `"a and b"` |
 | `.format("or")` | With conjunction | `["a","b"].format("or")` → `"a or b"` |
 
+### Array Literals
+Arrays are created using bracket syntax:
+```parsley
+let nums = [1, 2, 3]
+let names = ["Alice", "Bob", "Carol"]
+let mixed = [1, "two", true, null]
+let nested = [[1, 2], [3, 4]]
+let empty = []
+```
+
+### Array Destructuring
+Extract values from arrays into variables using bracket syntax:
+```parsley
+let [a, b, c] = [1, 2, 3]    // a=1, b=2, c=3
+let [first, second] = nums    // first=1, second=2
+let [x, y] = [10, 20, 30]     // x=10, y=20 (extra ignored)
+```
+
+Destructuring works in function parameters:
+```parsley
+let sum = fn([a, b]) { a + b }
+sum([3, 4])  // 7
+
+let getFirst = fn([first, ...rest]) { first }
+getFirst([1, 2, 3])  // 1
+```
+
 ### Indexing and Slicing
 ```parsley
 nums[0]      // First element

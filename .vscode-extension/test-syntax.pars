@@ -87,7 +87,7 @@ let template = `
 
 // Arrays and destructuring
 let nums = [1, 2, 3, 4, 5]
-let first, second, rest = nums
+let [first, second, rest] = nums
 
 // Dictionaries
 let person = {

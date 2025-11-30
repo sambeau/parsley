@@ -1,37 +1,37 @@
 // Test Natural Sort Function
 
 toString("=== Integer Sorting ===\n")
-xs = 3,2,4,10,1
+xs = [3,2,4,10,1]
 xs
 sort(xs)
 
 toString("\n=== Natural String Sorting ===\n")
-xs = "z11", "z1", "z2"
+xs = ["z11", "z1", "z2"]
 xs
 sort(xs)
 
 toString("\n=== Multi-digit Natural Sort ===\n")
-items = "item 20", "item 3", "item 100", "item 1"
+items = ["item 20", "item 3", "item 100", "item 1"]
 items
 sort(items)
 
 toString("\n=== Mixed Type Sorting (numbers first) ===\n")
-mixed = "a", 10, "b", 2, 1
+mixed = ["a", 10, "b", 2, 1]
 mixed
 sort(mixed)
 
 toString("\n=== Complex Mixed Example ===\n")
-files = "file 1.txt", "file 10.txt", "file 2.txt", 5, "file 20.txt"
+files = ["file 1.txt", "file 10.txt", "file 2.txt", 5, "file 20.txt"]
 files
 sort(files)
 
 toString("\n=== Floats and Integers ===\n")
-numbers = 3.14, 2, 1.5, 10, 0.5
+numbers = [3.14, 2, 1.5, 10, 0.5]
 numbers
 sort(numbers)
 
 toString("\n=== Original Array Unchanged ===\n")
-original = 5,3,8,1
+original = [5,3,8,1]
 sorted = sort(original)
 original
 sorted

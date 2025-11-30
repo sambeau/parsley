@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.15.0] - 2025-11-30
+
+### ⚠️ BREAKING CHANGES
+
+- **Arrays now require bracket syntax** - Bracketless array creation is no longer supported:
+  ```parsley
+  // OLD (no longer works)
+  let arr = 1, 2, 3
+  
+  // NEW (required)
+  let arr = [1, 2, 3]
+  ```
+
+- **Array destructuring now requires bracket syntax** - Bracketless destructuring is no longer supported:
+  ```parsley
+  // OLD (no longer works)
+  let a, b, c = [1, 2, 3]
+  
+  // NEW (required)
+  let [a, b, c] = [1, 2, 3]
+  ```
+
+### Added
+
+- **Bracket array destructuring** - Arrays can now be destructured using bracket syntax:
+  ```parsley
+  let [first, second] = [1, 2]
+  let [head, ...rest] = [1, 2, 3, 4]  // rest = [2, 3, 4]
+  ```
+
+### Rationale
+
+This change improves language consistency for v1.0:
+- Array literals and destructuring now use the same bracket syntax
+- Reduces ambiguity between comma-separated expressions and array creation
+- Aligns with common conventions in other languages (JavaScript, Python, etc.)
+
+---
+
 ## [0.14.0] - 2025-11-30
 
 ### Added

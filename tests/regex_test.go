@@ -77,7 +77,7 @@ func TestRegexConditional(t *testing.T) {
 func TestRegexDestructuring(t *testing.T) {
 	input := `
 		let email = "jane@test.org";
-		let full, name, domain = email ~ /(\w+)@([\w.]+)/;
+		let [full, name, domain] = email ~ /(\w+)@([\w.]+)/;
 		name + ":" + domain
 	`
 	evaluated := testEvalHelper(input)

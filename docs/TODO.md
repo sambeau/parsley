@@ -112,3 +112,4 @@
 - ~~SQL and databases {user} = [$GetUser userID={userId}] <=/=> SQL()~~ ✅ (0.9.15)
 - ~~Fetch from URL~~ ✅ (0.9.11)
 - ~~1 ++ [2,3,4,5] , [1,2,3,4] ++ 5~~ ✅ (0.9.16)
+- ~~Require bracket syntax for arrays and array destructuring (consistency for v1.0)~~ ✅ (v0.15.0)

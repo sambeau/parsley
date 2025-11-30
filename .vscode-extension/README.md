@@ -79,8 +79,8 @@ numbers = [1, 2, 3, 4, 5]
 doubled = map(numbers, fn(x) { x * 2 })
 
 // Destructuring
-head, tail = numbers
-x, y, z = 1, 2, 3
+let [head, tail] = numbers
+let [x, y, z] = [1, 2, 3]
 
 // HTML generation
 Page = fn({title, contents}) {
@@ -175,12 +175,12 @@ let localUrl = @http://localhost:8080/api
 ### Destructuring
 ```parsley
 // Arrays
-x, y, z = 1, 2, 3
-head, tail = [1, 2, 3, 4]
+let [x, y, z] = [1, 2, 3]
+let [head, tail] = [1, 2, 3, 4]
 
 // Dictionaries
 person = { name: "Sam", age: 57 }
-{name, age} = person
+let {name, age} = person
 ```
 
 ### Control Flow

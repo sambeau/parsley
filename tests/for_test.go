@@ -1,10 +1,11 @@
 package main
 
 import (
+	"testing"
+
 	"github.com/sambeau/parsley/pkg/evaluator"
 	"github.com/sambeau/parsley/pkg/lexer"
 	"github.com/sambeau/parsley/pkg/parser"
-	"testing"
 )
 
 func TestForSimpleSyntax(t *testing.T) {
@@ -12,10 +13,10 @@ func TestForSimpleSyntax(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"double = fn(x) { x * 2 }; for(1,2,3) double", "2, 4, 6"},
-		{"square = fn(x) { x * x }; for(1,2,3,4) square", "1, 4, 9, 16"},
-		{"inc = fn(x) { x + 1 }; for(10,20,30) inc", "11, 21, 31"},
-		{"for(1,2,3) fn(x){x*2}", "2, 4, 6"},
+		{"double = fn(x) { x * 2 }; for([1,2,3]) double", "[2, 4, 6]"},
+		{"square = fn(x) { x * x }; for([1,2,3,4]) square", "[1, 4, 9, 16]"},
+		{"inc = fn(x) { x + 1 }; for([10,20,30]) inc", "[11, 21, 31]"},
+		{"for([1,2,3]) fn(x){x*2}", "[2, 4, 6]"},
 	}
 
 	for _, tt := range tests {
@@ -50,10 +51,10 @@ func TestForInSyntax(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"for(x in 1,2,3) { x * 2 }", "2, 4, 6"},
-		{"for(x in 1,2,3,4) { x * x }", "1, 4, 9, 16"},
-		{"for(n in 10,20,30) { n + 1 }", "11, 21, 31"},
-		{"for(x in 5,15,25) { if (x > 10) { x } }", "15, 25"},
+		{"for(x in [1,2,3]) { x * 2 }", "[2, 4, 6]"},
+		{"for(x in [1,2,3,4]) { x * x }", "[1, 4, 9, 16]"},
+		{"for(n in [10,20,30]) { n + 1 }", "[11, 21, 31]"},
+		{"for(x in [5,15,25]) { if (x > 10) { x } }", "[15, 25]"},
 	}
 
 	for _, tt := range tests {
@@ -84,11 +85,11 @@ func TestForWithStrings(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`for("Sam") toUpper`, "S, A, M"},
-		{`for("abc") toUpper`, "A, B, C"},
-		{`for("XYZ") toLower`, "x, y, z"},
-		{`for("Sam","Phillips") toUpper`, "SAM, PHILLIPS"},
-		{`for(name in "SAM","PHILLIPS") { toLower(name) }`, "sam, phillips"},
+		{`for("Sam") toUpper`, "[S, A, M]"},
+		{`for("abc") toUpper`, "[A, B, C]"},
+		{`for("XYZ") toLower`, "[x, y, z]"},
+		{`for(["Sam","Phillips"]) toUpper`, "[SAM, PHILLIPS]"},
+		{`for(name in ["SAM","PHILLIPS"]) { toLower(name) }`, "[sam, phillips]"},
 	}
 
 	for _, tt := range tests {
@@ -121,19 +122,19 @@ func TestForEquivalenceWithMap(t *testing.T) {
 		expected  string
 	}{
 		{
-			"double = fn(x) { x * 2 }; for(1,2,3) double",
-			"double = fn(x) { x * 2 }; map(double, 1,2,3)",
-			"2, 4, 6",
+			"double = fn(x) { x * 2 }; for([1,2,3]) double",
+			"double = fn(x) { x * 2 }; map(double, [1,2,3])",
+			"[2, 4, 6]",
 		},
 		{
-			"for(x in 1,2,3) { x * 2 }",
-			"map(fn(x){x*2}, 1,2,3)",
-			"2, 4, 6",
+			"for(x in [1,2,3]) { x * 2 }",
+			"map(fn(x){x*2}, [1,2,3])",
+			"[2, 4, 6]",
 		},
 		{
-			"for(x in 5,10,15) { x + 1 }",
-			"map(fn(x){x+1}, 5,10,15)",
-			"6, 11, 16",
+			"for(x in [5,10,15]) { x + 1 }",
+			"map(fn(x){x+1}, [5,10,15])",
+			"[6, 11, 16]",
 		},
 	}
 
@@ -189,9 +190,9 @@ func TestForWithBuiltins(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{`for("hello") toUpper`, "H, E, L, L, O"},
-		{`for("WORLD") toLower`, "w, o, r, l, d"},
-		{`for("a","b","c") toUpper`, "A, B, C"},
+		{`for("hello") toUpper`, "[H, E, L, L, O]"},
+		{`for("WORLD") toLower`, "[w, o, r, l, d]"},
+		{`for(["a","b","c"]) toUpper`, "[A, B, C]"},
 	}
 
 	for _, tt := range tests {

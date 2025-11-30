@@ -42,7 +42,7 @@ func TestArrayDestructuringInFunctionParams(t *testing.T) {
 				let tail = fn([first, rest]) { rest };
 				tail([1, 2, 3, 4, 5])
 			`,
-			expected: "2, 3, 4, 5",
+			expected: "[2, 3, 4, 5]",
 		},
 		{
 			name: "multiple parameters",
@@ -50,7 +50,7 @@ func TestArrayDestructuringInFunctionParams(t *testing.T) {
 				let swap = fn([a, b]) { [b, a] };
 				swap([10, 20])
 			`,
-			expected: "20, 10",
+			expected: "[20, 10]",
 		},
 		{
 			name: "empty array",
@@ -287,7 +287,7 @@ func TestHigherOrderFunctionsWithDestructuring(t *testing.T) {
 				let extractFirst = fn([x, y]) { x };
 				process(extractFirst, [[1, 2], [3, 4], [5, 6]])
 			`,
-			expected: "1, 3, 5",
+			expected: "[1, 3, 5]",
 		},
 	}
 

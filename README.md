@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.14.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.15.0
 ```
 
 A †minimalist concatenative language for generating HTML/XML with first-class file I/O.
@@ -81,7 +81,7 @@ let count = 42
 
 // Destructuring
 let {x, y} = {x: 10, y: 20}
-let a, b, c = 1, 2, 3
+let [a, b, c] = [1, 2, 3]
 
 // Functions
 let greet = fn(name) { "Hello, " + name + "!" }

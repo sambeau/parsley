@@ -109,10 +109,10 @@ let path = "./config.json"  // This is just a string
 ### Variables & Functions
 
 | Feature | JavaScript | Python | Parsley |
-|---------|-----------|--------|---------|
+|---------|-----------|--------|---------||
 | Variable | `let x = 5` | `x = 5` | `let x = 5` |
 | Destructure | `const {x, y} = obj` | `x, y = obj` | `let {x, y} = obj` |
-| Multiple | `let a=1, b=2` | `a, b = 1, 2` | `let a, b = 1, 2` |
+| Array Destruct | `const [a, b] = arr` | `a, b = arr` | `let [a, b] = arr` |
 | Function | `(x) => x*2` | `lambda x: x*2` | `fn(x) { x*2 }` |
 | Named func | `function f(x) {}` | `def f(x):` | `let f = fn(x) {}` |
 

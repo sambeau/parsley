@@ -18,6 +18,10 @@ func testEvalWriteOp(input string) evaluator.Object {
 	p := parser.New(l)
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
+	// Enable write-all for write operator tests
+	env.Security = &evaluator.SecurityPolicy{
+		AllowWriteAll: true,
+	}
 	return evaluator.Eval(program, env)
 }
 

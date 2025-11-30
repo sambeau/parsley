@@ -134,7 +134,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.QUERY_MANY, p.parseInfixExpression)     // Database operators
 	p.registerInfix(lexer.EXECUTE, p.parseInfixExpression)        // Database operators
 	p.registerInfix(lexer.EXECUTE_WITH, p.parseExecuteExpression) // Process execution operator
-	p.registerInfix(lexer.COMMA, p.parseArrayLiteral)
+	// Note: COMMA is not registered as infix - arrays must use [1,2,3] syntax
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 	p.registerInfix(lexer.LBRACKET, p.parseIndexOrSliceExpression)
 	p.registerInfix(lexer.DOT, p.parseDotExpression)
@@ -358,35 +358,89 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		return stmt
 	}
 
+	// Check for array destructuring pattern with brackets: let [a, b, c] = [1, 2, 3]
+	if p.peekTokenIs(lexer.LBRACKET) {
+		p.nextToken() // move to '['
+
+		// Parse identifiers inside brackets
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		names := []*ast.Identifier{
+			{Token: p.curToken, Value: p.curToken.Literal},
+		}
+		for p.peekTokenIs(lexer.COMMA) {
+			p.nextToken() // consume comma
+			if !p.expectPeek(lexer.IDENT) {
+				return nil
+			}
+			names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		}
+		if !p.expectPeek(lexer.RBRACKET) {
+			return nil
+		}
+
+		// Check for <== (read statement) or <=/= (fetch statement) or = (regular let)
+		if p.peekTokenIs(lexer.READ_FROM) {
+			p.nextToken() // consume <==
+			readStmt := &ast.ReadStatement{
+				Token: p.curToken,
+				Names: names,
+				IsLet: true,
+			}
+			p.nextToken()
+			readStmt.Source = p.parseExpression(LOWEST)
+			if p.peekTokenIs(lexer.SEMICOLON) {
+				p.nextToken()
+			}
+			return readStmt
+		}
+
+		if p.peekTokenIs(lexer.FETCH_FROM) {
+			p.nextToken() // consume <=/=
+			fetchStmt := &ast.FetchStatement{
+				Token: p.curToken,
+				Names: names,
+				IsLet: true,
+			}
+			p.nextToken()
+			fetchStmt.Source = p.parseExpression(LOWEST)
+			if p.peekTokenIs(lexer.SEMICOLON) {
+				p.nextToken()
+			}
+			return fetchStmt
+		}
+
+		if !p.expectPeek(lexer.ASSIGN) {
+			return nil
+		}
+
+		stmt := &ast.LetStatement{Token: letToken, Export: export}
+		stmt.Names = names
+		p.nextToken()
+		stmt.Value = p.parseExpression(LOWEST)
+
+		if p.peekTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+		}
+
+		return stmt
+	}
+
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
 	}
 
-	// Collect identifiers (for array destructuring)
-	names := []*ast.Identifier{
-		{Token: p.curToken, Value: p.curToken.Literal},
-	}
-
-	// Check for comma-separated identifiers (array destructuring pattern)
-	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken() // consume comma
-		if !p.expectPeek(lexer.IDENT) {
-			return nil
-		}
-		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
-	}
+	// Single identifier only (no comma-separated destructuring - use [a, b] = ... syntax instead)
+	name := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	// Check for <== (read statement) or <=/= (fetch statement)
 	if p.peekTokenIs(lexer.READ_FROM) {
 		p.nextToken() // consume <==
 		readStmt := &ast.ReadStatement{
 			Token: p.curToken,
+			Name:  name,
 			IsLet: true,
-		}
-		if len(names) == 1 {
-			readStmt.Name = names[0]
-		} else {
-			readStmt.Names = names
 		}
 		p.nextToken()
 		readStmt.Source = p.parseExpression(LOWEST)
@@ -400,12 +454,8 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 		p.nextToken() // consume <=/=
 		fetchStmt := &ast.FetchStatement{
 			Token: p.curToken,
+			Name:  name,
 			IsLet: true,
-		}
-		if len(names) == 1 {
-			fetchStmt.Name = names[0]
-		} else {
-			fetchStmt.Names = names
 		}
 		p.nextToken()
 		fetchStmt.Source = p.parseExpression(LOWEST)
@@ -417,11 +467,7 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 
 	// Regular let statement
 	stmt := &ast.LetStatement{Token: letToken, Export: export}
-	if len(names) == 1 {
-		stmt.Name = names[0]
-	} else {
-		stmt.Names = names
-	}
+	stmt.Name = name
 
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil
@@ -438,35 +484,20 @@ func (p *Parser) parseLetStatement(export bool) ast.Statement {
 	return stmt
 }
 
-// parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;' or 'x <== file(...)'
+// parseAssignmentStatement parses assignment statements like 'x = 5;' or 'x <== file(...)'
 func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 	firstToken := p.curToken
 
-	// Collect identifiers (for destructuring)
-	names := []*ast.Identifier{
-		{Token: p.curToken, Value: p.curToken.Literal},
-	}
-
-	// Check for comma-separated identifiers (destructuring pattern)
-	for p.peekTokenIs(lexer.COMMA) {
-		p.nextToken() // consume comma
-		if !p.expectPeek(lexer.IDENT) {
-			return nil
-		}
-		names = append(names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
-	}
+	// Single identifier only (no comma-separated destructuring - use [a, b] = ... syntax instead)
+	name := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	// Check for <== (read statement) or <=/= (fetch statement)
 	if p.peekTokenIs(lexer.READ_FROM) {
 		p.nextToken() // consume <==
 		readStmt := &ast.ReadStatement{
 			Token: p.curToken,
+			Name:  name,
 			IsLet: false,
-		}
-		if len(names) == 1 {
-			readStmt.Name = names[0]
-		} else {
-			readStmt.Names = names
 		}
 		p.nextToken()
 		readStmt.Source = p.parseExpression(LOWEST)
@@ -480,12 +511,8 @@ func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 		p.nextToken() // consume <=/=
 		fetchStmt := &ast.FetchStatement{
 			Token: p.curToken,
+			Name:  name,
 			IsLet: false,
-		}
-		if len(names) == 1 {
-			fetchStmt.Name = names[0]
-		} else {
-			fetchStmt.Names = names
 		}
 		p.nextToken()
 		fetchStmt.Source = p.parseExpression(LOWEST)
@@ -497,11 +524,7 @@ func (p *Parser) parseAssignmentStatement(export bool) ast.Statement {
 
 	// Regular assignment
 	stmt := &ast.AssignmentStatement{Token: firstToken, Export: export}
-	if len(names) == 1 {
-		stmt.Name = names[0]
-	} else {
-		stmt.Names = names
-	}
+	stmt.Name = name
 
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil
@@ -1323,27 +1346,6 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) []ast.Expression {
 	}
 
 	return args
-}
-
-func (p *Parser) parseArrayLiteral(left ast.Expression) ast.Expression {
-	// The left expression may already be an array if we're chaining commas
-	// curToken is COMMA at this point
-	var array *ast.ArrayLiteral
-
-	if leftArray, ok := left.(*ast.ArrayLiteral); ok {
-		// Left is already an array, extend it
-		array = leftArray
-	} else {
-		// Create new array with left as first element
-		array = &ast.ArrayLiteral{Token: p.curToken}
-		array.Elements = []ast.Expression{left}
-	}
-
-	// Parse the right side of the current comma
-	p.nextToken()
-	array.Elements = append(array.Elements, p.parseExpression(COMMA_PREC))
-
-	return array
 }
 
 func (p *Parser) parseIndexOrSliceExpression(left ast.Expression) ast.Expression {

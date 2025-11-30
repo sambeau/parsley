@@ -18,6 +18,7 @@ func testEvalMDWithFilename(input string, filename string) evaluator.Object {
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
 	env.Filename = filename
+	// Reads are allowed by default, no special security needed
 	return evaluator.Eval(program, env)
 }
 

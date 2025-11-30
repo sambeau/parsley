@@ -33,7 +33,7 @@ log("Username:", emailMatch[1]);
 log("Domain:", emailMatch[2]);
 
 log("\n=== Destructuring Captures ===");
-let full, name, domain = "john@test.org" ~ /(\w+)@([\w.]+)/;
+let [full, name, domain] = "john@test.org" ~ /(\w+)@([\w.]+)/;
 log("Name:", name, "Domain:", domain);
 
 log("\n=== Conditional Matching ===");
@@ -91,7 +91,7 @@ log("\n=== Date Parsing ===");
 let dateStr = "2024-11-26";
 let dateParts = dateStr ~ /(\d{4})-(\d{2})-(\d{2})/;
 if (dateParts) {
-    let full, year, month, day = dateParts;
+    let [full, year, month, day] = dateParts;
     log("Year:", year, "Month:", month, "Day:", day);
 }
 

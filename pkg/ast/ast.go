@@ -47,7 +47,7 @@ func (p *Program) String() string {
 	return out.String()
 }
 
-// LetStatement represents let statements like 'let x = 5;' or 'let x,y,z = 1,2,3;'
+// LetStatement represents let statements like 'let x = 5;' or 'let [x,y,z] = [1,2,3];'
 type LetStatement struct {
 	Token       lexer.Token               // the lexer.LET token
 	Name        *Identifier               // single name (for backwards compatibility)
@@ -88,7 +88,7 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
-// AssignmentStatement represents assignment statements like 'x = 5;' or 'x,y,z = 1,2,3;'
+// AssignmentStatement represents assignment statements like 'x = 5;' or '[x,y,z] = [1,2,3];'
 type AssignmentStatement struct {
 	Token       lexer.Token               // the identifier token
 	Name        *Identifier               // single name (for backwards compatibility)

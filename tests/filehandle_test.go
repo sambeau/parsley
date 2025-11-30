@@ -17,6 +17,10 @@ func testEvalFileHandle(input string) evaluator.Object {
 	p := parser.New(l)
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
+	// Enable write operations for file handle tests (reads are unrestricted by default)
+	env.Security = &evaluator.SecurityPolicy{
+		AllowWriteAll: true,
+	}
 	return evaluator.Eval(program, env)
 }
 

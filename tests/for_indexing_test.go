@@ -16,19 +16,19 @@ func TestForArrayWithIndex(t *testing.T) {
 	}{
 		{
 			`for(i, x in [10, 20, 30]) { i }`,
-			`0, 1, 2`,
+			`[0, 1, 2]`,
 		},
 		{
 			`for(i, x in [10, 20, 30]) { x }`,
-			`10, 20, 30`,
+			`[10, 20, 30]`,
 		},
 		{
 			`for(i, x in [10, 20, 30]) { i * 10 + x }`,
-			`10, 30, 50`,
+			`[10, 30, 50]`,
 		},
 		{
 			`for(idx, val in ["a", "b", "c"]) { idx + ":" + val }`,
-			`0:a, 1:b, 2:c`,
+			`[0:a, 1:b, 2:c]`,
 		},
 		{
 			// Empty array
@@ -38,17 +38,17 @@ func TestForArrayWithIndex(t *testing.T) {
 		{
 			// Single element
 			`for(i, x in [42]) { [i, x] }`,
-			`0, 42`,
+			`[[0, 42]]`,
 		},
 		{
 			// Verify index starts at 0
 			`let result = for(i, x in [5, 6, 7]) { if (i == 0) { x } }; result`,
-			`5`,
+			`[5]`,
 		},
 		{
 			// Create array of [index, value] pairs
 			`for(i, x in [100, 200, 300]) { [i, x] }`,
-			`0, 100, 1, 200, 2, 300`,
+			`[[0, 100], [1, 200], [2, 300]]`,
 		},
 	}
 
@@ -66,15 +66,15 @@ func TestForStringWithIndex(t *testing.T) {
 	}{
 		{
 			`for(i, c in "abc") { i }`,
-			`0, 1, 2`,
+			`[0, 1, 2]`,
 		},
 		{
 			`for(i, c in "abc") { c }`,
-			`a, b, c`,
+			`[a, b, c]`,
 		},
 		{
 			`for(i, c in "hello") { i + ":" + c }`,
-			`0:h, 1:e, 2:l, 3:l, 4:o`,
+			`[0:h, 1:e, 2:l, 3:l, 4:o]`,
 		},
 		{
 			// Empty string
@@ -84,12 +84,12 @@ func TestForStringWithIndex(t *testing.T) {
 		{
 			// Single character
 			`for(i, c in "x") { [i, c] }`,
-			`0, x`,
+			`[[0, x]]`,
 		},
 		{
 			// Unicode characters
 			`for(i, c in "🎉🎊") { i }`,
-			`0, 1`,
+			`[0, 1]`,
 		},
 	}
 
@@ -108,22 +108,22 @@ func TestForBackwardCompatibility(t *testing.T) {
 		{
 			// Single parameter - element only
 			`for(x in [1, 2, 3]) { x * 2 }`,
-			`2, 4, 6`,
+			`[2, 4, 6]`,
 		},
 		{
 			// Simple form still works
 			`for([1, 2, 3]) fn(x) { x + 10 }`,
-			`11, 12, 13`,
+			`[11, 12, 13]`,
 		},
 		{
 			// Dictionary iteration unchanged (key, value)
 			`for(k, v in {a: 1, b: 2}) { k }`,
-			`a, b`,
+			`[a, b]`,
 		},
 		{
 			// String iteration with single param
 			`for(c in "hi") { toUpper(c) }`,
-			`H, I`,
+			`[H, I]`,
 		},
 	}
 
@@ -142,27 +142,27 @@ func TestForIndexEdgeCases(t *testing.T) {
 		{
 			// Filter with index - only even indices
 			`for(i, x in [10, 20, 30, 40]) { if (i % 2 == 0) { x } }`,
-			`10, 30`,
+			`[10, 30]`,
 		},
 		{
 			// Filter with index - only odd indices
 			`for(i, x in [10, 20, 30, 40]) { if (i % 2 == 1) { x } }`,
-			`20, 40`,
+			`[20, 40]`,
 		},
 		{
 			// Use both index and value in computation
 			`for(i, x in [5, 5, 5]) { x + i }`,
-			`5, 6, 7`,
+			`[5, 6, 7]`,
 		},
 		{
 			// Nested arrays with indexing
 			`for(i, row in [[1, 2], [3, 4]]) { i }`,
-			`0, 1`,
+			`[0, 1]`,
 		},
 		{
 			// Large array (verify index increments correctly)
 			`let arr = [0, 0, 0, 0, 0]; for(i, x in arr) { i }`,
-			`0, 1, 2, 3, 4`,
+			`[0, 1, 2, 3, 4]`,
 		},
 	}
 
@@ -181,27 +181,27 @@ func TestForIndexWithVariableNames(t *testing.T) {
 		{
 			// Traditional names
 			`for(index, value in [7, 8, 9]) { index }`,
-			`0, 1, 2`,
+			`[0, 1, 2]`,
 		},
 		{
 			// Short names
 			`for(i, v in [7, 8, 9]) { v }`,
-			`7, 8, 9`,
+			`[7, 8, 9]`,
 		},
 		{
 			// Descriptive names
 			`for(position, item in ["first", "second"]) { position + 1 }`,
-			`1, 2`,
+			`[1, 2]`,
 		},
 		{
 			// Underscore for unused index
 			`for(_, x in [10, 20, 30]) { x }`,
-			`10, 20, 30`,
+			`[10, 20, 30]`,
 		},
 		{
 			// Underscore for unused value
 			`for(i, _ in [10, 20, 30]) { i * 100 }`,
-			`0, 100, 200`,
+			`[0, 100, 200]`,
 		},
 	}
 
@@ -247,22 +247,22 @@ func TestForIndexPracticalExamples(t *testing.T) {
 		{
 			// Enumerate pattern - create numbered list
 			`for(i, item in ["apple", "banana", "cherry"]) { (i + 1) + ". " + item }`,
-			`1. apple, 2. banana, 3. cherry`,
+			`[1. apple, 2. banana, 3. cherry]`,
 		},
 		{
 			// Find index of element
 			`let items = ["a", "b", "c"]; for(i, x in items) { if (x == "b") { i } }`,
-			`1`,
+			`[1]`,
 		},
 		{
 			// Skip first element using index
 			`for(i, x in [10, 20, 30, 40]) { if (i > 0) { x } }`,
-			`20, 30, 40`,
+			`[20, 30, 40]`,
 		},
 		{
 			// Take first N elements using index
 			`for(i, x in [1, 2, 3, 4, 5]) { if (i < 3) { x } }`,
-			`1, 2, 3`,
+			`[1, 2, 3]`,
 		},
 	}
 

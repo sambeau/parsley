@@ -18,6 +18,10 @@ func testEvalSVGWithFilename(input string, filename string) evaluator.Object {
 	program := p.ParseProgram()
 	env := evaluator.NewEnvironment()
 	env.Filename = filename
+	// Enable write operations for SVG tests (reads are allowed by default)
+	env.Security = &evaluator.SecurityPolicy{
+		AllowWriteAll: true,
+	}
 	return evaluator.Eval(program, env)
 }
 
