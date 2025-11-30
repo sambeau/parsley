@@ -20,8 +20,10 @@ This is a Go project using standard Go practices and conventions.
 
 ## Project Structure
 
-- `main.go` - Application entry point
+- `cmd/pars/` - CLI entry point
+  - `main.go` - Application entry point for the `pars` command
 - `pkg/` - Public packages for external use
+  - `parsley/` - Public API for embedding Parsley in other Go projects
   - `lexer/` - Tokenizes input into lexical tokens
   - `parser/` - Converts tokens into an Abstract Syntax Tree
   - `ast/` - Defines the Abstract Syntax Tree nodes

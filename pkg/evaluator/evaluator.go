@@ -280,6 +280,37 @@ type SecurityPolicy struct {
 	AllowExecuteAll bool     // Allow all executes
 }
 
+// Logger interface for log()/logLine() output
+type Logger interface {
+	Log(values ...interface{})
+	LogLine(values ...interface{})
+}
+
+// defaultStdoutLogger is the default logger that writes to stdout
+type defaultStdoutLogger struct{}
+
+func (l *defaultStdoutLogger) Log(values ...interface{}) {
+	for i, v := range values {
+		if i > 0 {
+			fmt.Print(" ")
+		}
+		fmt.Print(v)
+	}
+}
+
+func (l *defaultStdoutLogger) LogLine(values ...interface{}) {
+	for i, v := range values {
+		if i > 0 {
+			fmt.Print(" ")
+		}
+		fmt.Print(v)
+	}
+	fmt.Println()
+}
+
+// DefaultLogger is the default stdout logger
+var DefaultLogger Logger = &defaultStdoutLogger{}
+
 // Environment represents the environment for variable bindings
 type Environment struct {
 	store       map[string]Object
@@ -289,6 +320,7 @@ type Environment struct {
 	letBindings map[string]bool // tracks which variables were declared with 'let'
 	exports     map[string]bool // tracks which variables were explicitly exported
 	Security    *SecurityPolicy // File system security policy
+	Logger      Logger          // Logger for log()/logLine() output
 }
 
 // NewEnvironment creates a new environment
@@ -296,17 +328,18 @@ func NewEnvironment() *Environment {
 	s := make(map[string]Object)
 	l := make(map[string]bool)
 	x := make(map[string]bool)
-	return &Environment{store: s, outer: nil, letBindings: l, exports: x}
+	return &Environment{store: s, outer: nil, letBindings: l, exports: x, Logger: DefaultLogger}
 }
 
 // NewEnclosedEnvironment creates a new environment with outer reference
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
-	// Preserve filename and token from outer environment
+	// Preserve filename, token, and logger from outer environment
 	if outer != nil {
 		env.Filename = outer.Filename
 		env.LastToken = outer.LastToken
+		env.Logger = outer.Logger
 	}
 	return env
 }
@@ -390,6 +423,19 @@ func (e *Environment) Update(name string, val Object) Object {
 	// Variable doesn't exist anywhere, create it in current scope
 	e.store[name] = val
 	return val
+}
+
+// NewDictionaryFromObjects creates a Dictionary from a map of Objects
+// This is useful for programmatically creating dictionaries without AST expressions
+func NewDictionaryFromObjects(pairs map[string]Object) *Dictionary {
+	dict := &Dictionary{
+		Pairs: make(map[string]ast.Expression),
+		Env:   NewEnvironment(),
+	}
+	for k, v := range pairs {
+		dict.Pairs[k] = &ast.ObjectLiteralExpression{Obj: v}
+	}
+	return dict
 }
 
 // checkPathAccess validates file system access based on security policy
@@ -6498,6 +6544,15 @@ func Eval(node ast.Node, env *Environment) Object {
 			return evalImport(args, env)
 		}
 
+		// Check if this is a call to log (needs env for Logger)
+		if ident, ok := node.Function.(*ast.Identifier); ok && ident.Value == "log" {
+			args := evalExpressions(node.Arguments, env)
+			if len(args) == 1 && isError(args[0]) {
+				return args[0]
+			}
+			return evalLog(args, env)
+		}
+
 		// Check if this is a call to logLine
 		if ident, ok := node.Function.(*ast.Identifier); ok && ident.Value == "logLine" {
 			args := evalExpressions(node.Arguments, env)
@@ -7807,8 +7862,51 @@ func evalLogLine(args []Object, env *Environment) Object {
 		}
 	}
 
-	// Write immediately to stdout
-	fmt.Fprintln(os.Stdout, result.String())
+	// Use the environment's logger
+	if env.Logger != nil {
+		env.Logger.LogLine(result.String())
+	} else {
+		fmt.Fprintln(os.Stdout, result.String())
+	}
+
+	// Return null
+	return NULL
+}
+
+// evalLog implements log() using the environment's logger
+func evalLog(args []Object, env *Environment) Object {
+	var result strings.Builder
+
+	for i, arg := range args {
+		if i == 0 {
+			// First argument: if it's a string, show without quotes
+			if str, ok := arg.(*String); ok {
+				result.WriteString(str.Value)
+			} else {
+				result.WriteString(objectToDebugString(arg))
+			}
+		} else {
+			// Subsequent arguments: add separator and debug format
+			if i == 1 {
+				// After first string, no comma - just space
+				if _, firstWasString := args[0].(*String); firstWasString {
+					result.WriteString(" ")
+				} else {
+					result.WriteString(", ")
+				}
+			} else {
+				result.WriteString(", ")
+			}
+			result.WriteString(objectToDebugString(arg))
+		}
+	}
+
+	// Use the environment's logger
+	if env.Logger != nil {
+		env.Logger.LogLine(result.String())
+	} else {
+		fmt.Fprintln(os.Stdout, result.String())
+	}
 
 	// Return null
 	return NULL

@@ -3,8 +3,9 @@
 VERSION := $(shell cat VERSION)
 LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
 
+# Build from cmd/pars
 build:
-	go build $(LDFLAGS) -o pars .
+	go build $(LDFLAGS) -o pars ./cmd/pars
 
 test:
 	go test ./...
