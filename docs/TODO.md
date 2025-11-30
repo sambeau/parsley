@@ -1,44 +1,17 @@
 # TODO List
 
-## APPROVED
-
-- ~~File delete() methods: add a delete method to file pseudo-type~~ ✅ (v0.9.17 - implemented as remove())
-- ~~File I/O security sandbox: --no-read, --no-write flags~~ ✅ (v0.10.0)
-- ~~chroots for write: limit writes to one or more directories and their children~~ ✅ (v0.10.0)
-- ~~chroots for read: limit reads to one or more directories and their children~~ ✅ (v0.10.0)
-- ~~chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin~~ ✅ (v0.10.0)
-- ~~run scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
-- ~~pipe scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
-- ~~Fetch support for format objects~~ ✅ (v0.9.11 - documented in v0.11.0)
-- ~~SFTP Support: Read/Write files from FTP server - useful for static site generation~~ ✅ (v0.12.0)
-- ~~Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)~~ ✅ (v0.12.1)
-- ~~Support for STDIN/STDOUT/STDERR: Unix pipeline integration with @-, @stdin, @stdout, @stderr~~ ✅ (v0.14.0)
-
 ## IN PLANNING
-
-### For V1.0 ALPHA
-
-- ~~Improve REPL~~ ✅ (v0.12.2)
-	- ~~Investigate options: what do other Go cli tools do?~~ ✅
-	- ~~Better editing Up, down, left, right~~ ✅
-- ~~Look at consistency of API one more time~~ ✅ (v0.13.0)
-	- ~~Remove deprecated features~~ ✅ (v0.13.0)
-- Check everything is working:
-	- ~~run through all code looking for missing tests~~✅ (v0.13.1)
-	- Setup database and sftp environments for integration testing
-	- run integration tests
-- ~~Better errors~~ ✅ (v0.13.1)
-	- ~~Human-readable type names in error messages~~ ✅ (v0.13.1)
-	- ~~Consistent function name formatting in errors~~ ✅ (v0.13.1)
-- Build something big to see how it works in practice
 - Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
 	- use cmd/ for commands
+### For V1.0 ALPHA
+
+- Check everything is working:
+	- Setup database and sftp environments for integration testing
+	- run integration tests
+- Build something big to see how it works in practice
 - POSTGRES support
-- ~~Tag support for REPL~~ ✅ (v0.15.3)
 
 ### For V1.0 BETA
-- ~~Performance checks~~ ✅ (v0.13.0
-- ~~Code quality checks~~ ✅ (v0.13.0
 
 ### For V1.0 RELEASE
 - Rewrite README
@@ -112,5 +85,28 @@
 - ~~SQL and databases {user} = [$GetUser userID={userId}] <=/=> SQL()~~ ✅ (0.9.15)
 - ~~Fetch from URL~~ ✅ (0.9.11)
 - ~~1 ++ [2,3,4,5] , [1,2,3,4] ++ 5~~ ✅ (0.9.16)
+- ~~File delete() methods: add a delete method to file pseudo-type~~ ✅ (v0.9.17 - implemented as remove())
+- ~~File I/O security sandbox: --no-read, --no-write flags~~ ✅ (v0.10.0)
+- ~~chroots for write: limit writes to one or more directories and their children~~ ✅ (v0.10.0)
+- ~~chroots for read: limit reads to one or more directories and their children~~ ✅ (v0.10.0)
+- ~~chroots for execute: limit execution of external scripts/tools to one or more directories and their children, e.g. ./bin~~ ✅ (v0.10.0)
+- ~~run scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
+- ~~pipe scripts: Execute external commands/scripts/tools with command line inputs/options, receive exit status + optional output as result~~ ✅ (v0.11.0)
+- ~~Fetch support for format objects~~ ✅ (v0.9.11 - documented in v0.11.0)
+- ~~SFTP Support: Read/Write files from FTP server - useful for static site generation~~ ✅ (v0.12.0)
+- ~~Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)~~ ✅ (v0.12.1)
+- ~~Improve REPL~~ ✅ (v0.12.2)
+	- ~~Investigate options: what do other Go cli tools do?~~ ✅
+	- ~~Better editing Up, down, left, right~~ ✅
+- ~~Look at consistency of API one more time~~ ✅ (v0.13.0)
+	- ~~Remove deprecated features~~ ✅ (v0.13.0)
+- ~~Performance checks~~ ✅ (v0.13.0)
+- ~~Code quality checks~~ ✅ (v0.13.0)
+- ~~Better errors~~ ✅ (v0.13.1)
+	- ~~Human-readable type names in error messages~~ ✅ (v0.13.1)
+	- ~~Consistent function name formatting in errors~~ ✅ (v0.13.1)
+- ~~run through all code looking for missing tests~~✅ (v0.13.1)
+- ~~Support for STDIN/STDOUT/STDERR: Unix pipeline integration with @-, @stdin, @stdout, @stderr~~ ✅ (v0.14.0)
 - ~~Require bracket syntax for arrays and array destructuring (consistency for v1.0)~~ ✅ (v0.15.0)
 - ~~Datetime intersection operator (`&&`) for combining date and time components~~ ✅ (v0.15.2)
+- ~~Tag support for REPL~~ ✅ (v0.15.3)
