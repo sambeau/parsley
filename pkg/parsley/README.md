@@ -90,6 +90,44 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
+### Database Connection Injection
+
+Inject a server-managed database connection into Parsley scripts. The host application
+controls the connection lifecycle (pooling, closing). Parsley scripts cannot close
+managed connections.
+
+```go
+// Server manages the database connection
+db, err := sql.Open("sqlite", "./app.db")
+if err != nil {
+    log.Fatal(err)
+}
+defer db.Close()
+
+// Configure connection pool
+db.SetMaxOpenConns(25)
+db.SetMaxIdleConns(5)
+
+// Evaluate script with injected database
+result, err := parsley.EvalFile("handler.pars",
+    parsley.WithDB("db", db, "sqlite"),
+    parsley.WithVar("request", reqMap),
+)
+```
+
+In your Parsley script, use the connection directly:
+
+```parsley
+// handler.pars
+let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+
+if (user) {
+    <h1>Welcome, {user.name}!</h1>
+} else {
+    <h1>User not found</h1>
+}
+```
+
 ## API Reference
 
 ### Core Functions
@@ -117,6 +155,7 @@ Evaluates a Parsley file and returns the result.
 - `WithSecurity(policy *SecurityPolicy)` - Set file system security policy
 - `WithLogger(logger Logger)` - Set the logger for log()/logLine()
 - `WithFilename(name string)` - Set the filename for error messages
+- `WithDB(name string, db *sql.DB, driver string)` - Inject a database connection (managed by host)
 
 ### Result
 

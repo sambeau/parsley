@@ -1,9 +1,11 @@
 package parsley_test
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/sambeau/parsley/pkg/parsley"
+	_ "modernc.org/sqlite"
 )
 
 func TestEval(t *testing.T) {
@@ -181,5 +183,57 @@ func TestFromParsley(t *testing.T) {
 				t.Errorf("expected %v, got %v", tt.expected, got)
 			}
 		})
+	}
+}
+
+func TestWithDB(t *testing.T) {
+	// Open an in-memory SQLite database
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Create a test table
+	_, err = db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+	if err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+
+	// Insert test data
+	_, err = db.Exec("INSERT INTO users (name) VALUES ('Alice')")
+	if err != nil {
+		t.Fatalf("failed to insert data: %v", err)
+	}
+
+	// Use WithDB to inject the connection
+	result, err := parsley.Eval(`
+		let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+		user.name
+	`, parsley.WithDB("db", db, "sqlite"))
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.String() != "Alice" {
+		t.Errorf("expected 'Alice', got '%s'", result.String())
+	}
+}
+
+func TestWithDBManagedConnectionCannotBeClosed(t *testing.T) {
+	// Open an in-memory SQLite database
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Try to close the managed connection from Parsley
+	result, err := parsley.Eval(`db.close()`, parsley.WithDB("db", db, "sqlite"))
+
+	// Should return an error about managed connections
+	if err == nil && !result.IsError() {
+		t.Error("expected error when closing managed connection")
 	}
 }

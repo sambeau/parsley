@@ -1,16 +1,26 @@
 package parsley
 
 import (
+	"database/sql"
+
 	"github.com/sambeau/parsley/pkg/evaluator"
 )
 
+// DBConnectionConfig holds an injected database connection.
+// Used by WithDB() to pass server-managed connections to Parsley scripts.
+type DBConnectionConfig struct {
+	DB     *sql.DB
+	Driver string // "sqlite", "postgres", "mysql"
+}
+
 // Config holds evaluation configuration
 type Config struct {
-	Env      *evaluator.Environment
-	Security *evaluator.SecurityPolicy
-	Logger   evaluator.Logger
-	Filename string
-	Vars     map[string]interface{}
+	Env           *evaluator.Environment
+	Security      *evaluator.SecurityPolicy
+	Logger        evaluator.Logger
+	Filename      string
+	Vars          map[string]interface{}
+	DBConnections map[string]*DBConnectionConfig // Injected database connections
 }
 
 // Option configures evaluation
@@ -55,6 +65,35 @@ func WithVar(name string, value interface{}) Option {
 	}
 }
 
+// WithDB injects a database connection into the Parsley environment.
+// The connection is available to scripts as a variable with the given name.
+// The host application is responsible for managing the connection lifecycle
+// (opening, closing, pooling). Parsley will NOT close this connection.
+//
+// Example:
+//
+//	db, _ := sql.Open("sqlite", "./app.db")
+//	defer db.Close()
+//
+//	result, err := parsley.EvalFile("handler.pars",
+//	    parsley.WithDB("db", db, "sqlite"),
+//	)
+//
+// In Parsley script:
+//
+//	let user = db <=?=> "SELECT * FROM users WHERE id = 1"
+func WithDB(name string, db *sql.DB, driver string) Option {
+	return func(c *Config) {
+		if c.DBConnections == nil {
+			c.DBConnections = make(map[string]*DBConnectionConfig)
+		}
+		c.DBConnections[name] = &DBConnectionConfig{
+			DB:     db,
+			Driver: driver,
+		}
+	}
+}
+
 // newConfig creates a new Config with defaults and applies options
 func newConfig(opts ...Option) *Config {
 	c := &Config{
@@ -90,6 +129,12 @@ func applyConfig(env *evaluator.Environment, c *Config) error {
 			return err
 		}
 		env.Set(name, obj)
+	}
+
+	// Apply database connections
+	for name, dbConfig := range c.DBConnections {
+		conn := evaluator.NewManagedDBConnection(dbConfig.DB, dbConfig.Driver)
+		env.Set(name, conn)
 	}
 
 	return nil

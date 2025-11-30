@@ -225,11 +225,26 @@ type DBConnection struct {
 	DSN           string // Data Source Name
 	InTransaction bool
 	LastError     string
+	Managed       bool // If true, connection is managed by host application (won't be closed by Parsley)
 }
 
 func (dbc *DBConnection) Type() ObjectType { return DB_CONNECTION_OBJ }
 func (dbc *DBConnection) Inspect() string {
 	return fmt.Sprintf("<DBConnection driver=%s>", dbc.Driver)
+}
+
+// NewManagedDBConnection creates a DBConnection that is managed by the host application.
+// Managed connections cannot be closed by Parsley scripts - the host is responsible
+// for managing the connection lifecycle.
+func NewManagedDBConnection(db *sql.DB, driver string) *DBConnection {
+	return &DBConnection{
+		DB:            db,
+		Driver:        driver,
+		DSN:           "", // Not applicable for managed connections
+		InTransaction: false,
+		LastError:     "",
+		Managed:       true,
+	}
 }
 
 // SFTPConnection represents an SFTP connection
@@ -6150,6 +6165,10 @@ func evalDBConnectionMethod(conn *DBConnection, method string, args []Object, en
 	case "close":
 		if len(args) != 0 {
 			return newError("close() takes no arguments, got=%d", len(args))
+		}
+		// Managed connections cannot be closed by Parsley scripts
+		if conn.Managed {
+			return newError("cannot close server-managed database connection")
 		}
 		// Remove from cache and close
 		cacheKey := conn.Driver + ":" + conn.DSN
