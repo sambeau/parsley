@@ -1,0 +1,82 @@
+// Stdin/Stdout Demo for Parsley v0.14.0
+// 
+// This file demonstrates the new stdin/stdout support.
+// Run examples with:
+//   echo '{"name":"test"}' | pars examples/stdin_demo.pars
+//
+// Or test individual examples by copying code to a temp file.
+
+// =========================================
+// Example 1: JSON passthrough
+// =========================================
+// echo '{"name":"test","count":42}' | pars -c 'let d <== JSON(@-); d ==> JSON(@-)'
+//
+// Output:
+// {
+//   "count": 42,
+//   "name": "test"
+// }
+
+// =========================================
+// Example 2: Text processing
+// =========================================
+// echo "Hello World" | pars -c 'let t <== text(@-); t.toUpper() ==> text(@-)'
+//
+// Output: HELLO WORLD
+
+// =========================================
+// Example 3: Line counting
+// =========================================
+// cat myfile.txt | pars -c 'let lines <== lines(@-); log(len(lines), "lines")'
+
+// =========================================
+// Example 4: JSON filtering pipeline
+// =========================================
+// Given input.json: {"items": [{"name": "a", "active": true}, {"name": "b", "active": false}]}
+//
+// cat input.json | pars -c '
+//   let data <== JSON(@-)
+//   let active = for (item in data.items) { if (item.active) { item } }
+//   active ==> JSON(@-)
+// '
+//
+// Output:
+// [
+//   {
+//     "active": true,
+//     "name": "a"
+//   }
+// ]
+
+// =========================================
+// Example 5: Stderr for errors
+// =========================================
+// pars -c '"Processing..." ==> text(@stdout); "Warning: low memory" ==> text(@stderr)'
+
+// =========================================
+// Example 6: CSV to JSON conversion
+// =========================================
+// echo "name,age\nAlice,30\nBob,25" | pars -c 'let data <== CSV(@-); data ==> JSON(@-)'
+//
+// Output:
+// [
+//   {"age": "30", "name": "Alice"},
+//   {"age": "25", "name": "Bob"}
+// ]
+
+// =========================================
+// Example 7: Using @stdin/@stdout aliases
+// =========================================
+// echo "hello" | pars -c 'let t <== text(@stdin); t ==> text(@stdout)'
+
+// =========================================
+// Interactive Demo (uncomment to use)
+// =========================================
+
+// Uncomment this to run a simple demo:
+// let input <== JSON(@-)
+// log("Received:", input)
+// input.processed = true
+// input ==> JSON(@-)
+
+log("Stdin demo file - see comments for example commands")

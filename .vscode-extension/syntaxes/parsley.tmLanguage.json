@@ -289,6 +289,16 @@
     "path-literals": {
       "patterns": [
         {
+          "comment": "Standard input/output/error streams",
+          "name": "string.unquoted.path.parsley",
+          "match": "@(-|stdin|stdout|stderr)\\b",
+          "captures": {
+            "0": {
+              "name": "constant.other.path.stdio.parsley"
+            }
+          }
+        },
+        {
           "name": "string.unquoted.path.parsley",
           "match": "@(\\./|\\.\\./)([^\\s<>\"{}|\\\\^`\\[\\]]*)|@(/|~/)([^\\s<>\"{}|\\\\^`\\[\\]]*)",
           "captures": {

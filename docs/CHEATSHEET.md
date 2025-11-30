@@ -312,11 +312,36 @@ data ==> JSON(@./output.json)
 log_entry ==>> text(@./log.txt)
 ```
 
+### Stdin/Stdout/Stderr (NEW in v0.14.0)
+```parsley
+// @- is the Unix convention: stdin for reads, stdout for writes
+let data <== JSON(@-)              // Read JSON from stdin
+data ==> JSON(@-)                  // Write JSON to stdout
+
+// Explicit aliases also available
+let input <== text(@stdin)         // Read text from stdin
+"output" ==> text(@stdout)         // Write to stdout
+"error" ==> text(@stderr)          // Write to stderr
+
+// Works with all format factories
+let lines <== lines(@-)            // Read lines from stdin
+let csvData <== CSV(@-)            // Parse CSV from stdin
+data ==> YAML(@-)                  // Write YAML to stdout
+
+// Full Unix pipeline example
+let input <== JSON(@-)
+let output = for (item in input.items) {
+    if (item.active) { item }
+}
+output ==> JSON(@-)
+```
+
 ### Directory Operations (NEW in v0.12.1)
 ```parsley
 // Create directories
 file(@./new-dir).mkdir()
 file(@./parent/child).mkdir({parents: true})  // Recursive
+
 
 // Remove directories
 file(@./old-dir).rmdir()

@@ -1729,6 +1729,32 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 		return l.detectTemplateAtLiteralType()
 	}
 
+	// Check for @- (stdin/stdout) - must be just "-" not followed by path char or digit
+	if l.input[pos] == '-' {
+		// Check next char - if it's not a digit and not a path char, it's stdin
+		if pos+1 >= len(l.input) || (!isDigit(l.input[pos+1]) && !isPathChar(l.input[pos+1])) {
+			return PATH_LITERAL
+		}
+	}
+
+	// Check for @stdin, @stdout, @stderr aliases
+	stdioAliases := []string{"stdin", "stdout", "stderr"}
+	for _, alias := range stdioAliases {
+		if pos+len(alias) <= len(l.input) {
+			match := true
+			for i, ch := range alias {
+				if l.input[pos+i] != byte(ch) {
+					match = false
+					break
+				}
+			}
+			// Make sure it's not followed by more identifier chars
+			if match && (pos+len(alias) >= len(l.input) || !isLetter(l.input[pos+len(alias)]) && !isDigit(l.input[pos+len(alias)])) {
+				return PATH_LITERAL
+			}
+		}
+	}
+
 	// Check for URL: @scheme://
 	// Look for characters followed by ://
 	colonPos := pos
@@ -1786,9 +1812,25 @@ func (l *Lexer) detectAtLiteralType() TokenType {
 }
 
 // readPathLiteral reads a path literal after @
-// Supports: @/absolute/path, @./relative/path, @~/home/path
+// Supports: @/absolute/path, @./relative/path, @~/home/path, @-, @stdin, @stdout, @stderr
 func (l *Lexer) readPathLiteral() string {
 	l.readChar() // skip @
+
+	// Check for @- (stdin/stdout special path)
+	if l.ch == '-' && !isDigit(l.peekChar()) && !isPathChar(l.peekChar()) {
+		l.readChar()
+		return "-"
+	}
+
+	// Check for @stdin, @stdout, @stderr aliases
+	if l.ch == 's' {
+		// Try to match stdin, stdout, stderr
+		for _, alias := range []string{"stdin", "stdout", "stderr"} {
+			if l.matchKeyword(alias) {
+				return alias
+			}
+		}
+	}
 
 	var path []byte
 	// Read until whitespace or delimiter
@@ -1815,6 +1857,36 @@ func (l *Lexer) readPathLiteral() string {
 	}
 
 	return string(path)
+}
+
+// matchKeyword tries to match a keyword at current position, returns true if matched and advances
+func (l *Lexer) matchKeyword(keyword string) bool {
+	// Check if we can match the keyword
+	savedPos := l.position
+	savedReadPos := l.readPosition
+	savedCh := l.ch
+
+	for i := 0; i < len(keyword); i++ {
+		if l.ch != keyword[i] {
+			// Restore position
+			l.position = savedPos
+			l.readPosition = savedReadPos
+			l.ch = savedCh
+			return false
+		}
+		l.readChar()
+	}
+
+	// Make sure keyword isn't followed by more identifier chars
+	if isLetter(l.ch) || isDigit(l.ch) {
+		// Restore position
+		l.position = savedPos
+		l.readPosition = savedReadPos
+		l.ch = savedCh
+		return false
+	}
+
+	return true
 }
 
 // isPathChar checks if a character is valid in a path (but not at the start of a property)

@@ -12,6 +12,7 @@
 - ~~Fetch support for format objects~~ ✅ (v0.9.11 - documented in v0.11.0)
 - ~~SFTP Support: Read/Write files from FTP server - useful for static site generation~~ ✅ (v0.12.0)
 - ~~Directory manipulation methods for file paths: Need methods like .mkdir(), .rmdir(), .remove() for local file paths (currently only available for SFTP in plan)~~ ✅ (v0.12.1)
+- ~~Support for STDIN/STDOUT/STDERR: Unix pipeline integration with @-, @stdin, @stdout, @stderr~~ ✅ (v0.14.0)
 
 ## IN PLANNING
 
@@ -65,7 +66,6 @@
 	
 ## CONSIDERING
 
-- Support for STDIN
 - Parsley-based static site generator: a small, simple, opinionated site generator
 	- Examine Hugo https://gohugo.io/documentation/
 - Supabase database support

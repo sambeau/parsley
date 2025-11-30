@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.14.0] - 2025-11-30
+
+### Added
+
+- **Stdin/stdout/stderr support** - Read from stdin and write to stdout/stderr for Unix pipeline integration:
+  ```parsley
+  // @- is the Unix convention
+  let data <== JSON(@-)   // Read JSON from stdin
+  data ==> JSON(@-)       // Write JSON to stdout
+  
+  // Explicit aliases
+  let input <== text(@stdin)
+  "output" ==> text(@stdout)
+  "error" ==> text(@stderr)
+  ```
+
+- **Works with all format factories** - `JSON(@-)`, `text(@-)`, `lines(@-)`, `CSV(@-)`, `bytes(@-)`, `YAML(@-)`
+
+### Examples
+```parsley
+// Filter JSON in a pipeline
+let data <== JSON(@-)
+let active = for (item in data.items) {
+    if (item.active) { item }
+}
+active ==> JSON(@-)
+
+// Run with:
+cat input.json | pars filter.pars > output.json
+```
+
+---
+
 ## [0.13.2] - 2025-11-30
 
 ### Changed

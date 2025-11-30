@@ -1536,7 +1536,21 @@ func evalDurationLiteral(node *ast.DurationLiteral, env *Environment) Object {
 }
 
 // evalPathLiteral parses a path literal like @/usr/local/bin or @./config.json
+// Also handles special stdio paths: @-, @stdin, @stdout, @stderr
 func evalPathLiteral(node *ast.PathLiteral, env *Environment) Object {
+	// Check for stdio special paths
+	switch node.Value {
+	case "-":
+		// @- is context-dependent: stdin for reads, stdout for writes
+		return stdioToDict("stdio", env)
+	case "stdin":
+		return stdioToDict("stdin", env)
+	case "stdout":
+		return stdioToDict("stdout", env)
+	case "stderr":
+		return stdioToDict("stderr", env)
+	}
+
 	// Parse the path string into components
 	components, isAbsolute := parsePathString(node.Value)
 
@@ -2175,6 +2189,54 @@ func pathToDict(components []string, isAbsolute bool, env *Environment) *Diction
 	return &Dictionary{Pairs: pairs, Env: env}
 }
 
+// stdioToDict creates a path dictionary for stdin/stdout/stderr
+func stdioToDict(stream string, env *Environment) *Dictionary {
+	pairs := make(map[string]ast.Expression)
+
+	// Add __type field
+	pairs["__type"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "path"},
+		Value: "path",
+	}
+
+	// Add __stdio field to mark this as a stdio path
+	pairs["__stdio"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: stream},
+		Value: stream,
+	}
+
+	// Add components as array with just "-"
+	pairs["components"] = &ast.ArrayLiteral{
+		Token: lexer.Token{Type: lexer.LBRACKET, Literal: "["},
+		Elements: []ast.Expression{
+			&ast.StringLiteral{
+				Token: lexer.Token{Type: lexer.STRING, Literal: "-"},
+				Value: "-",
+			},
+		},
+	}
+
+	// Not absolute
+	pairs["absolute"] = &ast.Boolean{
+		Token: lexer.Token{Type: lexer.FALSE, Literal: "false"},
+		Value: false,
+	}
+
+	// Add path property as "-" for display
+	pairs["path"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: "-"},
+		Value: "-",
+	}
+
+	// Add name property
+	pairs["name"] = &ast.StringLiteral{
+		Token: lexer.Token{Type: lexer.STRING, Literal: stream},
+		Value: stream,
+	}
+
+	return &Dictionary{Pairs: pairs, Env: env}
+}
+
 // parseUrlString parses a URL string into components
 // Supports: scheme://[user:pass@]host[:port]/path?query#fragment
 func parseUrlString(urlStr string, env *Environment) (*Dictionary, error) {
@@ -2686,6 +2748,11 @@ func fileToDict(pathDict *Dictionary, format string, options *Dictionary, env *E
 	}
 	if absExpr, ok := pathDict.Pairs["absolute"]; ok {
 		pairs["_pathAbsolute"] = absExpr
+	}
+
+	// Propagate __stdio marker from path dict (for stdin/stdout/stderr)
+	if stdioExpr, ok := pathDict.Pairs["__stdio"]; ok {
+		pairs["__stdio"] = stdioExpr
 	}
 
 	// Add format field
@@ -10297,22 +10364,53 @@ func makeDataErrorDict(data Object, errorMsg string, env *Environment) *Dictiona
 
 // readFileContent reads the content of a file based on its format
 func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
-	// Get the path from the file dictionary
-	pathStr := getFilePathString(fileDict, env)
-	if pathStr == "" {
-		return nil, newError("file handle has no valid path")
-	}
+	// Check if this is a stdio stream
+	var data []byte
+	var pathStr string
 
-	// Resolve the path relative to the current file
-	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
-	if pathErr != nil {
-		return nil, newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
-	}
-	pathStr = absPath
+	if stdioExpr, ok := fileDict.Pairs["__stdio"]; ok {
+		stdioObj := Eval(stdioExpr, env)
+		if stdioStr, ok := stdioObj.(*String); ok {
+			switch stdioStr.Value {
+			case "stdin", "stdio":
+				// Read from stdin (@stdin or @- for reads)
+				var readErr error
+				data, readErr = io.ReadAll(os.Stdin)
+				if readErr != nil {
+					return nil, newError("failed to read from stdin: %s", readErr.Error())
+				}
+				pathStr = "-"
+			case "stdout", "stderr":
+				return nil, newError("cannot read from %s", stdioStr.Value)
+			default:
+				return nil, newError("unknown stdio stream: %s", stdioStr.Value)
+			}
+		}
+	} else {
+		// Get the path from the file dictionary
+		pathStr = getFilePathString(fileDict, env)
+		if pathStr == "" {
+			return nil, newError("file handle has no valid path")
+		}
 
-	// Security check
-	if err := env.checkPathAccess(pathStr, "read"); err != nil {
-		return nil, newError("security: %s", err.Error())
+		// Resolve the path relative to the current file
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		if pathErr != nil {
+			return nil, newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		}
+		pathStr = absPath
+
+		// Security check
+		if err := env.checkPathAccess(pathStr, "read"); err != nil {
+			return nil, newError("security: %s", err.Error())
+		}
+
+		// Read the raw file content
+		var readErr error
+		data, readErr = os.ReadFile(pathStr)
+		if readErr != nil {
+			return nil, newError("failed to read file '%s': %s", pathStr, readErr.Error())
+		}
 	}
 
 	// Get the format
@@ -10327,12 +10425,6 @@ func readFileContent(fileDict *Dictionary, env *Environment) (Object, *Error) {
 	formatStr, ok := formatObj.(*String)
 	if !ok {
 		return nil, newError("file format must be a string, got %s", formatObj.Type())
-	}
-
-	// Read the raw file content
-	data, readErr := os.ReadFile(pathStr)
-	if readErr != nil {
-		return nil, newError("failed to read file '%s': %s", pathStr, readErr.Error())
 	}
 
 	// Decode based on format
@@ -11404,22 +11496,48 @@ func evalDatabaseExecute(connObj Object, queryObj Object, env *Environment) Obje
 
 // writeFileContent writes content to a file based on its format
 func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *Environment) *Error {
-	// Get the path from the file dictionary
-	pathStr := getFilePathString(fileDict, env)
-	if pathStr == "" {
-		return newError("file handle has no valid path")
+	// Check if this is a stdio stream
+	var isStdio bool
+	var stdioStream string
+
+	if stdioExpr, ok := fileDict.Pairs["__stdio"]; ok {
+		stdioObj := Eval(stdioExpr, env)
+		if stdioStr, ok := stdioObj.(*String); ok {
+			switch stdioStr.Value {
+			case "stdin":
+				return newError("cannot write to stdin")
+			case "stdout", "stderr":
+				isStdio = true
+				stdioStream = stdioStr.Value
+			case "stdio":
+				// @- for writes means stdout
+				isStdio = true
+				stdioStream = "stdout"
+			default:
+				return newError("unknown stdio stream: %s", stdioStr.Value)
+			}
+		}
 	}
 
-	// Resolve the path relative to the current file
-	absPath, pathErr := resolveModulePath(pathStr, env.Filename)
-	if pathErr != nil {
-		return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
-	}
-	pathStr = absPath
+	var pathStr string
+	if !isStdio {
+		// Get the path from the file dictionary
+		pathStr = getFilePathString(fileDict, env)
+		if pathStr == "" {
+			return newError("file handle has no valid path")
+		}
 
-	// Security check
-	if err := env.checkPathAccess(pathStr, "write"); err != nil {
-		return newError("security: %s", err.Error())
+		// Resolve the path relative to the current file
+		absPath, pathErr := resolveModulePath(pathStr, env.Filename)
+		if pathErr != nil {
+			return newError("failed to resolve path '%s': %s", pathStr, pathErr.Error())
+		}
+		pathStr = absPath
+
+		// Security check
+		if err := env.checkPathAccess(pathStr, "write"); err != nil {
+			return newError("security: %s", err.Error())
+		}
 	}
 
 	// Get the format
@@ -11470,9 +11588,18 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 		return newError("failed to encode data: %s", encodeErr.Error())
 	}
 
-	// Write to file
+	// Write to stdout/stderr or file
 	var writeErr error
-	if appendMode {
+	if isStdio {
+		// Write to stdout or stderr
+		var w *os.File
+		if stdioStream == "stdout" {
+			w = os.Stdout
+		} else {
+			w = os.Stderr
+		}
+		_, writeErr = w.Write(data)
+	} else if appendMode {
 		f, err := os.OpenFile(pathStr, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return newError("failed to open file '%s' for append: %s", pathStr, err.Error())
@@ -11484,6 +11611,9 @@ func writeFileContent(fileDict *Dictionary, value Object, appendMode bool, env *
 	}
 
 	if writeErr != nil {
+		if isStdio {
+			return newError("failed to write to %s: %s", stdioStream, writeErr.Error())
+		}
 		return newError("failed to write to file '%s': %s", pathStr, writeErr.Error())
 	}
 

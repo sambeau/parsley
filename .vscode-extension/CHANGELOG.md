@@ -1,3 +1,25 @@
+# VSCode Extension Updates - v0.14.0
+
+## Summary
+
+Updated the Parsley VSCode extension to match the current grammar (v0.14.0).
+
+## Changes in v0.14.0
+
+### 1. Updated `package.json`
+- Bumped version from `0.13.2` to `0.14.0`
+
+### 2. Updated `syntaxes/parsley.tmLanguage.json`
+- Added syntax highlighting for stdio path literals: `@-`, `@stdin`, `@stdout`, `@stderr`
+- New pattern for stdio streams with `constant.other.path.stdio.parsley` scope
+
+### Notes
+- Parsley now supports reading from stdin and writing to stdout/stderr
+- `@-` follows Unix convention: stdin for reads, stdout for writes
+- `@stdin`, `@stdout`, `@stderr` are explicit aliases
+
+---
+
 # VSCode Extension Updates - v0.13.2
 
 ## Summary

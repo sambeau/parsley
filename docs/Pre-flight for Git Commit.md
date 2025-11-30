@@ -10,7 +10,7 @@ If you haven't already done it, can you:
  - update CHANGELOG.md
  - If matching task in docs/TODO.md, strikethrough, add tick and version, then move to APPROVED
  - If this is a major grammar change, update the .vscode-extension
- - suggest suitable, short, succinct, one-line summary for git commit summary
+ - suggest a comprehensive summary for git commit summary
 
 ### Prepare for minor git commit:
 If you haven't already done it, can you: 

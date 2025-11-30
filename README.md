@@ -1,15 +1,17 @@
-# Parsley
+# 🦁 Parsley
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.13.2
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.14.0
 ```
 
-A minimalist language for generating HTML/XML with first-class file I/O.
+A †minimalist concatenative language for generating HTML/XML with first-class file I/O.
 
 - Written in Go
-- If JSX and PHP had a cool baby
+- If JSX and PHP … and Perl … had a cool baby
 - Based on Basil from 2001
+
+<sub><sup>†*minimalism not guaranteed…*<sup><sub>
 
 ## Table of Contents
 
@@ -326,6 +328,29 @@ records ==> CSV(@./export.csv)
 // Append
 logEntry ==>> lines(@./app.log)
 ```
+
+#### Stdin/Stdout/Stderr
+
+Read from stdin and write to stdout/stderr for Unix pipeline integration:
+
+```parsley
+// @- is the Unix convention: stdin for reads, stdout for writes
+let data <== JSON(@-)    // Read JSON from stdin
+data ==> JSON(@-)        // Write JSON to stdout
+
+// Explicit aliases
+let input <== text(@stdin)
+"error" ==> text(@stderr)
+
+// Pipeline example: filter active items
+let data <== JSON(@-)
+let active = for (item in data.items) {
+    if (item.active) { item }
+}
+active ==> JSON(@-)
+```
+
+Run with: `cat input.json | pars filter.pars > output.json`
 
 #### File Operations
 

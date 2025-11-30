@@ -807,6 +807,49 @@ newLine ==>> lines(@./log.txt)
 message ==>> text(@./debug.log)
 ```
 
+### Stdin/Stdout/Stderr
+Read from stdin and write to stdout/stderr for Unix pipeline integration.
+
+**Syntax:**
+- `@-` - Unix convention: stdin for reads, stdout for writes
+- `@stdin` - Explicit stdin reference
+- `@stdout` - Explicit stdout reference  
+- `@stderr` - Explicit stderr reference
+
+```parsley
+// Read JSON from stdin
+let data <== JSON(@-)
+
+// Write JSON to stdout
+data ==> JSON(@-)
+
+// Using explicit aliases
+let input <== text(@stdin)
+"output" ==> text(@stdout)
+"error" ==> text(@stderr)
+
+// Works with all format factories
+let lines <== lines(@-)
+let csvData <== CSV(@stdin)
+data ==> YAML(@stdout)
+
+// Full pipeline example: filter active items
+let input <== JSON(@-)
+let active = for (item in input.items) {
+    if (item.active) { item }
+}
+active ==> JSON(@-)
+```
+
+**Error Handling:**
+```parsley
+// Cannot read from stdout/stderr
+let data <== text(@stdout)  // ERROR: cannot read from stdout
+
+// Cannot write to stdin
+"text" ==> text(@stdin)     // ERROR: cannot write to stdin
+```
+
 ### Directory Operations
 ```parsley
 let d = dir(@./images)
