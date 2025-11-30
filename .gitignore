@@ -4,8 +4,9 @@
 *.dll
 *.so
 *.dylib
-pars
-parsley
+
+# Parsley binary (only at root, not pkg/parsley/)
+/pars
 
 # Test binary, built with `go test -c`
 *.test

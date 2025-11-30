@@ -1,8 +1,7 @@
 # TODO List
 
 ## IN PLANNING
-- Refactor codebase to library: to prepare for more than one command; to prepare for HTTP server
-	- use cmd/ for commands
+
 ### For V1.0 ALPHA
 
 - Check everything is working:
@@ -110,3 +109,4 @@
 - ~~Require bracket syntax for arrays and array destructuring (consistency for v1.0)~~ ✅ (v0.15.0)
 - ~~Datetime intersection operator (`&&`) for combining date and time components~~ ✅ (v0.15.2)
 - ~~Tag support for REPL~~ ✅ (v0.15.3)
+- ~~Refactor codebase to library: public API in `pkg/parsley` for embedding~~ ✅ (v0.15.4)

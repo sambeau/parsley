@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.15.4] - 2025-11-30
+
+### Added
+
+- **Go Library API (`pkg/parsley`)** - Public API for embedding Parsley in Go applications:
+  - `Eval(source, opts...)` - Evaluate Parsley source code
+  - `EvalFile(filename, opts...)` - Evaluate a Parsley file
+  - Functional options: `WithVar()`, `WithLogger()`, `WithSecurity()`, `WithEnv()`
+  - Type conversion: `ToParsley()` and `FromParsley()` for Go ↔ Parsley values
+  - Logger implementations: `StdoutLogger()`, `WriterLogger()`, `NewBufferedLogger()`, `NullLogger()`
+  - Full documentation in `pkg/parsley/README.md`
+
+---
+
 ## [0.15.3] - 2025-11-30
 
 ### Added

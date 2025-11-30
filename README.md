@@ -2,7 +2,7 @@
 
 ```
 █▀█ ▄▀█ █▀█ █▀ █░░ █▀▀ █▄█
-█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.15.0
+█▀▀ █▀█ █▀▄ ▄█ █▄▄ ██▄ ░█░ v 0.15.4
 ```
 
 A †minimalist concatenative language for generating HTML/XML with first-class file I/O.
@@ -28,6 +28,7 @@ A †minimalist concatenative language for generating HTML/XML with first-class 
   - [Process Execution](#process-execution)
   - [Modules](#modules)
 - [Examples](#examples)
+- [Go Library](#go-library)
 - [Development](#development)
 - [Reference](#reference)
 
@@ -697,6 +698,32 @@ for (page in pages) {
 
 log("Generated", pages.length(), "pages")
 ```
+
+## Go Library
+
+Embed Parsley in your Go applications using `pkg/parsley`:
+
+```go
+import "github.com/sambeau/parsley/pkg/parsley"
+
+// Simple evaluation
+result, err := parsley.Eval(`1 + 2`)
+fmt.Println(result.String()) // "3"
+
+// With variables
+result, err := parsley.Eval(`greeting ++ " " ++ name`,
+    parsley.WithVar("greeting", "Hello"),
+    parsley.WithVar("name", "World"),
+)
+
+// Evaluate a file with custom logger
+logger := parsley.NewBufferedLogger()
+result, err := parsley.EvalFile("template.pars",
+    parsley.WithLogger(logger),
+)
+```
+
+See [pkg/parsley/README.md](pkg/parsley/README.md) for full documentation.
 
 ## Reference
 

@@ -21,6 +21,7 @@ Complete reference for all Parsley types, methods, and operators.
 - [Modules](#modules)
 - [Tags](#tags)
 - [Utility Functions](#utility-functions)
+- [Go Library](#go-library)
 
 ---
 
@@ -2355,3 +2356,68 @@ pow("a", 2)
 SQLITE(123)
 // ERROR: first argument to `SQLITE` must be a path, got INTEGER
 ```
+
+---
+
+## Go Library
+
+The `pkg/parsley` package provides a public API for embedding Parsley in Go applications.
+
+### Installation
+
+```bash
+go get github.com/sambeau/parsley/pkg/parsley
+```
+
+### Basic Usage
+
+```go
+import "github.com/sambeau/parsley/pkg/parsley"
+
+// Simple evaluation
+result, err := parsley.Eval(`1 + 2`)
+fmt.Println(result.String()) // "3"
+
+// With variables
+result, err := parsley.Eval(`name ++ "!"`,
+    parsley.WithVar("name", "Hello"),
+)
+
+// Evaluate a file
+result, err := parsley.EvalFile("script.pars")
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `WithVar(name, value)` | Pre-populate a variable |
+| `WithEnv(env)` | Use a pre-configured environment |
+| `WithSecurity(policy)` | Set file system security policy |
+| `WithLogger(logger)` | Set logger for `log()`/`logLine()` |
+| `WithFilename(name)` | Set filename for error messages |
+
+### Type Conversion
+
+```go
+// Go → Parsley
+obj, err := parsley.ToParsley(42)        // Integer
+obj, err := parsley.ToParsley("hello")   // String
+obj, err := parsley.ToParsley([]int{1,2}) // Array
+
+// Parsley → Go
+val := parsley.FromParsley(obj)
+```
+
+### Loggers
+
+```go
+parsley.StdoutLogger()          // Write to stdout (default)
+parsley.WriterLogger(w)         // Write to io.Writer
+parsley.NewBufferedLogger()     // Capture for testing
+parsley.NullLogger()            // Discard output
+```
+
+### Full Documentation
+
+See `pkg/parsley/README.md` for complete API documentation and examples.
