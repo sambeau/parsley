@@ -6835,9 +6835,15 @@ func evalInfixExpression(tok lexer.Token, operator string, left, right Object) O
 		if left.Type() == ARRAY_OBJ && right.Type() == ARRAY_OBJ {
 			return evalArrayIntersection(left.(*Array), right.(*Array))
 		}
-		// Dictionary intersection
+		// Datetime intersection (must come before general dictionary intersection)
 		if left.Type() == DICTIONARY_OBJ && right.Type() == DICTIONARY_OBJ {
-			return evalDictionaryIntersection(left.(*Dictionary), right.(*Dictionary))
+			leftDict := left.(*Dictionary)
+			rightDict := right.(*Dictionary)
+			if isDatetimeDict(leftDict) && isDatetimeDict(rightDict) {
+				return evalDatetimeIntersection(tok, leftDict, rightDict, NewEnvironment())
+			}
+			// Regular dictionary intersection
+			return evalDictionaryIntersection(leftDict, rightDict)
 		}
 		// Boolean and
 		return nativeBoolToParsBoolean(isTruthy(left) && isTruthy(right))
@@ -7109,6 +7115,12 @@ func evalStringInfixExpression(operator string, left, right Object) Object {
 // evalDatetimeInfixExpression handles operations between two datetime dictionaries
 func evalDatetimeInfixExpression(tok lexer.Token, operator string, left, right *Dictionary) Object {
 	env := NewEnvironment()
+
+	// Handle && operator for combining date and time components
+	if operator == "&" || operator == "&&" || operator == "and" {
+		return evalDatetimeIntersection(tok, left, right, env)
+	}
+
 	leftUnix, err := getDatetimeUnix(left, env)
 	if err != nil {
 		return newErrorWithPos(tok, "invalid datetime: %s", err)
@@ -7140,6 +7152,87 @@ func evalDatetimeInfixExpression(tok lexer.Token, operator string, left, right *
 	default:
 		return newErrorWithPos(tok, "unknown operator for datetime: %s", operator)
 	}
+}
+
+// evalDatetimeIntersection combines date and time components using && operator
+// Rules:
+// - Date && Time -> DateTime (combine date from left, time from right)
+// - Time && Date -> DateTime (combine time from left, date from right)
+// - DateTime && Time -> DateTime (replace time component)
+// - DateTime && Date -> DateTime (replace date component)
+// - Date && Date -> Error (ambiguous)
+// - Time && Time -> Error (ambiguous)
+// - DateTime && DateTime -> Error (ambiguous)
+func evalDatetimeIntersection(tok lexer.Token, left, right *Dictionary, env *Environment) Object {
+	leftKind := getDatetimeKind(left, env)
+	rightKind := getDatetimeKind(right, env)
+
+	// Get components from both sides
+	leftTime, err := dictToTime(left, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+	rightTime, err := dictToTime(right, env)
+	if err != nil {
+		return newErrorWithPos(tok, "invalid datetime: %s", err)
+	}
+
+	var resultTime time.Time
+
+	switch {
+	case leftKind == "date" && rightKind == "time":
+		// Date && Time -> combine date from left, time from right
+		resultTime = time.Date(
+			leftTime.Year(), leftTime.Month(), leftTime.Day(),
+			rightTime.Hour(), rightTime.Minute(), rightTime.Second(),
+			0, time.UTC,
+		)
+	case leftKind == "time" && rightKind == "date":
+		// Time && Date -> combine time from left, date from right
+		resultTime = time.Date(
+			rightTime.Year(), rightTime.Month(), rightTime.Day(),
+			leftTime.Hour(), leftTime.Minute(), leftTime.Second(),
+			0, time.UTC,
+		)
+	case leftKind == "datetime" && rightKind == "time":
+		// DateTime && Time -> replace time component
+		resultTime = time.Date(
+			leftTime.Year(), leftTime.Month(), leftTime.Day(),
+			rightTime.Hour(), rightTime.Minute(), rightTime.Second(),
+			0, time.UTC,
+		)
+	case leftKind == "time" && rightKind == "datetime":
+		// Time && DateTime -> replace time component of right
+		resultTime = time.Date(
+			rightTime.Year(), rightTime.Month(), rightTime.Day(),
+			leftTime.Hour(), leftTime.Minute(), leftTime.Second(),
+			0, time.UTC,
+		)
+	case leftKind == "datetime" && rightKind == "date":
+		// DateTime && Date -> replace date component
+		resultTime = time.Date(
+			rightTime.Year(), rightTime.Month(), rightTime.Day(),
+			leftTime.Hour(), leftTime.Minute(), leftTime.Second(),
+			0, time.UTC,
+		)
+	case leftKind == "date" && rightKind == "datetime":
+		// Date && DateTime -> replace date component of right
+		resultTime = time.Date(
+			leftTime.Year(), leftTime.Month(), leftTime.Day(),
+			rightTime.Hour(), rightTime.Minute(), rightTime.Second(),
+			0, time.UTC,
+		)
+	case leftKind == "date" && rightKind == "date":
+		return newErrorWithPos(tok, "cannot intersect two dates - use date && time to combine")
+	case leftKind == "time" && rightKind == "time":
+		return newErrorWithPos(tok, "cannot intersect two times - use date && time to combine")
+	case leftKind == "datetime" && rightKind == "datetime":
+		return newErrorWithPos(tok, "cannot intersect two datetimes - ambiguous which components to use")
+	default:
+		return newErrorWithPos(tok, "unknown datetime kinds: %s && %s", leftKind, rightKind)
+	}
+
+	return timeToDictWithKind(resultTime, "datetime", env)
 }
 
 // evalDatetimeIntegerInfixExpression handles datetime + integer or datetime - integer

@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.15.2] - 2025-11-30
+
+### Added
+
+- **Datetime intersection operator (`&&`)** - Combine date and time components:
+  ```parsley
+  @1968-11-21 && @12:30        // → @1968-11-21T12:30:00
+  @09:15 && @2024-03-15        // → @2024-03-15T09:15:00
+  @1968-11-21T08:00:00 && @12:30  // Replace time → @1968-11-21T12:30:00
+  @1968-11-21T08:00:00 && @2024-03-15  // Replace date → @2024-03-15T08:00:00
+  ```
+  - `Date && Time` → DateTime
+  - `DateTime && Time` → DateTime (replaces time)
+  - `DateTime && Date` → DateTime (replaces date)
+  - Same-kind intersections (e.g., `Date && Date`) produce helpful errors
+
+---
+
 ## [0.15.1] - 2025-11-30
 
 ### Fixed

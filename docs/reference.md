@@ -561,6 +561,31 @@ All datetime kinds can be compared:
 @12:30:45 == @12:30:45    // true
 ```
 
+### Intersection Operator (`&&`)
+Combine date and time components using the `&&` operator:
+
+```parsley
+// Combine date and time
+@1968-11-21 && @12:30        // → @1968-11-21T12:30:00
+@09:15 && @2024-03-15        // → @2024-03-15T09:15:00
+
+// Replace time in a datetime
+@1968-11-21T08:00:00 && @12:30  // → @1968-11-21T12:30:00
+
+// Replace date in a datetime
+@1968-11-21T08:00:00 && @2024-03-15  // → @2024-03-15T08:00:00
+```
+
+| Expression | Result |
+|------------|--------|
+| `Date && Time` | DateTime (combine) |
+| `Time && Date` | DateTime (combine) |
+| `DateTime && Time` | DateTime (replace time) |
+| `DateTime && Date` | DateTime (replace date) |
+| `Date && Date` | Error |
+| `Time && Time` | Error |
+| `DateTime && DateTime` | Error |
+
 ---
 
 ## Duration Methods

@@ -589,3 +589,98 @@ func TestDatetimeTypeField(t *testing.T) {
 		})
 	}
 }
+
+// TestDatetimeIntersection tests the && operator for combining date and time components
+func TestDatetimeIntersection(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected string
+	}{
+		{
+			name:     "date && time combines into datetime",
+			code:     `(@1968-11-21 && @12:30).iso`,
+			expected: "1968-11-21T12:30:00Z",
+		},
+		{
+			name:     "time && date combines into datetime (commutative)",
+			code:     `(@09:15 && @2024-03-15).iso`,
+			expected: "2024-03-15T09:15:00Z",
+		},
+		{
+			name:     "datetime && time replaces time component",
+			code:     `(@1968-11-21T08:00:00 && @12:30).iso`,
+			expected: "1968-11-21T12:30:00Z",
+		},
+		{
+			name:     "time && datetime replaces time component",
+			code:     `(@12:30 && @1968-11-21T08:00:00).iso`,
+			expected: "1968-11-21T12:30:00Z",
+		},
+		{
+			name:     "datetime && date replaces date component",
+			code:     `(@1968-11-21T08:00:00 && @2024-03-15).iso`,
+			expected: "2024-03-15T08:00:00Z",
+		},
+		{
+			name:     "date && datetime replaces date component",
+			code:     `(@2024-03-15 && @1968-11-21T08:00:00).iso`,
+			expected: "2024-03-15T08:00:00Z",
+		},
+		{
+			name:     "result kind is datetime",
+			code:     `(@1968-11-21 && @12:30).kind`,
+			expected: "datetime",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDatetimeCode(tt.code)
+			if hasErr {
+				t.Fatalf("testDatetimeCode() unexpected error: %v", result)
+			}
+			if result.Inspect() != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result.Inspect())
+			}
+		})
+	}
+}
+
+// TestDatetimeIntersectionErrors tests error cases for datetime intersection
+func TestDatetimeIntersectionErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		code        string
+		errContains string
+	}{
+		{
+			name:        "date && date is error",
+			code:        `@1968-11-21 && @2024-03-15`,
+			errContains: "cannot intersect two dates",
+		},
+		{
+			name:        "time && time is error",
+			code:        `@12:30 && @09:15`,
+			errContains: "cannot intersect two times",
+		},
+		{
+			name:        "datetime && datetime is error",
+			code:        `@1968-11-21T08:00:00 && @2024-03-15T12:30:00`,
+			errContains: "cannot intersect two datetimes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, hasErr := testDatetimeCode(tt.code)
+			if !hasErr {
+				t.Fatalf("Expected error but got success: %v", result)
+			}
+			errStr := result.Inspect()
+			if !strings.Contains(errStr, tt.errContains) {
+				t.Errorf("Expected error containing '%s', got '%s'", tt.errContains, errStr)
+			}
+		})
+	}
+}
