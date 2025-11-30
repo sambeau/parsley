@@ -13,9 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Go Library API (`pkg/parsley`)** - Public API for embedding Parsley in Go applications:
   - `Eval(source, opts...)` - Evaluate Parsley source code
   - `EvalFile(filename, opts...)` - Evaluate a Parsley file
-  - Functional options: `WithVar()`, `WithLogger()`, `WithSecurity()`, `WithEnv()`
+  - Functional options: `WithVar()`, `WithLogger()`, `WithSecurity()`, `WithEnv()`, `WithDB()`
   - Type conversion: `ToParsley()` and `FromParsley()` for Go ↔ Parsley values
   - Logger implementations: `StdoutLogger()`, `WriterLogger()`, `NewBufferedLogger()`, `NullLogger()`
+  - `WithDB()` for injecting server-managed database connections (host controls lifecycle)
   - Full documentation in `pkg/parsley/README.md`
 
 ---

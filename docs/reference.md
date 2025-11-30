@@ -2396,6 +2396,7 @@ result, err := parsley.EvalFile("script.pars")
 | `WithSecurity(policy)` | Set file system security policy |
 | `WithLogger(logger)` | Set logger for `log()`/`logLine()` |
 | `WithFilename(name)` | Set filename for error messages |
+| `WithDB(name, db, driver)` | Inject a server-managed database connection |
 
 ### Type Conversion
 
