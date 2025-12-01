@@ -896,12 +896,55 @@ func (p *Parser) parseTagContents(tagName string) []ast.Node {
 			p.nextToken()
 
 		case lexer.LBRACE:
-			// Interpolation expression
+			// Interpolation block - can contain one or more statements
+			// We need to handle this carefully to maintain the lexer mode correctly
+			startToken := p.curToken
 			p.nextToken() // skip {
-			expr := p.parseExpression(LOWEST)
-			if expr != nil {
-				contents = append(contents, expr)
+
+			// Check if this is empty {}
+			if p.curTokenIs(lexer.RBRACE) {
+				// Empty interpolation - just skip it
+				p.l.EnterTagContentMode()
+				p.nextToken() // move past }
+				continue
 			}
+
+			// Parse statements until we hit RBRACE
+			// This is similar to how ParseProgram works, but we stop at }
+			var statements []ast.Statement
+			for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+				stmt := p.parseStatement()
+				if stmt != nil {
+					statements = append(statements, stmt)
+				}
+				// Peek at next token to see if we should continue
+				if p.peekTokenIs(lexer.RBRACE) {
+					break
+				}
+				p.nextToken()
+			}
+
+			if len(statements) == 1 {
+				// Single statement - extract the expression if it's an expression statement
+				if exprStmt, ok := statements[0].(*ast.ExpressionStatement); ok {
+					contents = append(contents, exprStmt.Expression)
+				} else {
+					// Wrap in an interpolation block
+					block := &ast.InterpolationBlock{
+						Token:      startToken,
+						Statements: statements,
+					}
+					contents = append(contents, block)
+				}
+			} else if len(statements) > 1 {
+				// Multiple statements - use interpolation block
+				block := &ast.InterpolationBlock{
+					Token:      startToken,
+					Statements: statements,
+				}
+				contents = append(contents, block)
+			}
+
 			// Re-enter tag content mode BEFORE checking for }
 			p.l.EnterTagContentMode()
 			if !p.expectPeek(lexer.RBRACE) {

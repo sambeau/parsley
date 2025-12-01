@@ -607,6 +607,26 @@ func TestTagsWithInterpolation(t *testing.T) {
 			input:    "name = \"Only\"\n<div>{name}</div>",
 			expected: "<div>Only</div>",
 		},
+		{
+			name:     "multiple statements with semicolon",
+			input:    "<p>{x = 5; x * 2}</p>",
+			expected: "<p>10</p>",
+		},
+		{
+			name:     "multiple statements with newlines",
+			input:    "<p>{\nx = 10\nx + 5\n}</p>",
+			expected: "<p>15</p>",
+		},
+		{
+			name:     "for loop in interpolation",
+			input:    "<p>{for(i in [1,2,3]) { i }}</p>",
+			expected: "<p>123</p>",
+		},
+		{
+			name:     "multiple statements with for loop",
+			input:    "<p>{\nx = 0\nfor(i in [1,2,3]) {\nx = x + i\n}\nx\n}</p>",
+			expected: "<p>6</p>",
+		},
 	}
 
 	for _, tt := range tests {

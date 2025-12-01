@@ -6440,6 +6440,9 @@ func Eval(node ast.Node, env *Environment) Object {
 	case *ast.TextNode:
 		return &String{Value: node.Value}
 
+	case *ast.InterpolationBlock:
+		return evalInterpolationBlock(node, env)
+
 	case *ast.Boolean:
 		return nativeBoolToParsBoolean(node.Value)
 
@@ -6845,6 +6848,25 @@ func evalProgram(stmts []ast.Statement, env *Environment) Object {
 
 func evalBlockStatement(block *ast.BlockStatement, env *Environment) Object {
 	var result Object
+
+	for _, statement := range block.Statements {
+		result = Eval(statement, env)
+
+		if result != nil {
+			rt := result.Type()
+			if rt == RETURN_OBJ || rt == ERROR_OBJ {
+				return result
+			}
+		}
+	}
+
+	return result
+}
+
+// evalInterpolationBlock evaluates an interpolation block inside tag contents
+// It executes all statements and returns the value of the last one (or NULL if empty)
+func evalInterpolationBlock(block *ast.InterpolationBlock, env *Environment) Object {
+	var result Object = NULL
 
 	for _, statement := range block.Statements {
 		result = Eval(statement, env)

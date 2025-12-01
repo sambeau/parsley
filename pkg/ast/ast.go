@@ -989,3 +989,25 @@ type ObjectLiteralExpression struct {
 func (ole *ObjectLiteralExpression) expressionNode()      {}
 func (ole *ObjectLiteralExpression) TokenLiteral() string { return "" }
 func (ole *ObjectLiteralExpression) String() string       { return "<object literal>" }
+
+// InterpolationBlock represents a block of statements inside tag interpolation {stmt; stmt; ...}
+// When evaluated, it returns the value of the last statement (or null if empty)
+type InterpolationBlock struct {
+	Token      lexer.Token // the '{' token
+	Statements []Statement
+}
+
+func (ib *InterpolationBlock) expressionNode()      {}
+func (ib *InterpolationBlock) TokenLiteral() string { return ib.Token.Literal }
+func (ib *InterpolationBlock) String() string {
+	var out bytes.Buffer
+	out.WriteString("{")
+	for i, s := range ib.Statements {
+		if i > 0 {
+			out.WriteString("; ")
+		}
+		out.WriteString(s.String())
+	}
+	out.WriteString("}")
+	return out.String()
+}
