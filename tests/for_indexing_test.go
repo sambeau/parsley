@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/sambeau/parsley/pkg/evaluator"
@@ -102,34 +104,41 @@ func TestForStringWithIndex(t *testing.T) {
 // TestForBackwardCompatibility ensures single-parameter for loops still work
 func TestForBackwardCompatibility(t *testing.T) {
 	tests := []struct {
-		input    string
-		expected string
+		input     string
+		expected  string
+		unordered bool // Set to true for dictionary iteration where order is non-deterministic
 	}{
 		{
 			// Single parameter - element only
-			`for(x in [1, 2, 3]) { x * 2 }`,
-			`[2, 4, 6]`,
+			input:    `for(x in [1, 2, 3]) { x * 2 }`,
+			expected: `[2, 4, 6]`,
 		},
 		{
 			// Simple form still works
-			`for([1, 2, 3]) fn(x) { x + 10 }`,
-			`[11, 12, 13]`,
+			input:    `for([1, 2, 3]) fn(x) { x + 10 }`,
+			expected: `[11, 12, 13]`,
 		},
 		{
 			// Dictionary iteration unchanged (key, value)
-			`for(k, v in {a: 1, b: 2}) { k }`,
-			`[a, b]`,
+			// Note: Dictionary iteration order is non-deterministic in Go
+			input:     `for(k, v in {a: 1, b: 2}) { k }`,
+			expected:  `[a, b]`,
+			unordered: true,
 		},
 		{
 			// String iteration with single param
-			`for(c in "hi") { toUpper(c) }`,
-			`[H, I]`,
+			input:    `for(c in "hi") { toUpper(c) }`,
+			expected: `[H, I]`,
 		},
 	}
 
 	for _, tt := range tests {
 		evaluated := testEvalForIndexing(tt.input)
-		testArrayOutputForIndexing(t, evaluated, tt.expected, tt.input)
+		if tt.unordered {
+			testArrayOutputUnordered(t, evaluated, tt.expected, tt.input)
+		} else {
+			testArrayOutputForIndexing(t, evaluated, tt.expected, tt.input)
+		}
 	}
 }
 
@@ -313,5 +322,42 @@ func testArrayOutputForIndexing(t *testing.T, obj evaluator.Object, expected str
 	result := arr.Inspect()
 	if result != expected {
 		t.Errorf("Wrong result.\nExpected: %s\nGot: %s\nInput: %s", expected, result, input)
+	}
+}
+
+// Helper function to test array output ignoring order (for dictionary iteration)
+func testArrayOutputUnordered(t *testing.T, obj evaluator.Object, expected string, input string) {
+	arr, ok := obj.(*evaluator.Array)
+	if !ok {
+		if errObj, isErr := obj.(*evaluator.Error); isErr {
+			t.Errorf("Evaluation error for input: %s\nError: %s", input, errObj.Message)
+			return
+		}
+		t.Errorf("Expected Array, got %T (%+v) for input: %s", obj, obj, input)
+		return
+	}
+
+	// Parse expected string like "[a, b]" into sorted elements
+	expectedStr := strings.TrimPrefix(strings.TrimSuffix(expected, "]"), "[")
+	expectedParts := strings.Split(expectedStr, ", ")
+	sort.Strings(expectedParts)
+
+	// Get actual elements and sort them
+	var actualParts []string
+	for _, elem := range arr.Elements {
+		actualParts = append(actualParts, elem.Inspect())
+	}
+	sort.Strings(actualParts)
+
+	// Compare sorted slices
+	if len(expectedParts) != len(actualParts) {
+		t.Errorf("Wrong number of elements.\nExpected: %v\nGot: %v\nInput: %s", expectedParts, actualParts, input)
+		return
+	}
+	for i := range expectedParts {
+		if expectedParts[i] != actualParts[i] {
+			t.Errorf("Wrong elements (order-independent).\nExpected: %v\nGot: %v\nInput: %s", expectedParts, actualParts, input)
+			return
+		}
 	}
 }
