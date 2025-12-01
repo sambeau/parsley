@@ -911,13 +911,56 @@ d.isDir       // true
 d.count       // Number of entries
 d.files       // Array of file handles
 
-// Read directory
+// Read directory contents
 let files <== dir(@./images)
-
-// File patterns
-let images = files(@./images/*.jpg)
-let sources = files(@./src/**/*.pars)
 ```
+
+### File Globbing
+
+Use `files()` to find files matching a glob pattern. Returns an array of file/directory handles.
+
+```parsley
+// Find all .pars files in current directory
+let parsFiles = files(@./*.pars)
+
+// Find all images in a directory
+let images = files(@./images/*.jpg)
+
+// Using string patterns
+let logs = files("./logs/*.log")
+
+// Home directory expansion
+let configs = files("~/.config/*.json")
+```
+
+**Glob Pattern Syntax:**
+| Pattern | Matches |
+|---------|---------|
+| `*` | Any sequence of characters (not including `/`) |
+| `?` | Any single character |
+| `[abc]` | Any character in the set |
+| `[a-z]` | Any character in the range |
+
+**Working with Results:**
+```parsley
+// List all markdown files
+let docs = files(@./docs/*.md)
+for(doc in docs) {
+    log(doc.name)  // Print each filename
+}
+
+// Read and process all JSON configs
+let configs = files(@./config/*.json)
+for(config in configs) {
+    let data <== config
+    log(config.name, ":", data)
+}
+
+// Filter files by property
+let bigFiles = filter(fn(f) { f.size > 1000000 }, files(@./data/*))
+```
+
+**Note:** Standard glob patterns work (`*`, `?`, `[...]`). For recursive directory traversal, use `dir()` with iteration instead of `**` patterns.
 
 ---
 

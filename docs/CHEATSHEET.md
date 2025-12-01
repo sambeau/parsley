@@ -352,6 +352,24 @@ dir(@./test).mkdir()
 dir(@./test).rmdir()
 ```
 
+### File Globbing
+```parsley
+// Find files matching a pattern
+let images = files(@./images/*.jpg)
+let configs = files("~/.config/*.json")
+
+// Iterate over matches
+for(f in files(@./docs/*.md)) {
+    log(f.name)
+}
+
+// Read all matching files
+for(config in files(@./config/*.json)) {
+    let data <== config
+    log(data)
+}
+```
+
 ---
 
 ## 🌐 Network Operations
