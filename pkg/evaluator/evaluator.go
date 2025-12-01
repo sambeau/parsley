@@ -12129,13 +12129,31 @@ func environmentToDict(env *Environment) *Dictionary {
 func objectToExpression(obj Object) ast.Expression {
 	switch v := obj.(type) {
 	case *Integer:
-		return &ast.IntegerLiteral{Value: v.Value}
+		return &ast.IntegerLiteral{
+			Token: lexer.Token{Type: lexer.INT, Literal: fmt.Sprintf("%d", v.Value)},
+			Value: v.Value,
+		}
 	case *Float:
-		return &ast.FloatLiteral{Value: v.Value}
+		return &ast.FloatLiteral{
+			Token: lexer.Token{Type: lexer.FLOAT, Literal: fmt.Sprintf("%g", v.Value)},
+			Value: v.Value,
+		}
 	case *String:
-		return &ast.StringLiteral{Value: v.Value}
+		return &ast.StringLiteral{
+			Token: lexer.Token{Type: lexer.STRING, Literal: v.Value},
+			Value: v.Value,
+		}
 	case *Boolean:
-		return &ast.Boolean{Value: v.Value}
+		if v.Value {
+			return &ast.Boolean{
+				Token: lexer.Token{Type: lexer.TRUE, Literal: "true"},
+				Value: v.Value,
+			}
+		}
+		return &ast.Boolean{
+			Token: lexer.Token{Type: lexer.FALSE, Literal: "false"},
+			Value: v.Value,
+		}
 	default:
 		// For complex types (functions, arrays, dictionaries, null), we create
 		// an expression that returns the object directly when evaluated

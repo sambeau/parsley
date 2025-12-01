@@ -452,15 +452,18 @@ let Card = fn({title}, ...children) {
 
 ### Modules
 ```parsley
-// Export from module
-export({
-    greet: fn(name) { "Hello, {name}!" },
-    PI: 3.14159
-})
+// Export from module (utils.pars)
+export let greet = fn(name) { "Hello, {name}!" }
+export PI = 3.14159
+export Logo = <img src="logo.png" alt="Logo"/>
 
 // Import in another file
-let utils <== import(@./utils.pars)
+let utils = import(@./utils.pars)
 log(utils.greet("Alice"))
+log(utils.PI)
+
+// Or use destructuring
+let {greet, PI, Logo} = import(@./utils.pars)
 ```
 
 ---

@@ -1802,20 +1802,27 @@ if (result.exitCode != 0) {
 ### Creating a Module
 ```parsley
 // math.pars
-let PI = 3.14159
-let add = fn(a, b) { a + b }
 
-// Private (no 'let')
+// Exported values (visible when imported)
+export let PI = 3.14159
+export add = fn(a, b) { a + b }
+export Logo = <img src="logo.png" alt="Logo"/>
+
+// Private (no 'export')
 helper = fn(x) { x * 2 }
+
+// 'let' without 'export' is also exported (for backward compatibility)
+let multiply = fn(a, b) { a * b }
 ```
 
 ### Importing
 ```parsley
 let math = import(@./math.pars)
 math.add(2, 3)  // 5
+math.PI         // 3.14159
 
 // Destructure
-let {add, PI} = import(@./math.pars)
+let {add, PI, Logo} = import(@./math.pars)
 ```
 
 ---

@@ -97,6 +97,38 @@ export let y = 20
 			mainCode:       `let mod = import("%s"); mod.x + mod.y`,
 			expectedOutput: "30",
 		},
+		{
+			name: "export single numeric value",
+			moduleCode: `
+export Pi = 3.141592653589793
+`,
+			mainCode:       `let mod = import("%s"); mod.Pi`,
+			expectedOutput: "3.141592653589793",
+		},
+		{
+			name: "export single tag value",
+			moduleCode: `
+export Logo = <img src="logo.png" alt="Logo"/>
+`,
+			mainCode:       `let mod = import("%s"); mod.Logo`,
+			expectedOutput: `<img src="logo.png" alt="Logo" />`,
+		},
+		{
+			name: "destructure single export",
+			moduleCode: `
+export Pi = 3.14159
+`,
+			mainCode:       `let {Pi} = import("%s"); Pi`,
+			expectedOutput: "3.14159",
+		},
+		{
+			name: "export tag and use in template",
+			moduleCode: `
+export Header = <header><h1>Welcome</h1></header>
+`,
+			mainCode:       `let mod = import("%s"); <div>{mod.Header}</div>`,
+			expectedOutput: `<div><header><h1>Welcome</h1></header></div>`,
+		},
 	}
 
 	for _, tt := range tests {
