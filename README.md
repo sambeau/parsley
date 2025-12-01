@@ -1,3 +1,7 @@
+**⚠️ PARSLEY IS NOW PART OF [BASIL](https://github.com/sambeau/basil)** ⚠️
+
+**⚠️ This Repo was mothballed: 2025-12-01** ⚠️
+
 # 🦁 Parsley
 
 ```
