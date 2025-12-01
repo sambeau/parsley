@@ -7850,9 +7850,21 @@ func evalImport(args []Object, env *Environment) Object {
 	// Create isolated environment for the module
 	moduleEnv := NewEnvironment()
 	moduleEnv.Filename = absPath
+	// Copy security policy from parent environment
+	moduleEnv.Security = env.Security
 
 	// Evaluate the module
-	Eval(program, moduleEnv)
+	result := Eval(program, moduleEnv)
+
+	// Check for errors during module evaluation
+	if isError(result) {
+		errObj := result.(*Error)
+		// Include module path in error message for context
+		if errObj.Line > 0 {
+			return newError("in module %s: line %d, column %d: %s", absPath, errObj.Line, errObj.Column, errObj.Message)
+		}
+		return newError("in module %s: %s", absPath, errObj.Message)
+	}
 
 	// Convert environment to dictionary
 	moduleDict := environmentToDict(moduleEnv)

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sambeau/parsley/pkg/ast"
@@ -280,6 +281,74 @@ internal = fn(a, b) { a + b }
 	if result.Type() != evaluator.ERROR_OBJ && result.Inspect() != "null" {
 		t.Errorf("expected error or null when accessing non-exported var, got %s (%s)",
 			result.Type(), result.Inspect())
+	}
+}
+
+// TestModuleErrorReporting tests that errors in modules are properly reported with context
+func TestModuleErrorReporting(t *testing.T) {
+	// Create a temporary directory for module files
+	tmpDir, err := os.MkdirTemp("", "parsley-module-error-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	tests := []struct {
+		name         string
+		moduleCode   string
+		mainCode     string
+		expectError  bool
+		errorContain string
+	}{
+		{
+			name:         "identifier not found in module",
+			moduleCode:   "let x = unknownVar",
+			mainCode:     `let mod = import("%s")`,
+			expectError:  true,
+			errorContain: "identifier not found: unknownVar",
+		},
+		{
+			name:         "error includes module path",
+			moduleCode:   "let x = anotherUnknown",
+			mainCode:     `let mod = import("%s")`,
+			expectError:  true,
+			errorContain: "in module",
+		},
+		{
+			name:         "error includes line number",
+			moduleCode:   "let x = 5\nlet y = badVar",
+			mainCode:     `let mod = import("%s")`,
+			expectError:  true,
+			errorContain: "line 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Write module file
+			moduleFile := filepath.Join(tmpDir, tt.name+".pars")
+			err := os.WriteFile(moduleFile, []byte(tt.moduleCode), 0644)
+			if err != nil {
+				t.Fatalf("Failed to write module file: %v", err)
+			}
+
+			// Format main code with module path
+			mainCode := formatString(tt.mainCode, moduleFile)
+
+			// Create a dummy main file path in the same directory
+			mainFile := filepath.Join(tmpDir, "main.pars")
+			result := evalExport(mainCode, mainFile)
+
+			if tt.expectError {
+				if result.Type() != evaluator.ERROR_OBJ {
+					t.Errorf("expected error, got %s (%s)", result.Type(), result.Inspect())
+					return
+				}
+				if !strings.Contains(result.Inspect(), tt.errorContain) {
+					t.Errorf("expected error containing %q, got %q", tt.errorContain, result.Inspect())
+				}
+			}
+		})
 	}
 }
 

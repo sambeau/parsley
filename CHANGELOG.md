@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.15.5] - 2025-12-01
+
+### Fixed
+
+- **Module import error reporting** - Errors in imported modules are now properly reported with full context:
+  - Previously: Errors were silently swallowed, returning empty `{}` dictionary
+  - Now: Error includes module path, line number, and column: `ERROR: in module /path/to/module.pars: line 2, column 5: identifier not found: unknownVar`
+  - Module security policy is now correctly inherited from parent environment
+
+---
+
 ## [0.15.4] - 2025-11-30
 
 ### Added
